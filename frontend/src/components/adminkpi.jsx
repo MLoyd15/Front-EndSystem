@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from "axios"
 import KpiCard from './kpicard'
 import { FaUsers, FaDollarSign, FaShoppingCart, FaBoxes } from "react-icons/fa"
+import SalesChart from "./SalesChart"; 
 
 const AdminKpi = () => {
   const [stats, setStats] = useState({
@@ -48,6 +49,11 @@ useEffect(() => {
         <KpiCard title="Inventory Sales" value={stats.inventorySales} icon={<FaShoppingCart />} color="bg-teal-500" />
         <KpiCard title="Low Stock" value={stats.lowStock} icon={<FaBoxes />} color="bg-red-500" />
         <KpiCard title="Inventory Stock" value={stats.inventoryStock} icon={<FaBoxes />} color="bg-indigo-500" />
+      </div>
+
+           {/* Sales Chart */}
+        <div className="mt-10">
+        <SalesChart />
       </div>
     </div>
   )
