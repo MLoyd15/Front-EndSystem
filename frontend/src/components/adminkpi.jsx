@@ -14,27 +14,22 @@ const AdminKpi = () => {
     inventoryStock: 0
   })
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await axios.get("http://localhost:5000/api/category", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
-          },
-        })
-
-        // ✅ only update totalCategories, keep the rest unchanged
-        setStats(prev => ({
-          ...prev,
-          totalCategories: response.data.categories.length
-        }))
-      } catch (err) {
-        console.error("Error fetching categories", err)
-      }
+useEffect(() => {
+  const fetchStats = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/admin/stats", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+        },
+      })
+      setStats(response.data) // ✅ set all totals at once
+    } catch (err) {
+      console.error("Error fetching stats", err)
     }
+  }
 
-    fetchCategories()
-  }, [])
+  fetchStats() // ✅ actually call the function
+}, [])
 
   return (
     <div className="p-6 space-y-6">
