@@ -28,6 +28,9 @@ export const getStats = async (req, res) => {
       { $group: { _id: null, total: { $sum: "$stock" } } }
     ]);
     const inventoryStock = stockAgg[0]?.total || 0;
+    // ✅ New: Order Analytics
+    const orderVolume = totalSales
+    const avgOrderValue = totalSales > 0 ? (totalRevenue / totalSales).toFixed(2) : 0
 
     res.json({
       totalUsers,
@@ -36,7 +39,9 @@ export const getStats = async (req, res) => {
       totalRevenue,
       inventorySales,
       lowStock,
-      inventoryStock
+      inventoryStock,
+      orderVolume,
+      avgOrderValue
     });
   } catch (err) {
     console.error("Error in getStats:", err);

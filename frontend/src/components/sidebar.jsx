@@ -18,7 +18,7 @@ const Sidebar = () => {
         
     ]
   return (
-    <div className='flex flex-col h-screen bg-green-500 text-white w-16 md:w-64 fixed'>
+    <div className='flex flex-col h-screen bg-black text-white w-16 md:w-64 fixed'>
         <div className='h-16 flex flex-items justify-center'>
             <span className='hidden md:block text-xl font-bold'>Inventory MS</span>
             <span className='md:hidden text-xl font-bold'>IMS</span>
@@ -28,13 +28,19 @@ const Sidebar = () => {
                 {menuItems.map((item) => (
                     <li key={item.name}>
                         <div className='p-2'>
-                            <NavLink
-                            end={item.isParent} 
-                        className={({ isActive }) => (isActive ? "bg-gray-700" : " ") + "flex items-center p-2 rounded-md hover:bg-gray-700 transition duration-200" }
-                        to={item.path}>
-                            <span className='text-xl'>{item.icon}</span>
-                            <span className='ml-4 hidden md:block' >{item.name}</span>
-                       </NavLink>
+                           <NavLink
+                            end={item.isParent}
+                            className={({ isActive }) =>
+                                (isActive
+                                    ? "bg-white text-black" // ✅ Active = white background + black text
+                                    : "bg-transparent text-white") + // Inactive = transparent + white text
+                                " flex items-center p-2 rounded-md"
+                            }
+                                to={item.path}
+                            >
+                                <span className="text-xl">{item.icon}</span>
+                                <span className="ml-4 hidden md:block">{item.name}</span>
+                            </NavLink>
                         </div>
                        
                     </li>

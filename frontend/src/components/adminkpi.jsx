@@ -12,7 +12,9 @@ const AdminKpi = () => {
     totalCategories: 0,
     inventorySales: 0,
     lowStock: 0,
-    inventoryStock: 0
+    inventoryStock: 0,
+    orderVolume: 0,     
+    avgOrderValue: 0
   })
 
 useEffect(() => {
@@ -37,18 +39,21 @@ useEffect(() => {
       {/* Dashboard Overview */}
       <h2 className="text-2xl font-bold mb-4">Dashboard Overview</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KpiCard title="Total Users" value={stats.totalUsers} icon={<FaUsers />} color="bg-blue-500" />
+        <KpiCard title="Total Users" value={stats.totalUsers} icon={<FaUsers />} color="bg-green-500" />
         <KpiCard title="Total Sales" value={stats.totalSales} icon={<FaShoppingCart />} color="bg-green-500" />
-        <KpiCard title="Total Revenue" value={`$${stats.totalRevenue}`} icon={<FaDollarSign />} color="bg-purple-500" />
+        <KpiCard title="Total Revenue" value={stats.totalRevenue} icon={<FaDollarSign />} color="bg-green-500" />
+        <KpiCard title="Order Volume" value={stats.orderVolume} icon={<FaShoppingCart />} color="bg-green-500" /> {/* ✅ new */}
+        <KpiCard title="Avg Order Value"value={`$${stats.avgOrderValue}`}icon={<FaDollarSign />} color="bg-green-500"
+/>
       </div>
 
       {/* Inventory Details */}
       <h2 className="text-2xl font-bold mt-8 mb-4">Inventory Details</h2>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <KpiCard title="Total Categories" value={stats.totalCategories} icon={<FaBoxes />} color="bg-orange-500" />
-        <KpiCard title="Inventory Sales" value={stats.inventorySales} icon={<FaShoppingCart />} color="bg-teal-500" />
-        <KpiCard title="Low Stock" value={stats.lowStock} icon={<FaBoxes />} color="bg-red-500" />
-        <KpiCard title="Inventory Stock" value={stats.inventoryStock} icon={<FaBoxes />} color="bg-indigo-500" />
+        <KpiCard title="Total Categories" value={stats.totalCategories} icon={<FaBoxes />} color="bg-green-500" />
+        <KpiCard title="Inventory Sales" value={stats.inventorySales} icon={<FaShoppingCart />} color="bg-green-500" />
+        <KpiCard title="Low Stock" value={stats.lowStock} icon={<FaBoxes />} color="bg-green-500" />
+        <KpiCard title="Inventory Stock" value={stats.inventoryStock} icon={<FaBoxes />} color="bg-green-500" />
       </div>
 
            {/* Sales Chart */}
