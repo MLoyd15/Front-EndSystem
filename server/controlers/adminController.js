@@ -32,6 +32,10 @@ export const getStats = async (req, res) => {
     const orderVolume = totalSales
     const avgOrderValue = totalSales > 0 ? (totalRevenue / totalSales).toFixed(2) : 0
 
+     // ✅ Get latest loyalty history (e.g., last 5 events)
+    const user = await User.findOne().select("loyaltyHistory").lean();
+    const loyaltyHistory = user?.loyaltyHistory?.slice(-5) || [];
+
     res.json({
       totalUsers,
       totalCategories,
@@ -41,7 +45,8 @@ export const getStats = async (req, res) => {
       lowStock,
       inventoryStock,
       orderVolume,
-      avgOrderValue
+      avgOrderValue,
+      loyaltyHistory 
     });
   } catch (err) {
     console.error("Error in getStats:", err);

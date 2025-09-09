@@ -14,7 +14,9 @@ const AdminKpi = () => {
     lowStock: 0,
     inventoryStock: 0,
     orderVolume: 0,     
-    avgOrderValue: 0
+    avgOrderValue: 0,
+    loyaltyPoints: 0,   // ✅ new
+    loyaltyTier: "Sprout" // ✅ new
   })
 
 useEffect(() => {
@@ -24,16 +26,33 @@ useEffect(() => {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
         },
-      })
-      setStats(response.data) // ✅ set all totals at once
+      });
+      setStats((prev) => ({ ...prev, ...response.data })); // merge
     } catch (err) {
-      console.error("Error fetching stats", err)
+      console.error("Error fetching stats", err);
     }
-  }
+  };
 
-  fetchStats() // ✅ actually call the function
-}, [])
+  const fetchLoyalty = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/loyalty", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+        },
+      });
+      setStats((prev) => ({
+        ...prev,
+        loyaltyPoints: response.data.loyaltyPoints,
+        loyaltyTier: response.data.loyaltyTier,
+      }));
+    } catch (err) {
+      console.error("Error fetching loyalty", err);
+    }
+  };
 
+  fetchStats();
+  fetchLoyalty();
+}, []);
   return (
     <div className="p-6 space-y-6">
       {/* Dashboard Overview */}
@@ -60,6 +79,22 @@ useEffect(() => {
         <div className="mt-10">
         <SalesChart />
       </div>
+       <div className="mt-8 bg-white shadow rounded-lg p-4">
+      <h2 className="text-xl font-bold mb-4">🎁 Loyalty History</h2>
+      {stats.loyaltyHistory?.length ? (
+        <ul className="space-y-2">
+          {stats.loyaltyHistory.map((entry, i) => (
+            <li key={i} className="flex justify-between text-sm">
+              <span>{entry.action.toUpperCase()}</span>
+              <span>{entry.points} pts</span>
+              <span>{new Date(entry.date).toLocaleDateString()}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-gray-500">No loyalty activity yet.</p>
+      )}
+    </div>
     </div>
   )
 }

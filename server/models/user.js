@@ -5,7 +5,18 @@ const userSchema = new mongoose.Schema({
     email: {type: String, required: true, unique: true},
     password: {type: String, required: true},
     address: {type: String},
-    role: {type: String, enum:["admin"]}
+    role: {type: String, enum:["admin"]},
+
+     // ✅ Loyalty fields
+    loyaltyPoints: { type: Number, default: 0 },
+    loyaltyTier: { type: String, enum: ["Sprout", "Seedling", "Cultivator", "Bloom", "Harvester"], default: "Sprout" },
+    loyaltyHistory: [
+    {
+      action: { type: String }, // "earned" | "redeemed"
+      points: { type: Number },
+      date: { type: Date, default: Date.now }
+    }
+     ]
 })
 
 const User = mongoose.model("User", userSchema)

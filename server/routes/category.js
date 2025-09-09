@@ -4,7 +4,7 @@ import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.post('/add', authMiddleware, addCategory);
+router.post('/add', addCategory);
 router.get('/', authMiddleware, getCategories);
 router.put('/:id', authMiddleware, updateCategory);
 
