@@ -6,6 +6,7 @@ import ProtectedRoutes from './utils/ProtectedRoutes'
 import Dashboard from './pages/dashboard'
 import Categories from './components/categories'
 import AdminKpi from './components/adminkpi'
+import ProductsPage from './components/ProductsPage'
 
 function App() {
 
@@ -28,7 +29,7 @@ function App() {
           />
           <Route
             path='products'
-            element={<h1>products</h1>}
+            element={<ProductsPage />}
           />
           <Route
             path='suppliers'

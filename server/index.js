@@ -6,6 +6,7 @@ import categoryRoutes from './routes/category.js'
 import adminRoutes from "./routes/admin.js";
 import ordersRoutes from "./routes/orders.js"; 
 import loyaltyRoutes from "./routes/loyalty.js";
+import productRoutes from "./routes/product.js"
 
 
 const app = express()
@@ -16,6 +17,9 @@ app.use("/api/category", categoryRoutes)
 app.use("/api/admin", adminRoutes); 
 app.use("/api/orders", ordersRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
+app.use('/api/products', productRoutes);
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 app.listen(process.env.PORT, () => {
     connectDB()
