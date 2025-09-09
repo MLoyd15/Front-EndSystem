@@ -13,6 +13,9 @@ import {
   ReferenceLine,
   Area,
   Bar,
+  // NEW: Donut chart pieces
+  PieChart,
+  Pie,
 } from "recharts";
 
 const API = "http://localhost:5000/api";
@@ -21,13 +24,14 @@ const CURRENCY = "₱"; // change to "$" if you prefer
 function SalesChart() {
   const [orders, setOrders] = useState([]);
   const [data, setData] = useState([]);
-  const [topProducts, setTopProducts] = useState([]); // NEW
+  // REMOVED: const [topProducts, setTopProducts] = useState([]);
+  const [salesByCategory, setSalesByCategory] = useState([]); // NEW
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
 
-  // fetch orders
+  // fetch orders (+ category summary)
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -37,6 +41,7 @@ function SalesChart() {
           headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
         });
         setOrders(res.data?.orders ?? []);
+        setSalesByCategory(res.data?.summary?.salesByCategory ?? []); // NEW
       } catch (e) {
         setErr(e?.response?.data?.message || e?.message || "Failed to load orders.");
       } finally {
@@ -61,40 +66,7 @@ function SalesChart() {
     setData(rows);
   }, [orders]);
 
- // NEW: compute Top 5 products (by units) from the same orders
-useEffect(() => {
-  const perProduct = {};
-  for (const o of orders) {
-    for (const p of o.products || []) {
-      // try multiple shapes safely
-      const idRaw = p.product?._id ?? p.product ?? p.productId ?? p._id ?? null;
-      const id = idRaw ? String(idRaw) : null;
-
-      // If still no id, try to key by name+price (fallback)
-      const key = id ?? (p.name ? `name:${p.name}` : null);
-      if (!key) continue;
-
-      const qty = Number(p.quantity ?? 0);
-      const unitPrice = Number(
-        // prefer explicit price on item, then populated product price
-        p.price ?? p.product?.price ?? 0
-      );
-
-      const name =
-        p.product?.name || p.name || (id ? `Product ${id.slice(-6)}` : "Unknown Product");
-
-      if (!perProduct[key]) perProduct[key] = { id: key, name, units: 0, revenue: 0 };
-      perProduct[key].units += qty;
-      perProduct[key].revenue += qty * unitPrice;
-    }
-  }
-
-  const top = Object.values(perProduct)
-    .sort((a, b) => b.units - a.units) // switch to revenue: b.revenue - a.revenue
-    .slice(0, 5);
-
-  setTopProducts(top);
-}, [orders]);
+  // REMOVED: client-side Top 5 computation useEffect
 
   // nice headroom for axes
   const { maxRevenue, maxUnits } = useMemo(() => {
@@ -106,8 +78,17 @@ useEffect(() => {
     return { maxRevenue: Math.ceil(mr * 1.15), maxUnits: Math.ceil(mu * 1.15) };
   }, [data]);
 
+  // NEW: total for donut center label
+  const totalCatRevenue = useMemo(
+    () => (salesByCategory || []).reduce((s, x) => s + Number(x?.revenue || 0), 0),
+    [salesByCategory]
+  );
+
   const fmtMoney = (n) =>
-    `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
@@ -220,6 +201,7 @@ useEffect(() => {
                     stroke="none"
                     fill="url(#revGrad)"
                     isAnimationActive
+                    legendType="none"
                   />
                 )}
                 {showUnits && (
@@ -229,6 +211,7 @@ useEffect(() => {
                     barSize={6}
                     radius={[8, 8, 0, 0]}
                     fill="url(#unitsGrad)"
+                    legendType="none"
                   />
                 )}
 
@@ -264,54 +247,65 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Right panel: Top 5 selling products (20%) */}
+      {/* Right panel: Sales By Category (donut) — replaces Top 5 Products */}
       <div className="lg:col-span-1 bg-white rounded-2xl shadow-md p-6 border-4 border-green-500">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">🏆 Top 5 Products</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">🏷️ Sales By Category</h3>
 
         {loading && <p className="text-gray-500">Loading...</p>}
-        {!loading && !err && topProducts.length === 0 && (
-          <p className="text-gray-500">No sales yet.</p>
+        {!loading && !err && (!salesByCategory || salesByCategory.length === 0) && (
+          <p className="text-gray-500">No category sales yet.</p>
         )}
-        {!loading && !err && topProducts.length > 0 && (
-          <ul className="space-y-3">
-            {topProducts.map((p, idx) => (
-              <li
-                key={(p.id || p.name || idx) + "_top"}
-                className="border rounded-xl p-3 hover:bg-gray-50 transition"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-500 w-6 text-center">
-                      {idx + 1}
-                    </span>
-                    <span className="font-medium text-gray-800">{p.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-700">
-                      {p.units.toLocaleString()} units
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {CURRENCY}
-                      {(p.revenue || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
+
+        {!loading && !err && salesByCategory && salesByCategory.length > 0 && (
+          <div className="h-72 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={salesByCategory}
+                  dataKey="revenue"       // change to "units" if you want units
+                  nameKey="category"
+                  innerRadius={70}
+                  outerRadius={105}
+                  stroke="#0f172a"
+                  strokeOpacity={0.1}
+                  isAnimationActive
+                />
+                <Tooltip
+                  formatter={(value, _k, item) => [
+                    fmtMoney(value),
+                    item?.payload?.category,
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+
+            {/* center total */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center">
+                <div className="text-xs text-gray-500">Total</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {fmtMoney(totalCatRevenue)}
                 </div>
-                {/* tiny progress bar relative to #1 product by units */}
-                <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500"
-                    style={{
-                      width: ((p.units / (topProducts[0]?.units || 1)) * 100).toFixed(2) + "%",
-                    }}
+              </div>
+            </div>
+
+            {/* simple legend */}
+            <div className="mt-3 flex flex-wrap items-center gap-3 justify-center">
+              {salesByCategory.map((d, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full"
+                    style={{ background: `hsl(${(i * 60) % 360} 80% 50%)` }}
                   />
+                  <span>{d.category}</span>
                 </div>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+          </div>
         )}
 
         {!loading && err && (
-          <p className="text-sm text-red-600">Failed to load top products: {err}</p>
+          <p className="text-sm text-red-600">Failed to load categories: {err}</p>
         )}
       </div>
     </div>
