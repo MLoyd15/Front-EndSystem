@@ -94,86 +94,143 @@ const Categories = () => {
 
   if (loading) return <div>Loading...</div>;
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">Category Management</h1>
+    <div className="p-6 bg-gray-50 min-h-screen">
+  {/* Page header */}
+  <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+    <div>
+      <h1 className="text-2xl font-semibold text-gray-900">Category Management</h1>
+      <p className="text-sm text-gray-500">Create, edit, and organize your product categories.</p>
+    </div>
+    <div className="text-sm text-gray-500">
+      Total categories:{" "}
+      <span className="font-medium text-gray-900">{categories?.length ?? 0}</span>
+    </div>
+  </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Add Category Form */}
-        <div className="bg-white rounded-lg shadow-md p-4" style={{ height: "290px", overflowY: "auto" }}>
-          <h2 className="text-lg font-semibold mb-3 text-gray-700">{editCategory ? "Edit Category" : "Add Category"}</h2>
-          <form className="space-y-4" onSubmit={handleSumbit}>
-            <input
-              type="text"
-              placeholder="Category Name"
-              value={categoryName}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-green-300"
-              onChange={(e) => setCategoryName(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Category Description"
-              value={categoryDescription}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-green-300"
-              onChange={(e) => setCategoryDescription(e.target.value)}
-            />
-            <div className="gap-2">
-            <button
-              type="submit"
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg"
-            >
-              {editCategory ? "save Changes " : "Add Category"}
-            </button>
-            {
-              editCategory && (
-                <button
-                type="button"
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg"
-                onClick={handleCancel}
-                >
-                  cancel
-                </button>
-              )
-            }
-            </div>
-          </form>
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {/* Add / Edit Category */}
+    <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5">
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-gray-900">
+          {editCategory ? "Edit Category" : "Add Category"}
+        </h2>
+        {editCategory && (
+          <span className="text-xs rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 ring-1 ring-amber-200">
+            Editing
+          </span>
+        )}
+      </div>
+
+      <form className="p-4 space-y-4" onSubmit={handleSumbit}>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700">Category Name</label>
+          <input
+            type="text"
+            placeholder="e.g. Beverages"
+            value={categoryName}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            onChange={(e) => setCategoryName(e.target.value)}
+          />
         </div>
 
-        {/* Categories List */}
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <h2 className="text-lg font-semibold mb-3 text-gray-700">Existing Categories</h2>
-          {categories.length === 0 ? (
-            <p className="text-gray-500">No categories added yet.</p>
-          ) : (
-            <table className="min-w-full border-collapse rounded-lg overflow-hidden">
-              <thead className="bg-green-600 text-white">
-                <tr>
-                  <th className="py-3 px-6 text-left font-semibold">S No</th>
-                  <th className="py-3 px-6 text-left font-semibold">Category Name</th>
-                  <th className="py-3 px-6 text-left font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((cat, index) => (
-                  <tr key={index} className="hover:bg-gray-50 border-b border-gray-200">
-                    <td className="py-4 px-6 text-center">{index + 1}</td>
-                    <td className="py-4 px-6">{cat.categoryName}</td>
-                    <td className="py-4 px-6 text-center">
-                      <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg mr-2 text-sm"onClick={() => handleEdit(cat)}
-                        > Edit
-                        
-                      </button>
-                      <button className="bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-lg text-sm" >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700">Description</label>
+          <input
+            type="text"
+            placeholder="Optional short description"
+            value={categoryDescription}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            onChange={(e) => setCategoryDescription(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 pt-2">
+          <button
+            type="submit"
+            className="inline-flex justify-center items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition"
+          >
+            {editCategory ? "Save Changes" : "Add Category"}
+          </button>
+
+          {editCategory && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="inline-flex justify-center items-center gap-2 rounded-lg bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 text-sm font-medium px-4 py-2 transition"
+            >
+              Cancel
+            </button>
           )}
         </div>
+      </form>
+    </div>
+
+    {/* Categories List */}
+    <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5">
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-gray-900">Existing Categories</h2>
+        <span className="text-xs text-gray-500">
+          {categories?.length || 0} item{(categories?.length || 0) === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      {/* Table container with sticky header and scroll */}
+      <div className="max-h-[420px] overflow-auto">
+        {(!categories || categories.length === 0) ? (
+          <div className="p-8 text-center">
+            <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 grid place-items-center mb-2">
+              <span className="text-gray-400">🗂️</span>
+            </div>
+            <p className="text-sm text-gray-500">No categories added yet.</p>
+          </div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
+              <tr className="text-left text-gray-600">
+                <th className="py-3 px-4 font-medium">#</th>
+                <th className="py-3 px-4 font-medium">Category</th>
+                <th className="py-3 px-4 font-medium text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {categories.map((cat, index) => (
+                <tr key={cat._id ?? index} className="hover:bg-gray-50">
+                  <td className="py-3 px-4 w-12 text-gray-500 tabular-nums">{index + 1}</td>
+                  <td className="py-3 px-4">
+                    <div className="font-medium text-gray-900">{cat.categoryName}</div>
+                    {cat.categoryDescription ? (
+                      <div className="text-xs text-gray-500 line-clamp-1">{cat.categoryDescription}</div>
+                    ) : null}
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(cat)}
+                        className="inline-flex items-center rounded-lg bg-white text-blue-700 px-3 py-1.5 text-xs font-medium ring-1 ring-blue-200 hover:bg-blue-50"
+                        title="Edit"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center rounded-lg bg-white text-red-700 px-3 py-1.5 text-xs font-medium ring-1 ring-red-200 hover:bg-red-50"
+                        // onClick={() => handleDelete(cat)} // hook up when ready
+                        title="Delete"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
+  </div>
+</div>
   );
 };
 

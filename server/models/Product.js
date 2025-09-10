@@ -7,10 +7,13 @@ const isHttpUrl = (u) => {
 
 const productSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    stock: { type: Number, default: 0 },
-    sold:  { type: Number, default: 0 },
-    price: { type: Number, required: true },
+    name:     { type: String, required: true },
+    stock:    { type: Number, default: 0, min: 0 },
+    sold:     { type: Number, default: 0, min: 0 },
+    price:    { type: Number, required: true, min: 0 },
+    minStock: { type: Number, default: 0, min: 0 },
+    weightKg: { type: Number, min: 0, default: null },
+
     category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true },
     images: {
       type: [String],
@@ -20,7 +23,7 @@ const productSchema = new mongoose.Schema(
         message: "images must be valid http(s) URLs",
       },
     },
-    catalog: { type: Boolean, default: true },
+    catalog:  { type: Boolean, default: true },
   },
   { timestamps: true }
 );

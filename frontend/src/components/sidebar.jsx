@@ -1,5 +1,5 @@
 import React from 'react'
-import { FaHome, FaSignOutAlt, FaTable, FaBox, FaTruck, FaShoppingCart, FaUsers, FaCog, FaStar  } from "react-icons/fa"
+import { FaHome, FaSignOutAlt, FaTable, FaBox, FaTruck, FaBoxes, FaUsers, FaCog, FaIndustry,FaStar  } from "react-icons/fa"
 import { NavLink } from 'react-router'
 
 const Sidebar = () => {
@@ -9,7 +9,7 @@ const Sidebar = () => {
         { name:"Categories", path: "/admin-dashboard/categories", icon:<FaTable />, isParent: false },
         { name:"Products", path: "/admin-dashboard/products", icon:<FaBox />, isParent: false },
         { name:"Suppliers", path: "/admin-dashboard/suppliers", icon:<FaTruck />, isParent: false },
-        { name:"Orders", path: "/admin-dashboard/orders", icon:<FaShoppingCart />, isParent: false },  
+        { name:"Inventory", path: "/admin-dashboard/inventory", icon:<FaBoxes/>, isParent: false },  
         { name:"review", path: "/admin-dashboard/review", icon:<FaStar />, isParent: false },  
         { name:"Users", path: "/admin-dashboard/users", icon:<FaUsers />, isParent: false },  
         { name:"Profile", path: "/admin-dashboard/profile", icon:<FaCog />, isParent: false },  
@@ -29,7 +29,7 @@ const Sidebar = () => {
                     <li key={item.name}>
                         <div className='p-2'>
                            <NavLink
-                            end={item.isParent}
+                            end={item.isParent} 
                             className={({ isActive }) =>
                                 (isActive
                                     ? "bg-white text-black" // ✅ Active = white background + black text

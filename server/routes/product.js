@@ -1,10 +1,11 @@
-
 import express from "express";
 import * as ctrl from "../controlers/productController.js";
 
 
 const router = express.Router();
 
+router.get("/audit", ctrl.auditList);
+router.post("/audit/reconcile", ctrl.auditReconcile);
 
 // GET /api/products?search=&category=&catalog=&page=&limit=
 router.get('/', ctrl.list);
@@ -13,7 +14,7 @@ router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);
 
 // POST /api/products
-router.post('/add', ctrl.create);
+router.post('/', ctrl.create);
 
 // PATCH /api/products/:id
 router.patch('/:id', ctrl.update);

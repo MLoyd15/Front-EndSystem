@@ -36,8 +36,8 @@ function App() {
             element={<h1>suppliers</h1>}
           />
           <Route
-            path='orders'
-            element={<h1>orders</h1>}
+            path='inventory'
+            element={<h1>inventory</h1>}
           />
           <Route
             path='review'
