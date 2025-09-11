@@ -412,20 +412,20 @@ export default function ProductsPage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-end gap-2 mt-4">
+          {/* Pagination (compact) */}
+          <div className="flex items-center justify-end gap-1 mt-2 text-xs">
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1.5 rounded-lg border disabled:opacity-50"
+              className="px-2 py-1 rounded border text-gray-600 disabled:opacity-50"
             >
               Prev
             </button>
-            <div className="text-sm">Page {page}</div>
+            <div className="text-gray-500">Page {page}</div>
             <button
               disabled={page * limit >= total}
               onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1.5 rounded-lg border disabled:opacity-50"
+              className="px-2 py-1 rounded border text-gray-600 disabled:opacity-50"
             >
               Next
             </button>
