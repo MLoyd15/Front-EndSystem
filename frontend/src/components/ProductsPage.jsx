@@ -15,7 +15,7 @@ const toUrlArray = (text) =>
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter(Boolean);
-
+  
 export default function ProductsPage() {
   // list & filters
   const [items, setItems] = useState([]);

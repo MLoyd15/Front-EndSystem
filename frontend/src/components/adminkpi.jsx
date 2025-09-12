@@ -96,37 +96,47 @@ export default function AdminKpi() {
       }
     };
 
-    /* ✅ NEW: fetch products and compute low/out-of-stock */
+    /* fetch products and compute low/out-of-stock */
     const fetchProducts = async () => {
       try {
-        const { data } = await axios.get(`${API}/products?page=1&limit=1000`, { headers });
-        const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+      const { data } = await axios.get(`${API}/products?page=1&limit=1000`, { headers });
+      const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
 
-        const low = items
-          .filter(p => Number(p?.stock ?? 0) > 0 && Number(p?.stock ?? 0) < 10)
-          .sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0));
-
-        const out = items
-          .filter(p => Number(p?.stock ?? 0) <= 0)
-          .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
-
-        setLowStockItems(low);
-        setOutOfStockItems(out);
-
-        // Optionally reflect low stock count in stats from client-side scan:
-        setStats(prev => ({
-          ...prev,
-          lowStock: low.length,
-        }));
-      } catch (e) {
-        setErr(p => p || e?.response?.data?.message || e?.message || "Failed to load products.");
-      }
+    const getStock = (p) => {
+      const n = Number(p?.stock ?? 0);
+      return Number.isFinite(n) ? n : 0;
     };
+    const getMin = (p) => {
+      const n = Number(p?.minStock ?? 0);
+      return Number.isFinite(n) && n > 0 ? n : 10;
+    };
+
+    const out = items
+      .filter((p) => getStock(p) <= 0)
+      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+
+    const outIds = new Set(out.map((p) => String(p._id)));
+    const low = items
+      .filter((p) => {
+        const s = getStock(p);
+        const m = getMin(p);
+        return s > 0 && s < m;
+      })
+      .filter((p) => !outIds.has(String(p._id))) 
+      .sort((a, b) => getStock(a) - getStock(b));
+
+    setLowStockItems(low);
+    setOutOfStockItems(out);
+    setStats((prev) => ({ ...prev, lowStock: low.length }));
+  } catch (e) {
+    setErr((p) => p || e?.response?.data?.message || e?.message || "Failed to load products.");
+  }
+};
 
     fetchStats();
     fetchLoyalty();
     fetchOrders();
-    fetchProducts(); // ✅ NEW
+    fetchProducts(); 
   }, []);
 
   /* ---------- Build product stats once, sort later ---------- */
@@ -207,35 +217,38 @@ export default function AdminKpi() {
           </div>
         </div>
 
-        {/* ✅ NEW: Stock Alerts panel */}
-        <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-gray-900">⚠️ Stock Alerts</h3>
-            <span className="text-xs text-gray-500">
-              {lowStockItems.length} low • {outOfStockItems.length} out
-            </span>
-          </div>
+        {/* ✅ Stock Alerts (Low Stock only) */}
+      <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900">⚠️ Stock Alerts</h3>
+          {/* ⬇️ show only low stock count */}
+          <span className="text-xs text-gray-500">
+            {lowStockItems.length} low
+          </span>
+        </div>
 
-          {/* Low Stock */}
-          <div className="mb-4">
-            <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Low Stock (1–9)</div>
-            {lowStockItems.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-gray-200 p-3 text-sm text-gray-500">
-                No low stock items.
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {lowStockItems.slice(0, 5).map((p) => (
-                  <li key={p._id} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                    <span className="truncate text-sm text-gray-800">{p.name ?? "Unnamed Product"}</span>
-                    <span className="text-xs rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 ring-1 ring-amber-200">
-                      {Number(p?.stock ?? 0)} left
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+        {/* Low Stock */}
+        <div className="mb-0">
+          <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">
+            Low Stock
           </div>
+          {lowStockItems.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 p-3 text-sm text-gray-500">
+              No low stock items.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {lowStockItems.slice(0, 5).map((p) => (
+                <li key={p._id} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span className="truncate text-sm text-gray-800">{p.name ?? "Unnamed Product"}</span>
+                  <span className="text-xs rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 ring-1 ring-amber-200">
+                    {Number(p?.stock ?? 0)} left
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
           {/* Out of Stock */}
           <div>
@@ -272,9 +285,8 @@ export default function AdminKpi() {
           </div>
         </div>
 
-        {/* Row: Top 5 + Sales By Category */}
+        {/*op 5 + Sales By Category */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Top 5 Products — compact (1/3 width) */}
           <div className="xl:col-span-1 rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">🏆 Top 5 Products</h3>

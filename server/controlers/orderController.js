@@ -30,88 +30,93 @@ export const getOrders = async (req, res) => {
     const avgOrderValue =
       orderCount > 0 ? Number((totalRevenue / orderCount).toFixed(2)) : 0;
 
-   // ✅ Sales by Category (robust)
-const salesByCategory = await Order.aggregate([
-  { $match: query },
-  { $unwind: "$products" },
+    // ✅ Sales by Category (robust)
+    const salesByCategory = await Order.aggregate([
+      { $match: query },
+      { $unwind: "$products" },
 
-  // Normalize common item fields
-  {
-    $set: {
-      itemProductId: { $ifNull: ["$products.product", "$products.productId"] },
-      itemQty:       { $ifNull: ["$products.quantity", 0] },
-      itemUnitPrice: { $ifNull: ["$products.price", null] },
-      itemCategory:  { $ifNull: ["$products.category", null] }, // snapshot on item, if you ever store it
-    }
-  },
-
-  // Join Product to fetch price/category when not on the item
-  {
-    $lookup: {
-      from: "products",
-      localField: "itemProductId",
-      foreignField: "_id",
-      as: "prod"
-    }
-  },
-  { $unwind: { path: "$prod", preserveNullAndEmptyArrays: true } },
-
-  // If product.category is an ObjectId, resolve Category doc (collection = 'categories')
-  {
-    $lookup: {
-      from: "categories",
-      localField: "prod.category",
-      foreignField: "_id",
-      as: "cat"
-    }
-  },
-  { $unwind: { path: "$cat", preserveNullAndEmptyArrays: true } },
-
-  // Compute a string category from:
-  // 1) item.category (if you snapshot it)
-  // 2) category doc's name (works if your field is `categoryName` OR `name`)
-  // 3) product.category if it's already a string
-  {
-    $set: {
-      prodCategoryString: {
-        $cond: [
-          { $eq: [ { $type: "$prod.category" }, "string" ] },
-          "$prod.category",
-          null
-        ]
+      // Normalize common item fields
+      {
+        $set: {
+          itemProductId: { $ifNull: ["$products.product", "$products.productId"] },
+          itemQty: { $ifNull: ["$products.quantity", 0] },
+          itemUnitPrice: { $ifNull: ["$products.price", null] },
+          itemCategory: { $ifNull: ["$products.category", null] }, // snapshot on item, if you ever store it
+          itemType: { $ifNull: ["$products.type", "product"] }, // Detect type (product or bundle)
+        }
       },
-      resolvedPrice: { $ifNull: ["$itemUnitPrice", { $ifNull: ["$prod.price", 0] }] }
-    }
-  },
-  {
-    $set: {
-      resolvedCategory: {
-        $ifNull: [
-          "$itemCategory",
-          { $ifNull: [ "$cat.categoryName", "$cat.name" ] }, // <-- handles both field names
-          "$prodCategoryString"
-        ]
-      }
-    }
-  },
-  {
-    $set: {
-      resolvedCategory: { $ifNull: ["$resolvedCategory", "Uncategorized"] }
-    }
-  },
 
-  // Group and sum
-  {
-    $group: {
-      _id: "$resolvedCategory",
-      category: { $first: "$resolvedCategory" },
-      units:    { $sum: "$itemQty" },
-      revenue:  { $sum: { $multiply: ["$itemQty", "$resolvedPrice"] } }
-    }
-  },
-  { $sort: { revenue: -1 } },
-  { $project: { _id: 0, category: 1, units: 1, revenue: 1 } }
-]);
+      // Handle Product and Bundle Logic
+      {
+        $lookup: {
+          from: "products",
+          localField: "itemProductId",
+          foreignField: "_id",
+          as: "prod"
+        }
+      },
+      { $unwind: { path: "$prod", preserveNullAndEmptyArrays: true } },
+
+      // If product.category is an ObjectId, resolve Category doc (collection = 'categories')
+      {
+        $lookup: {
+          from: "categories",
+          localField: "prod.category",
+          foreignField: "_id",
+          as: "cat"
+        }
+      },
+      { $unwind: { path: "$cat", preserveNullAndEmptyArrays: true } },
+
+      // Handle bundles (use price from the bundle, not individual products)
+      {
+        $lookup: {
+          from: "bundles",
+          localField: "itemProductId", // if it's a bundle, fetch bundle
+          foreignField: "_id",
+          as: "bundle"
+        }
+      },
+      { $unwind: { path: "$bundle", preserveNullAndEmptyArrays: true } },
+
+      // If the product is a bundle, calculate revenue based on bundle price
+      {
+        $set: {
+          resolvedPrice: {
+            $cond: [
+              { $eq: ["$itemType", "bundle"] }, // If it's a bundle, use bundle price
+              { $ifNull: ["$bundle.price", 0] },
+              { $ifNull: ["$itemUnitPrice", { $ifNull: ["$prod.price", 0] }] }
+            ]
+          }
+        }
+      },
+
+      // Resolve category name (handle if category is missing, use fallback)
+      {
+        $set: {
+          resolvedCategory: {
+            $ifNull: [
+              "$itemCategory",
+              { $ifNull: ["$cat.categoryName", "$cat.name"] }, // <-- handles both field names
+              "Uncategorized"
+            ]
+          }
+        }
+      },
+
+      // Group and sum
+      {
+        $group: {
+          _id: "$resolvedCategory",
+          category: { $first: "$resolvedCategory" },
+          units: { $sum: "$itemQty" },
+          revenue: { $sum: { $multiply: ["$itemQty", "$resolvedPrice"] } }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $project: { _id: 0, category: 1, units: 1, revenue: 1 } }
+    ]);
 
     res.json({
       orders,

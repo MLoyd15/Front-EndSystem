@@ -7,6 +7,7 @@ import adminRoutes from "./routes/admin.js";
 import ordersRoutes from "./routes/orders.js"; 
 import loyaltyRoutes from "./routes/loyalty.js";
 import productRoutes from "./routes/product.js"
+import bundlesRoutes from "./routes/bundles.js";
 
 
 const app = express()
@@ -20,6 +21,7 @@ app.use("/api/loyalty", loyaltyRoutes);
 app.use('/api/products', productRoutes);
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/bundles", bundlesRoutes);
 
 app.listen(process.env.PORT, () => {
     connectDB()

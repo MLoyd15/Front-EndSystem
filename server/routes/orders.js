@@ -6,4 +6,4 @@ const router = express.Router();
 // GET /api/orders
 router.get("/", getOrders);
 
-export default router;
+export default router; 

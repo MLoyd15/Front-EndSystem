@@ -70,7 +70,7 @@ const create = async (req, res) => {
   try {
     const {
       name, category, stock = 0, price, catalog = true,
-      description = "", weightKg, minStock = 0       // ✅ NEW
+      description = "", weightKg, minStock = 0      
     } = req.body || {};
     const images = normalizeImages(req.body?.images);
 

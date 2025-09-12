@@ -43,18 +43,20 @@ export default function SalesChart() {
     })();
   }, []);
 
-  useEffect(() => {
-    const grouped = orders.reduce((acc, order) => {
-      if (!order?.createdAt) return acc;
-      const key = new Date(order.createdAt).toLocaleDateString("en-CA");
-      if (!acc[key]) acc[key] = { revenue: 0, units: 0 };
-      acc[key].revenue += Number(order.totalAmount || 0);
-      for (const p of order.products || []) acc[key].units += Number(p?.quantity || 0);
-      return acc;
-    }, {});
-    const rows = Object.keys(grouped).sort().map((date) => ({ date, ...grouped[date] }));
-    setData(rows);
-  }, [orders]);
+    useEffect(() => {
+      const grouped = orders.reduce((acc, order) => {
+        // Skip orders with status 'pending'
+        if (order?.status === 'Pending') return acc;
+
+        const key = new Date(order.createdAt).toLocaleDateString("en-CA");
+        if (!acc[key]) acc[key] = { revenue: 0, units: 0 };
+        acc[key].revenue += Number(order.totalAmount || 0);
+        for (const p of order.products || []) acc[key].units += Number(p?.quantity || 0);
+        return acc;
+      }, {});
+      const rows = Object.keys(grouped).sort().map((date) => ({ date, ...grouped[date] }));
+      setData(rows);
+    }, [orders]);
 
   const { maxRevenue, maxUnits } = useMemo(() => {
     let mr = 0, mu = 0;

@@ -65,7 +65,6 @@ export const getStats = async (req, res) => {
       orderVolume,
       avgOrderValue,
       loyaltyHistory,
-      // in case you want them on the UI later:
       inStock,
       outOfStock,
     });

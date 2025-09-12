@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-
+import BundlesPage from "./BundlesPage"; // Import the BundlesPage component
 const Categories = () => {
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
@@ -94,143 +94,146 @@ const Categories = () => {
 
   if (loading) return <div>Loading...</div>;
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-  {/* Page header */}
-  <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-900">Category Management</h1>
-      <p className="text-sm text-gray-500">Create, edit, and organize your product categories.</p>
-    </div>
-    <div className="text-sm text-gray-500">
-      Total categories:{" "}
-      <span className="font-medium text-gray-900">{categories?.length ?? 0}</span>
-    </div>
-  </div>
-
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    {/* Add / Edit Category */}
-    <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5">
-      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">
-          {editCategory ? "Edit Category" : "Add Category"}
-        </h2>
-        {editCategory && (
-          <span className="text-xs rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 ring-1 ring-amber-200">
-            Editing
-          </span>
-        )}
+      <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Category Management</h1>
+          <p className="text-sm text-gray-500">Create, edit, and organize your product categories.</p>
+        </div>
+        <div className="text-sm text-gray-500">
+          Total categories:{" "}
+          <span className="font-medium text-gray-900">{categories?.length ?? 0}</span>
+        </div>
       </div>
 
-      <form className="p-4 space-y-4" onSubmit={handleSumbit}>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700">Category Name</label>
-          <input
-            type="text"
-            placeholder="e.g. Beverages"
-            value={categoryName}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-            onChange={(e) => setCategoryName(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700">Description</label>
-          <input
-            type="text"
-            placeholder="Optional short description"
-            value={categoryDescription}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-            onChange={(e) => setCategoryDescription(e.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 pt-2">
-          <button
-            type="submit"
-            className="inline-flex justify-center items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition"
-          >
-            {editCategory ? "Save Changes" : "Add Category"}
-          </button>
-
-          {editCategory && (
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="inline-flex justify-center items-center gap-2 rounded-lg bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 text-sm font-medium px-4 py-2 transition"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-    </div>
-
-    {/* Categories List */}
-    <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5">
-      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">Existing Categories</h2>
-        <span className="text-xs text-gray-500">
-          {categories?.length || 0} item{(categories?.length || 0) === 1 ? "" : "s"}
-        </span>
-      </div>
-
-      {/* Table container with sticky header and scroll */}
-      <div className="max-h-[420px] overflow-auto">
-        {(!categories || categories.length === 0) ? (
-          <div className="p-8 text-center">
-            <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 grid place-items-center mb-2">
-              <span className="text-gray-400">🗂️</span>
-            </div>
-            <p className="text-sm text-gray-500">No categories added yet.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Add / Edit Category */}
+        <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900">
+              {editCategory ? "Edit Category" : "Add Category"}
+            </h2>
+            {editCategory && (
+              <span className="text-xs rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 ring-1 ring-amber-200">
+                Editing
+              </span>
+            )}
           </div>
-        ) : (
-          <table className="min-w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
-              <tr className="text-left text-gray-600">
-                <th className="py-3 px-4 font-medium">#</th>
-                <th className="py-3 px-4 font-medium">Category</th>
-                <th className="py-3 px-4 font-medium text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {categories.map((cat, index) => (
-                <tr key={cat._id ?? index} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 w-12 text-gray-500 tabular-nums">{index + 1}</td>
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-gray-900">{cat.categoryName}</div>
-                    {cat.categoryDescription ? (
-                      <div className="text-xs text-gray-500 line-clamp-1">{cat.categoryDescription}</div>
-                    ) : null}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(cat)}
-                        className="inline-flex items-center rounded-lg bg-white text-blue-700 px-3 py-1.5 text-xs font-medium ring-1 ring-blue-200 hover:bg-blue-50"
-                        title="Edit"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex items-center rounded-lg bg-white text-red-700 px-3 py-1.5 text-xs font-medium ring-1 ring-red-200 hover:bg-red-50"
-                        // onClick={() => handleDelete(cat)} // hook up when ready
-                        title="Delete"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+
+          <form className="p-4 space-y-4" onSubmit={handleSumbit}>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Category Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Beverages"
+                value={categoryName}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                onChange={(e) => setCategoryName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Description</label>
+              <input
+                type="text"
+                placeholder="Optional short description"
+                value={categoryDescription}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                onChange={(e) => setCategoryDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="submit"
+                className="inline-flex justify-center items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition"
+              >
+                {editCategory ? "Save Changes" : "Add Category"}
+              </button>
+
+              {editCategory && (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="inline-flex justify-center items-center gap-2 rounded-lg bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 text-sm font-medium px-4 py-2 transition"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Categories List */}
+        <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900">Existing Categories</h2>
+            <span className="text-xs text-gray-500">
+              {categories?.length || 0} item{(categories?.length || 0) === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          {/* Table container with sticky header and scroll */}
+          <div className="max-h-[420px] overflow-auto">
+            {(!categories || categories.length === 0) ? (
+              <div className="p-8 text-center">
+                <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 grid place-items-center mb-2">
+                  <span className="text-gray-400">🗂️</span>
+                </div>
+                <p className="text-sm text-gray-500">No categories added yet.</p>
+              </div>
+            ) : (
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
+                  <tr className="text-left text-gray-600">
+                    <th className="py-3 px-4 font-medium">#</th>
+                    <th className="py-3 px-4 font-medium">Category</th>
+                    <th className="py-3 px-4 font-medium text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {categories.map((cat, index) => (
+                    <tr key={cat._id ?? index} className="hover:bg-gray-50">
+                      <td className="py-3 px-4 w-12 text-gray-500 tabular-nums">{index + 1}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-gray-900">{cat.categoryName}</div>
+                        {cat.categoryDescription ? (
+                          <div className="text-xs text-gray-500 line-clamp-1">{cat.categoryDescription}</div>
+                        ) : null}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(cat)}
+                            className="inline-flex items-center rounded-lg bg-white text-blue-700 px-3 py-1.5 text-xs font-medium ring-1 ring-blue-200 hover:bg-blue-50"
+                            title="Edit"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center rounded-lg bg-white text-red-700 px-3 py-1.5 text-xs font-medium ring-1 ring-red-200 hover:bg-red-50"
+                            // onClick={() => handleDelete(cat)} // hook up when ready
+                            title="Delete"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+                <div className="mt-8">
+  <h2 className="text-xl font-semibold text-gray-900 mb-4">Manage Bundles</h2>
+  <BundlesPage />  {/* This renders the BundlesPage component */}
+</div>
       </div>
     </div>
-  </div>
-</div>
   );
 };
 
