@@ -38,7 +38,7 @@ export const getStats = async (req, res) => {
         },
       }),
 
-      // Optional: also compute these if you want to show them
+      
       Product.countDocuments({ stock: { $lte: 0 } }),
       Product.countDocuments({ stock: { $gt: 0 } }),
     ]);

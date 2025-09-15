@@ -47,7 +47,7 @@ export default function AdminKpi() {
   const [err, setErr] = useState("");
   const [rankBy, setRankBy] = useState("units"); // "units" | "revenue"
 
-  /* ✅ NEW: local state for low/out-of-stock lists */
+  /* local state for low/out-of-stock lists */
   const [lowStockItems, setLowStockItems] = useState([]);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
 
@@ -177,7 +177,7 @@ export default function AdminKpi() {
     [salesByCategory]
   );
 
-  // ----- single-hue palette (green) -----
+  // Colorway for Categories
   const makeShades = (count, { h = 120, s = 60, lMin = 35, lMax = 70 } = {}) => {
     if (count <= 0) return [];
     if (count === 1) return [`hsl(${h} ${s}% ${(lMin + lMax) / 2}%)`];

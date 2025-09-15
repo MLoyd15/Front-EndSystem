@@ -26,7 +26,6 @@ export const create = async (req, res) => {
       return res.status(400).json({ success: false, message: "One or more products do not exist." });
     }
 
-    // If you prefer computed pricing, uncomment:
     // price = await computeBundlePrice(products);
 
     const bundle = await Bundle.create({ name, description, price, products, isActive });

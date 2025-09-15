@@ -22,7 +22,7 @@ export async function reserveBundle(bundleId, amount = 1) {
       if (!p || p.stock < need) throw new Error("Insufficient stock for child product");
     }
 
-    // Deduct stock and update sold count
+    // Deduct stock if the product on the bundle is sold and update sold count 
     for (const item of bundle.products) {
       const need = (item.quantity ?? 1) * amount;
       await Product.updateOne(

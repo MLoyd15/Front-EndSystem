@@ -7,9 +7,9 @@ export const tiers = [
 ];
 
 export const earningRules = {
-  perDollar: 1, // ✅ 1 point per $1 spent
+  perPeso: 1, //  1 point per $1 spent
   bonusCategories: {
-    "Fertilizer": 2 // ✅ double points on Fertilizer products
+    "Fertilizer": 2 // double points on Fertilizer products
   }
 };
 

@@ -228,11 +228,11 @@ const Categories = () => {
             )}
           </div>
         </div>
-                <div className="mt-8">
-  <h2 className="text-xl font-semibold text-gray-900 mb-4">Manage Bundles</h2>
-  <BundlesPage />  {/* This renders the BundlesPage component */}
+                <div className="col-span-1 lg:col-span-2 mt-8 w-full">
+    <h2 className="text-xl font-semibold text-gray-900 mb-4"></h2>
+    <BundlesPage />
+  </div>
 </div>
-      </div>
     </div>
   );
 };

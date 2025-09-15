@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
     address: {type: String},
     role: {type: String, enum:["admin"]},
 
-     // ✅ Loyalty fields
+     // Loyalty fields
     loyaltyPoints: { type: Number, default: 0 },
     loyaltyTier: { type: String, enum: ["Sprout", "Seedling", "Cultivator", "Bloom", "Harvester"], default: "Sprout" },
     loyaltyHistory: [

@@ -36,11 +36,11 @@ export default function ProductsPage() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [minStock, setMinStock] = useState(""); // optional threshold
-  const [weightKg, setWeightKg] = useState(""); // optional weight
+  const [minStock, setMinStock] = useState(""); 
+  const [weightKg, setWeightKg] = useState(""); 
   const [catForForm, setCatForForm] = useState("");
   const [catalog, setCatalog] = useState(true);
-  const [imageUrlsText, setImageUrlsText] = useState(""); // URLs instead of files
+  const [imageUrlsText, setImageUrlsText] = useState(""); 
 
   // stock-only modal (Restock / Add Stock)
   const [showStockModal, setShowStockModal] = useState(false);
