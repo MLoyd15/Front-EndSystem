@@ -8,11 +8,11 @@ const Sidebar = () => {
         { name:"Dashboard", path: "/admin-dashboard", icon:<FaHome />, isParent: true },
         { name:"Categories", path: "/admin-dashboard/categories", icon:<FaTable />, isParent: false },
         { name:"Products", path: "/admin-dashboard/products", icon:<FaBox />, isParent: false },
-        { name:"Suppliers", path: "/admin-dashboard/suppliers", icon:<FaTruck />, isParent: false },
-        { name:"Inventory", path: "/admin-dashboard/inventory", icon:<FaBoxes/>, isParent: false },  
+        { name:"Delivery", path: "/admin-dashboard/delivery", icon:<FaTruck />, isParent: false },
+        
         { name:"review", path: "/admin-dashboard/review", icon:<FaStar />, isParent: false },  
         { name:"Users", path: "/admin-dashboard/users", icon:<FaUsers />, isParent: false },  
-        { name:"Profile", path: "/admin-dashboard/profile", icon:<FaCog />, isParent: false },  
+        
         { name:"Logout", path: "/admin-dashboard/logout", icon:<FaSignOutAlt />, isParent: false },
                  
         

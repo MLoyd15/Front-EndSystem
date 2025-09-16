@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import InventoryAudit from "./InventoryAudit";
-import KpiCard from "../components/kpicard"
+import KpiCard from "../components/kpicard";
 
 const API = "http://localhost:5000/api";
 const authHeader = () => ({
@@ -15,7 +15,7 @@ const toUrlArray = (text) =>
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter(Boolean);
-  
+
 export default function ProductsPage() {
   // list & filters
   const [items, setItems] = useState([]);
@@ -36,11 +36,15 @@ export default function ProductsPage() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [minStock, setMinStock] = useState(""); 
-  const [weightKg, setWeightKg] = useState(""); 
+  const [minStock, setMinStock] = useState("");
+  const [weightKg, setWeightKg] = useState("");
   const [catForForm, setCatForForm] = useState("");
   const [catalog, setCatalog] = useState(true);
-  const [imageUrlsText, setImageUrlsText] = useState(""); 
+  const [imageUrlsText, setImageUrlsText] = useState("");
+
+  // NEW: choose between URLs and local file upload
+  const [imageMode, setImageMode] = useState("urls"); // "urls" | "upload"
+  const [localFiles, setLocalFiles] = useState([]);   // File[]
 
   // stock-only modal (Restock / Add Stock)
   const [showStockModal, setShowStockModal] = useState(false);
@@ -57,6 +61,8 @@ export default function ProductsPage() {
     setCatForForm("");
     setCatalog(true);
     setImageUrlsText("");
+    setImageMode("urls"); // reset new image controls
+    setLocalFiles([]);    // reset new image controls
   };
 
   const query = useMemo(() => {
@@ -125,22 +131,34 @@ export default function ProductsPage() {
     }
   };
 
-  // add / edit submit
+  // add / edit submit (supports upload or URLs)
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // If using upload mode, upload files first (expects /api/products/upload -> { urls: [...] })
+      let uploadedUrls = [];
+      if (imageMode === "upload" && localFiles.length > 0) {
+        const fd = new FormData();
+        for (const f of localFiles) fd.append("images", f);
+        const up = await axios.post(`${API}/products/upload`, fd, {
+          headers: { ...authHeader(), "Content-Type": "multipart/form-data" },
+        });
+        uploadedUrls = up.data?.urls || [];
+      }
+
+      // Combine pasted URLs + uploaded URLs
+      const images = [...toUrlArray(imageUrlsText), ...uploadedUrls];
+
       const payload = {
         name,
         price: Number(price),
         stock: Number(stock || 0),
-        // these two are optional; if your backend doesn’t have them yet,
-        // they’ll simply be ignored by the controller
+        // optional extras
         minStock: minStock === "" ? 0 : Number(minStock),
         weightKg: weightKg === "" ? null : Number(weightKg),
-
         category: catForForm,
         catalog: !!catalog,
-        images: toUrlArray(imageUrlsText),
+        images,
       };
 
       if (editId) {
@@ -174,6 +192,8 @@ export default function ProductsPage() {
     setCatForForm(p.category?._id || "");
     setCatalog(!!p.catalog);
     setImageUrlsText((p.images || []).join(", "));
+    setImageMode("urls");
+    setLocalFiles([]);
     setShowAdd(true);
   };
 
@@ -248,26 +268,10 @@ export default function ProductsPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <KpiCard
-          title="Total Items"
-          value={total}
-          color="bg-green-500"
-        />
-        <KpiCard
-          title="In Stock"
-          value={items.filter((i) => (i.stock ?? 0) > 0).length}
-          color="bg-green-500"
-        />
-        <KpiCard
-          title="Low Stock"
-          value={kpiLow}
-          color="bg-amber-500"
-        />
-        <KpiCard
-          title="Out of Stock"
-          value={kpiOut}
-          color="bg-red-500"
-        />
+        <KpiCard title="Total Items" value={total} color="bg-green-500" />
+        <KpiCard title="In Stock" value={items.filter((i) => (i.stock ?? 0) > 0).length} color="bg-green-500" />
+        <KpiCard title="Low Stock" value={kpiLow} color="bg-amber-500" />
+        <KpiCard title="Out of Stock" value={kpiOut} color="bg-red-500" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -573,30 +577,80 @@ export default function ProductsPage() {
                 <span>Show in catalog</span>
               </label>
 
-              {/* URLs instead of files */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Image URLs (optional)
-                </label>
-                <textarea
-                  rows={3}
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="https://example.com/a.jpg, https://example.com/b.png"
-                  value={imageUrlsText}
-                  onChange={(e) => setImageUrlsText(e.target.value)}
-                />
-                {toUrlArray(imageUrlsText).length > 0 && (
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    {toUrlArray(imageUrlsText).slice(0, 6).map((u, i) => (
-                      <img
-                        key={i}
-                        alt=""
-                        className="w-14 h-14 object-cover rounded"
-                        src={u}
-                        onError={(e) => (e.currentTarget.style.opacity = 0.2)}
-                      />
-                    ))}
-                  </div>
+              {/* -------- IMAGES AREA (URLs or Upload) -------- */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="imageMode"
+                      value="urls"
+                      checked={imageMode === "urls"}
+                      onChange={() => setImageMode("urls")}
+                    />
+                    Use image URLs
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="imageMode"
+                      value="upload"
+                      checked={imageMode === "upload"}
+                      onChange={() => setImageMode("upload")}
+                    />
+                    Upload images
+                  </label>
+                </div>
+
+                {imageMode === "urls" ? (
+                  <>
+                    <label className="block text-sm font-medium mb-1">Image URLs (optional)</label>
+                    <textarea
+                      rows={3}
+                      className="w-full border rounded-lg px-3 py-2"
+                      placeholder="https://example.com/a.jpg, https://example.com/b.png"
+                      value={imageUrlsText}
+                      onChange={(e) => setImageUrlsText(e.target.value)}
+                    />
+                    {toUrlArray(imageUrlsText).length > 0 && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {toUrlArray(imageUrlsText).slice(0, 6).map((u, i) => (
+                          <img
+                            key={i}
+                            alt=""
+                            className="w-14 h-14 object-cover rounded"
+                            src={u}
+                            onError={(e) => (e.currentTarget.style.opacity = 0.2)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-sm font-medium mb-1">
+                      Upload images (up to 6, max 5MB each)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      multiple
+                      onChange={(e) => setLocalFiles(Array.from(e.target.files || []))}
+                      className="block w-full border rounded-lg px-3 py-2"
+                    />
+                    {localFiles.length > 0 && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {localFiles.slice(0, 6).map((f, i) => (
+                          <img
+                            key={i}
+                            alt=""
+                            className="w-14 h-14 object-cover rounded"
+                            src={URL.createObjectURL(f)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -680,10 +734,8 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
-     
-        <InventoryAudit/>
 
-      
+      <InventoryAudit />
     </div>
   );
 }

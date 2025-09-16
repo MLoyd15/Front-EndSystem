@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// For Images 
 const isHttpUrl = (u) => {
   try { const x = new URL(u); return x.protocol === "http:" || x.protocol === "https:"; }
   catch { return false; }

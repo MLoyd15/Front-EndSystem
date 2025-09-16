@@ -1,31 +1,32 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import BundlesPage from "./BundlesPage"; // Import the BundlesPage component
+
 const Categories = () => {
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editCategory, setEditCategory ] = useState(null)
+  const [editCategory, setEditCategory] = useState(null);
 
   const fetchCategories = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get("http://localhost:5000/api/category", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
-          },
-        });
-        console.log(response.data.categories);
-        setCategories(response.data.categories);
-      } catch (error) {
-        console.error("Error in fetching categories", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    try {
+      const response = await axios.get("http://localhost:5000/api/category", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+        },
+      });
+      console.log(response.data.categories);
+      setCategories(response.data.categories);
+    } catch (error) {
+      console.error("Error in fetching categories", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchCategories();
   }, []);
 
@@ -43,16 +44,13 @@ const Categories = () => {
       );
 
       if (response.data.success) {
-        setEditCategory(null)
+        setEditCategory(null);
         alert("Category edited successfully!");
-        fetchCategories()
-       
+        fetchCategories();
       } else {
         alert("Error editing category. Please try again.");
-    }
-  } else {
-
-    
+      }
+    } else {
       const response = await axios.post(
         "http://localhost:5000/api/category/add",
         { categoryName, categoryDescription },
@@ -67,7 +65,7 @@ const Categories = () => {
         alert("Category added successfully!");
         setCategoryName("");
         setCategoryDescription("");
-
+        fetchCategories();
         // Refresh list after adding
         setCategories((prev) => [
           ...prev,
@@ -76,25 +74,52 @@ const Categories = () => {
       } else {
         alert("Error adding category. Please try again.");
       }
-  }
+    }
   };
+
   const handleEdit = async (cat) => {
-    setEditCategory(cat._id)
-    setCategoryName(cat.categoryName)
-    setCategoryDescription(cat.categoryDescription)
-    
-  }
+    setEditCategory(cat._id);
+    setCategoryName(cat.categoryName);
+    setCategoryDescription(cat.categoryDescription);
+  };
 
   const handleCancel = async () => {
     setEditCategory(null);
-    setCategoryName("")
-    setCategoryDescription("")
-  }
+    setCategoryName("");
+    setCategoryDescription("");
+  };
 
+  // NEW: delete handler
+  const handleDelete = async (id) => {
+  const confirmDelete = window.confirm("Are you sure you want to delete this category?");
+  if (confirmDelete) {
+    try {
+      const response = await axios.delete(
+        `http://localhost:5000/api/category/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        alert("Category deleted successfully!");
+        fetchCategories(); // Refresh categories list after deletion
+      } else {
+        console.error("Error deleting category:", response.data);
+        alert("Error deleting category. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      alert("Error deleting category. Please try again.");
+    }
+  }
+};
 
   if (loading) return <div>Loading...</div>;
   return (
-      <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gray-50 min-h-screen">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Category Management</h1>
@@ -214,7 +239,7 @@ const Categories = () => {
                           <button
                             type="button"
                             className="inline-flex items-center rounded-lg bg-white text-red-700 px-3 py-1.5 text-xs font-medium ring-1 ring-red-200 hover:bg-red-50"
-                            // onClick={() => handleDelete(cat)} // hook up when ready
+                            onClick={() => handleDelete(cat._id)}  // ← hooked up
                             title="Delete"
                           >
                             Delete
@@ -228,11 +253,12 @@ const Categories = () => {
             )}
           </div>
         </div>
-                <div className="col-span-1 lg:col-span-2 mt-8 w-full">
-    <h2 className="text-xl font-semibold text-gray-900 mb-4"></h2>
-    <BundlesPage />
-  </div>
-</div>
+
+        <div className="col-span-1 lg:col-span-2 mt-8 w-full">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4"></h2>
+          <BundlesPage />
+        </div>
+      </div>
     </div>
   );
 };

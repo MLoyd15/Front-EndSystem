@@ -7,6 +7,7 @@ import Dashboard from './pages/dashboard'
 import Categories from './components/categories'
 import AdminKpi from './components/adminkpi'
 import ProductsPage from './components/ProductsPage'
+import Deliveries from './components/Deliveries';
 
 function App() {
 
@@ -32,8 +33,8 @@ function App() {
             element={<ProductsPage />}
           />
           <Route
-            path='suppliers'
-            element={<h1>suppliers</h1>}
+            path='delivery'
+            element={<Deliveries />}
           />
           <Route
             path='inventory'

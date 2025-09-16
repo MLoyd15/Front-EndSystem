@@ -1,18 +1,18 @@
 import express from "express";
 import * as ctrl from "../controlers/bundleController.js";
-import auth from "../middleware/authMiddleware.js";
+import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Create
-router.post("/", auth, ctrl.create);
+router.post("/", authMiddleware, ctrl.create);
 // List (with optional search/active toggle)
-router.get("/", auth, ctrl.list);
+router.get("/", authMiddleware, ctrl.list);
 // Get one
-router.get("/:id", auth, ctrl.getOne);
+router.get("/:id", authMiddleware, ctrl.getOne);
 // Update
-router.put("/:id", auth, ctrl.update);
+router.put("/:id", authMiddleware, ctrl.update);
 // Delete
-router.delete("/:id", auth, ctrl.remove);
+router.delete("/:id", authMiddleware, ctrl.remove);
 
 export default router;
