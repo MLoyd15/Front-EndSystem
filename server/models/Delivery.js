@@ -9,8 +9,8 @@ const deliverySchema = new mongoose.Schema(
     pickupLocation: String,           // for customer pickup
     scheduledDate: Date,              // when to pickup/deliver
     thirdPartyProvider: String,       // e.g., Lalamove/Grab
-    assignedVehicle: String,          // plate or vehicle id for in-house
-    assignedDriver: String            
+    assignedVehicle: { type: mongoose.Schema.Types.ObjectId, ref: "Vehicle" },
+    assignedDriver: { type: mongoose.Schema.Types.ObjectId, ref: "Driver" }
   },
   { timestamps: true }
 );

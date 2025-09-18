@@ -64,18 +64,19 @@ export default function AdminKpi() {
     };
 
     const fetchLoyalty = async () => {
-      try {
-        const { data } = await axios.get(`${API}/loyalty`, { headers });
-        setStats((prev) => ({
-          ...prev,
-          loyaltyPoints: data?.loyaltyPoints ?? 0,
-          loyaltyTier: data?.loyaltyTier ?? "Sprout",
-          loyaltyHistory: data?.history ?? prev.loyaltyHistory,
-        }));
-      } catch {
-        /* non-blocking */
-      }
-    };
+        try {
+          const { data } = await axios.get(`${API}/loyalty`, { headers });
+          console.log("LOYALTY API RESPONSE:", data);   // 👀 check this
+          setStats((prev) => ({
+            ...prev,
+            loyaltyPoints: data?.loyaltyPoints ?? 0,
+            loyaltyTier: data?.loyaltyTier ?? "Sprout",
+            loyaltyHistory: Array.isArray(data?.loyaltyHistory) ? data.loyaltyHistory : prev.loyaltyHistory,
+          }));
+        } catch (e) {
+          console.error("Loyalty fetch error:", e);
+        }
+      };
 
     const fetchOrders = async () => {
       try {

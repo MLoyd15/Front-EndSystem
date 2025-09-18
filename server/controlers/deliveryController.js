@@ -1,52 +1,103 @@
+import mongoose from "mongoose";
 import Delivery from "../models/Delivery.js";
+import Driver from "../models/Driver.js";
+import Vehicle from "../models/Vehicle.js";
 
-// List deliveries
+// -------------------- List deliveries --------------------
 export async function listDeliveries(req, res) {
   try {
     const { type, status, q: search } = req.query;
     const q = {};
+    if (type) q.type = type;
 
-    if (type) {
-      q.type = type; 
-    }
+    if (status) q.status = new RegExp(`^${String(status).replace(/-/g, " ")}$`, "i");
 
-    if (status) {
-      q.status = new RegExp(`^${String(status).replace(/-/g, " ")}$`, "i");
-    }
-
-    // Text search across common delivery fields
     if (search) {
-      q.$or = [
-        { deliveryAddress: new RegExp(search, "i") },
-        { pickupLocation: new RegExp(search, "i") },
-      ];
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"); // escape user input
+      q.$or = [{ deliveryAddress: rx }, { pickupLocation: rx }];
     }
 
     const deliveries = await Delivery.find(q)
       .populate({
         path: "order",
         select: "status totalAmount createdAt products",
-        populate: { path: "products.product", select: "name price" }
+        populate: { path: "products.product", select: "name price" },
       })
+      .populate("assignedDriver", "name phone")
+      .populate("assignedVehicle", "plate capacityKg")
       .lean();
 
     res.json({ success: true, deliveries });
-  } catch (e) {
+  } catch {
     res.status(500).json({ success: false, message: "Fetch failed" });
   }
 }
 
-// update only allowed fields for pickups/3rd-party
+// -------------------- Update (pickup / 3rd-party only) --------------------
 export async function updateDelivery(req, res) {
   try {
     const allowed = ["status", "scheduledDate", "pickupLocation", "thirdPartyProvider"];
     const updates = {};
     for (const k of allowed) if (k in req.body) updates[k] = req.body[k];
 
-    const updated = await Delivery.findByIdAndUpdate(req.params.id, updates, { new: true });
+    const updated = await Delivery.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
     if (!updated) return res.status(404).json({ success: false, message: "Not found" });
     res.json({ success: true, delivery: updated });
   } catch (e) {
     res.status(400).json({ success: false, message: "Update failed", error: e.message });
+  }
+}
+
+// -------------------- Drivers + Vehicles --------------------
+export async function getResources(req, res) {
+  try {
+    const drivers = await Driver.find({ active: true }).select("name phone").sort({ name: 1 });
+    const vehicles = await Vehicle.find({ active: true }).select("plate capacityKg").sort({ plate: 1 });
+    res.json({ success: true, drivers, vehicles });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to fetch resources" });
+  }
+}
+
+// -------------------- Assign driver + vehicle --------------------
+export async function assignDriverVehicle(req, res) {
+  try {
+    const { id } = req.params;
+    const { driverId, vehicleId, status } = req.body; // status optional
+
+    // optional: quick ObjectId validation to avoid CastError noise
+    const isId = (v) => mongoose.Types.ObjectId.isValid(v);
+    if (!isId(id) || !isId(driverId) || !isId(vehicleId)) {
+      return res.status(400).json({ success: false, message: "Invalid id" });
+    }
+
+    const [driver, vehicle] = await Promise.all([
+      Driver.findById(driverId).select("_id"),
+      Vehicle.findById(vehicleId).select("_id"),
+    ]);
+    if (!driver || !vehicle) {
+      return res.status(400).json({ success: false, message: "Invalid driver or vehicle" });
+    }
+
+    const update = {
+      assignedDriver: driver._id,
+      assignedVehicle: vehicle._id,
+    };
+    // keep current status unless client explicitly sends one
+    if (status) update.status = status;
+
+    const delivery = await Delivery.findByIdAndUpdate(id, update, { new: true })
+      .populate("assignedDriver", "name phone")
+      .populate("assignedVehicle", "plate capacityKg");
+
+    if (!delivery) return res.status(404).json({ success: false, message: "Delivery not found" });
+
+    res.json({ success: true, delivery });
+  } catch (e) {
+    res.status(400).json({ success: false, message: "Assign failed", error: e.message });
   }
 }

@@ -23,6 +23,10 @@ export default function SalesChart() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
+  // ▼ NEW: day vs month
+  const [groupBy, setGroupBy] = useState("day"); // "day" | "month"
+
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
 
@@ -43,23 +47,43 @@ export default function SalesChart() {
     })();
   }, []);
 
-    useEffect(() => {
-      const grouped = orders.reduce((acc, order) => {
-        // Skip orders with status 'pending'
-        if (order?.status === 'Pending') return acc;
+  // ▼ helper: return grouping key per order createdAt
+  const getKey = (isoDate) => {
+    const d = new Date(isoDate);
+    if (Number.isNaN(d.getTime())) return null;
+    if (groupBy === "day") {
+      // YYYY-MM-DD
+      return d.toLocaleDateString("en-CA");
+    }
+    // month key: YYYY-MM
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  };
 
-        const key = new Date(order.createdAt).toLocaleDateString("en-CA");
-        if (!acc[key]) acc[key] = { revenue: 0, units: 0 };
-        acc[key].revenue += Number(order.totalAmount || 0);
-        for (const p of order.products || []) acc[key].units += Number(p?.quantity || 0);
-        return acc;
-      }, {});
-      const rows = Object.keys(grouped).sort().map((date) => ({ date, ...grouped[date] }));
-      setData(rows);
-    }, [orders]);
+  useEffect(() => {
+    const grouped = orders.reduce((acc, order) => {
+      // Skip 'Pending' orders
+      if (order?.status === "Pending") return acc;
+
+      const key = getKey(order?.createdAt);
+      if (!key) return acc;
+
+      if (!acc[key]) acc[key] = { revenue: 0, units: 0 };
+      acc[key].revenue += Number(order.totalAmount || 0);
+      for (const p of order.products || []) acc[key].units += Number(p?.quantity || 0);
+      return acc;
+    }, {});
+
+    const rows = Object.keys(grouped)
+      .sort()
+      .map((key) => ({ date: key, ...grouped[key] })); // date holds either YYYY-MM-DD or YYYY-MM
+    setData(rows);
+  }, [orders, groupBy]);
 
   const { maxRevenue, maxUnits } = useMemo(() => {
-    let mr = 0, mu = 0;
+    let mr = 0,
+      mu = 0;
     for (const d of data) {
       if (d.revenue > mr) mr = d.revenue;
       if (d.units > mu) mu = d.units;
@@ -73,12 +97,20 @@ export default function SalesChart() {
       maximumFractionDigits: 2,
     })}`;
 
+  // ▼ format YYYY-MM or YYYY-MM-DD for axis/tooltip labels
+  const fmtLabel = (key) => {
+    if (groupBy === "day") return key; // already YYYY-MM-DD
+    // month: parse YYYY-MM-01 and show "Sep 2025"
+    const d = new Date(`${key}-01T00:00:00`);
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  };
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     const byKey = Object.fromEntries(payload.map((p) => [p.dataKey, p]));
     return (
       <div className="rounded-xl border border-gray-200 bg-white/95 shadow-xl backdrop-blur p-3 min-w-[220px]">
-        <p className="text-xs text-gray-500 mb-2">{label}</p>
+        <p className="text-xs text-gray-500 mb-2">{fmtLabel(label)}</p>
         {showRevenue && byKey.revenue && (
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2">
@@ -105,28 +137,42 @@ export default function SalesChart() {
 
   return (
     <div>
-      {/* ▼ controls (the buttons you were missing) */}
-      <div className="mb-2 flex items-center justify-end gap-2">
-        <button
-          className={`px-3 py-1.5 rounded-lg text-sm border ${
-            showRevenue
-              ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-              : "bg-white border-gray-200 text-gray-600"
-          }`}
-          onClick={() => setShowRevenue((v) => !v)}
-        >
-          {showRevenue ? "Hide Revenue" : "Show Revenue"}
-        </button>
-        <button
-          className={`px-3 py-1.5 rounded-lg text-sm border ${
-            showUnits
-              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-              : "bg-white border-gray-200 text-gray-600"
-          }`}
-          onClick={() => setShowUnits((v) => !v)}
-        >
-          {showUnits ? "Hide Units" : "Show Units"}
-        </button>
+      {/* ▼ controls */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600">Group by</label>
+          <select
+            className="px-2 py-1.5 rounded-lg border border-gray-200 text-sm"
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value)}
+          >
+            <option value="day">Day</option>
+            <option value="month">Month</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            className={`px-3 py-1.5 rounded-lg text-sm border ${
+              showRevenue
+                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : "bg-white border-gray-200 text-gray-600"
+            }`}
+            onClick={() => setShowRevenue((v) => !v)}
+          >
+            {showRevenue ? "Hide Revenue" : "Show Revenue"}
+          </button>
+          <button
+            className={`px-3 py-1.5 rounded-lg text-sm border ${
+              showUnits
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-white border-gray-200 text-gray-600"
+            }`}
+            onClick={() => setShowUnits((v) => !v)}
+          >
+            {showUnits ? "Hide Units" : "Show Units"}
+          </button>
+        </div>
       </div>
 
       <div className="h-[420px]">
@@ -138,7 +184,12 @@ export default function SalesChart() {
             <LineChart data={data} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
 
-              <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
+              <XAxis
+                dataKey="date"
+                stroke="#6b7280"
+                tick={{ fontSize: 12 }}
+                tickFormatter={fmtLabel}
+              />
               <YAxis
                 yAxisId="left"
                 stroke="#6b7280"

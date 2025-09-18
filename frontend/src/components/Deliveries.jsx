@@ -6,11 +6,11 @@ import {
   Phone, ChevronRight, X, CheckCircle2
 } from "lucide-react";
 
-/* ----------------------------- CONFIG ----------------------------- */
+/* Api */
 const API = "http://localhost:5000/api/delivery";
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
-/* ---------------------------- HELPERS ----------------------------- */
+/* For color */
 const chip = (color, text) => {
   const colors = {
     green: "bg-emerald-100 text-emerald-700 ring-emerald-200",
@@ -38,9 +38,12 @@ const last6 = (id = "") => `#${String(id).slice(-6)}`;
 const currency = (n) =>
   new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(n || 0));
 
-/* --------------------------- COMPONENT ---------------------------- */
+// for Assigned Driver and Vehicle
+const driverLabel = (row) => row?.assignedDriver?.name || row?.assignedDriver || "";
+const vehicleLabel = (row) => row?.assignedVehicle?.plate || row?.assignedVehicle || "";
+
 export default function Deliveries() {
-  const [tab, setTab] = useState("pickup");     // 'pickup' | 'in-house' | 'third-party'
+  const [tab, setTab] = useState("pickup");     
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState([]);
@@ -48,7 +51,6 @@ export default function Deliveries() {
   const [drawer, setDrawer] = useState(null);
   const [editing, setEditing] = useState(null);
 
-  // Load deliveries (server filters only for status/search)
   const load = async () => {
     setLoading(true);
     try {
@@ -66,7 +68,6 @@ export default function Deliveries() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab, status]);
 
-  // Client-side type filter by tab, then local search
   const filtered = useMemo(() => {
     const typeKey = String(tab).toLowerCase();
     const byTab = rows.filter(r => String(r.type || "").toLowerCase() === typeKey);
@@ -75,12 +76,12 @@ export default function Deliveries() {
 
     const q = query.toLowerCase();
     return byTab.filter((r) => {
-      const addr = (r.deliveryAddress || "").toLowerCase();
-      const pick = (r.pickupLocation || "").toLowerCase();
-      const prov = (r.thirdPartyProvider || "").toLowerCase();
-      const drv = (r.assignedDriver || "").toLowerCase();
-      const veh = (r.assignedVehicle || "").toLowerCase();
-      const id = String(r._id || "").toLowerCase();
+      const addr = String(r.deliveryAddress || "").toLowerCase();
+      const pick = String(r.pickupLocation || "").toLowerCase();
+      const prov = String(r.thirdPartyProvider || "").toLowerCase();
+      const drv = String(driverLabel(r)).toLowerCase(); 
+      const veh = String(vehicleLabel(r)).toLowerCase();  
+      const id  = String(r._id || "").toLowerCase();
       return [addr, pick, prov, drv, veh, id].some((t) => t.includes(q));
     });
   }, [rows, query, tab]);
@@ -116,17 +117,22 @@ export default function Deliveries() {
     load();
   };
 
-  /* ------------------------------ UI ------------------------------ */
+  // (driver + vehicle)
+  const onSaveInHouse = async (id, { driverId, vehicleId }) => {
+    await axios.put(`${API}/${id}/assign`, { driverId, vehicleId }, { headers: auth() });
+    setEditing(null);
+    load();
+  };
+
+  /* UI */
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <div className="relative max-w-7xl mx-auto px-6 pt-10 pb-8">
-        {/* Title */}
         <div className="flex items-center gap-3 mb-4">
           <Package className="w-5 h-5 text-emerald-600" />
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Delivery Management</h1>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-6">
           {[
             { key: "pickup", label: "Pickup", Icon: Package },
@@ -149,7 +155,6 @@ export default function Deliveries() {
           })}
         </div>
 
-        {/* Heading + Search Row */}
         <div className="flex flex-col gap-4 items-start">
           <h2 className={`px-4 py-2 rounded-lg text-lg font-semibold text-white ${tabColors[tab]}`}>
             {headerTitle}
@@ -190,10 +195,8 @@ export default function Deliveries() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-6 -mt-2 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: list */}
           <div className="lg:col-span-2">
             <div className="rounded-3xl bg-white text-slate-900 shadow-xl ring-1 ring-slate-100 p-4">
               {loading ? (
@@ -211,21 +214,18 @@ export default function Deliveries() {
                         className="p-4 rounded-2xl ring-1 ring-slate-200 bg-white hover:shadow-lg transition"
                       >
                         <div className="flex flex-wrap items-center gap-3">
-                          {/* id + status */}
                           <div className="flex items-center gap-2 min-w-[8rem]">
                             <span className="font-semibold text-slate-800">{last6(d._id)}</span>
                             {statusPill(d.status)}
                           </div>
 
-                          {/* compact info */}
                           <div className="flex items-center gap-2 text-slate-600 min-w-[13rem]">
                             <User className="w-4 h-4" />
                             <span className="truncate">
-                              {d.thirdPartyProvider || d.assignedDriver || "—"}
+                              {d.thirdPartyProvider || driverLabel(d) || "—"}
                             </span>
                           </div>
 
-                          {/* address/pickup */}
                           <div className="flex items-center gap-2 text-slate-600 min-w-[14rem]">
                             <MapPin className="w-4 h-4" />
                             <span className="truncate">
@@ -235,23 +235,18 @@ export default function Deliveries() {
                             </span>
                           </div>
 
-                          {/* schedule */}
                           <div className="flex items-center gap-2 text-slate-600">
                             <Clock className="w-4 h-4" />
                             <span>{fmtDateTime(d.scheduledDate)}</span>
                           </div>
 
-                          {/* weight placeholder */}
                           <div className="flex items-center gap-2 text-slate-600">
                             <Weight className="w-4 h-4" />
                             <span>0 kg</span>
                           </div>
-
-                          {/* actions */}
+                          
                           <div className="ml-auto flex items-center gap-2">
-                            {d.assignedDriver || d.assignedVehicle
-                              ? chip("sky", "Assigned")
-                              : chip("gray", "Unassigned")}
+                            {statusPill(d.status)}
 
                             <button
                               onClick={() => setDrawer(d)}
@@ -276,7 +271,6 @@ export default function Deliveries() {
             </div>
           </div>
 
-          {/* Right: editor */}
           <div className="lg:col-span-1">
             <div
               className={`rounded-3xl shadow-xl ring-1 p-5 
@@ -308,6 +302,13 @@ export default function Deliveries() {
                   onSave={(v) => onSavePickup(editing._id, v)}
                   onQuickStatus={(st) => onQuickStatus(editing._id, st)}
                 />
+              ) : tab === "in-house" ? (
+                <InHouseEditor
+                  row={editing}
+                  onCancel={() => setEditing(null)}
+                  onAssign={(payload) => onSaveInHouse(editing._id, payload)}
+                  onQuickStatus={(st) => onQuickStatus(editing._id, st)}
+                />
               ) : (
                 <ThirdPartyEditor
                   row={editing}
@@ -321,7 +322,6 @@ export default function Deliveries() {
         </div>
       </div>
 
-      {/* Drawer: delivery details */}
       <AnimatePresence>
         {drawer && (
           <motion.div
@@ -370,12 +370,12 @@ export default function Deliveries() {
 
                 <div className="flex items-center gap-2 text-slate-700">
                   <span className="font-medium">Driver:</span>
-                  <div>{drawer.assignedDriver || "—"}</div>
+                  <div>{driverLabel(drawer) || "—"}</div>
                 </div>
 
                 <div className="flex items-center gap-2 text-slate-700">
                   <span className="font-medium">Vehicle:</span>
-                  <div>{drawer.assignedVehicle || "—"}</div>
+                  <div>{vehicleLabel(drawer) || "—"}</div>
                 </div>
               </div>
             </motion.div>
@@ -386,7 +386,6 @@ export default function Deliveries() {
   );
 }
 
-/* ------------------------- RIGHT-PANE FORMS ------------------------- */
 function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
   const [scheduled, setScheduled] = useState(row?.scheduledDate ? new Date(row.scheduledDate).toISOString().slice(0, 16) : "");
   const [location, setLocation] = useState(row?.pickupLocation || "");
@@ -469,10 +468,162 @@ function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus }) {
   );
 }
 
+        // Ui of Vehicle and Design for in house    
+        function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
+          const [drivers, setDrivers] = useState([]);
+          const [vehicles, setVehicles] = useState([]);
+          const [driverId, setDriverId] = useState(row?.assignedDriver?._id || "");
+          const [vehicleId, setVehicleId] = useState(row?.assignedVehicle?._id || "");
+          const [loading, setLoading] = useState(true);
+          const [err, setErr] = useState("");
+          const [section, setSection] = useState("driver"); 
 
+          useEffect(() => {
+            let live = true;
+            (async () => {
+              try {
+                setLoading(true);
+                const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
+                if (!live) return;
+                setDrivers(data?.drivers || []);
+                setVehicles(data?.vehicles || []);
+              } catch {
+                setErr("Failed to load drivers/vehicles");
+              } finally {
+                setLoading(false);
+              }
+            })();
+            return () => { live = false; };
+          }, [row?._id]);
 
+          const save = async () => {
+            setErr("");
+            await onAssign({ driverId, vehicleId });
+          };
 
+          // pill-like segmented tabs
+          const Tabs = () => (
+            <div className="inline-flex rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
+              {[
+                { key: "driver", label: "Driver", Icon: User },
+                { key: "vehicle", label: "Vehicle", Icon: Bike },
+              ].map(({ key, label, Icon }) => {
+                const selected = section === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSection(key)}
+                    className={`px-3 py-2 text-sm inline-flex items-center gap-2 transition
+                      ${selected ? "bg-amber-500 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          );
 
+          const ChoiceItem = ({ active, onClick, leftIcon, title, rightNote }) => (
+            <button
+              type="button"
+              onClick={onClick}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ring-1 transition
+                ${active ? "bg-emerald-50 ring-emerald-300" : "bg-white ring-slate-200 hover:bg-slate-50"}`}
+            >
+              <span className="inline-flex items-center gap-3 text-slate-800">
+                {leftIcon}
+                <span className="font-medium">{title}</span>
+              </span>
+              {rightNote && <span className="text-xs text-slate-500">{rightNote}</span>}
+            </button>
+          );
 
+          return (
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-slate-500">Loading…</div>
+              ) : (
+                <>
+                  {/* Tabs */}
+                  <Tabs />
 
+                  {/* Driver or Vehicle list */}
+                  {section === "driver" ? (
+                    <div>
+                      <div className="text-sm font-medium text-slate-700 mb-2">Driver</div>
+                      <div className="space-y-2">
+                        {drivers.map((d) => (
+                          <ChoiceItem
+                            key={d._id}
+                            active={driverId === d._id}
+                            onClick={() => setDriverId(d._id)}
+                            leftIcon={<User className="w-4 h-4 text-emerald-600" />}
+                            title={d.name}
+                            rightNote={d.phone}
+                          />
+                        ))}
+                        {!drivers.length && (
+                          <div className="text-xs text-slate-500">No drivers found.</div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-sm font-medium text-slate-700 mb-2">Vehicle</div>
+                      <div className="space-y-2">
+                        {vehicles.map((v) => (
+                          <ChoiceItem
+                            key={v._id}
+                            active={vehicleId === v._id}
+                            onClick={() => setVehicleId(v._id)}
+                            leftIcon={<Bike className="w-4 h-4 text-emerald-600" />}
+                            title={v.plate}
+                            rightNote={`Capacity ${v.capacityKg?.toLocaleString() || 0} kg`}
+                          />
+                        ))}
+                        {!vehicles.length && (
+                          <div className="text-xs text-slate-500">No vehicles found.</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
+                  {err && <div className="text-sm text-red-600">{err}</div>}
+
+                  {/* Confirm / Cancel */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={save}
+                      disabled={!driverId || !vehicleId}
+                      className={`flex-1 px-4 py-2 rounded-xl text-white inline-flex items-center justify-center gap-2
+                        ${driverId && vehicleId ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed"}`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Confirm Assignment
+                    </button>
+                    <button onClick={onCancel} className="px-4 py-2 rounded-xl ring-1 ring-slate-200">
+                      Cancel
+                    </button>
+                  </div>
+
+                  {/* Quick status */}
+                  <div className="pt-2">
+                    <div className="text-xs text-slate-500 mb-2">Quick status</div>
+                    <div className="flex flex-wrap gap-2">
+                      {["pending", "assigned", "in-transit", "completed", "cancelled"].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => onQuickStatus(s)}
+                          className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        }
