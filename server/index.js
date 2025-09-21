@@ -9,6 +9,7 @@ import loyaltyRoutes from "./routes/loyalty.js";
 import productRoutes from "./routes/product.js"
 import bundlesRoutes from "./routes/bundles.js";
 import deliveryRoutes from "./routes/delivery.js";
+import promoRoutes from "./routes/promo.js";
 import path from "path";
 import fs from "fs";
 
@@ -33,6 +34,7 @@ app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/bundles", bundlesRoutes);
 app.use("/api/delivery", deliveryRoutes);
+app.use("/api/promo", promoRoutes);
 
 
 app.use("/uploads", express.static(uploadsPath));

@@ -3,14 +3,14 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Bike, Search, Filter, Clock, MapPin, User, Weight,
-  Phone, ChevronRight, X, CheckCircle2
+  ChevronRight, X, CheckCircle2
 } from "lucide-react";
 
-/* Api */
+/* ----------------------------- API ----------------------------- */
 const API = "http://localhost:5000/api/delivery";
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
-/* For color */
+/* ---------------------------- HELPERS -------------------------- */
 const chip = (color, text) => {
   const colors = {
     green: "bg-emerald-100 text-emerald-700 ring-emerald-200",
@@ -35,15 +35,22 @@ const statusPill = (status) => {
 
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString() : "—");
 const last6 = (id = "") => `#${String(id).slice(-6)}`;
-const currency = (n) =>
-  new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(n || 0));
 
-// for Assigned Driver and Vehicle
+// Assigned Driver / Vehicle display helpers
 const driverLabel = (row) => row?.assignedDriver?.name || row?.assignedDriver || "";
 const vehicleLabel = (row) => row?.assignedVehicle?.plate || row?.assignedVehicle || "";
 
+// NEW: vehicle pill helper (used on the right)
+const vehiclePill = (row) => {
+  const label = vehicleLabel(row);
+  return label ? chip("sky", label) : null;
+};
+
+// Only allow these 3 quick-status options (order: Completed, In transit, Cancelled)
+const QUICK_STATUSES = ["completed", "in-transit", "cancelled"];
+
 export default function Deliveries() {
-  const [tab, setTab] = useState("pickup");     
+  const [tab, setTab] = useState("in-house"); // default to In-house like in your screenshot
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState([]);
@@ -79,8 +86,8 @@ export default function Deliveries() {
       const addr = String(r.deliveryAddress || "").toLowerCase();
       const pick = String(r.pickupLocation || "").toLowerCase();
       const prov = String(r.thirdPartyProvider || "").toLowerCase();
-      const drv = String(driverLabel(r)).toLowerCase(); 
-      const veh = String(vehicleLabel(r)).toLowerCase();  
+      const drv = String(driverLabel(r)).toLowerCase();
+      const veh = String(vehicleLabel(r)).toLowerCase();
       const id  = String(r._id || "").toLowerCase();
       return [addr, pick, prov, drv, veh, id].some((t) => t.includes(q));
     });
@@ -98,6 +105,7 @@ export default function Deliveries() {
   };
 
   const onQuickStatus = async (id, st) => {
+    if (!QUICK_STATUSES.includes(st)) return;
     await axios.put(`${API}/${id}`, { status: st }, { headers: auth() });
     load();
   };
@@ -117,14 +125,12 @@ export default function Deliveries() {
     load();
   };
 
-  // (driver + vehicle)
   const onSaveInHouse = async (id, { driverId, vehicleId }) => {
     await axios.put(`${API}/${id}/assign`, { driverId, vehicleId }, { headers: auth() });
     setEditing(null);
     load();
   };
 
-  /* UI */
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <div className="relative max-w-7xl mx-auto px-6 pt-10 pb-8">
@@ -244,9 +250,10 @@ export default function Deliveries() {
                             <Weight className="w-4 h-4" />
                             <span>0 kg</span>
                           </div>
-                          
+
                           <div className="ml-auto flex items-center gap-2">
-                            {statusPill(d.status)}
+                            {/* RIGHT SIDE: show vehicle name/plate instead of duplicate status */}
+                            {vehiclePill(d)}
 
                             <button
                               onClick={() => setDrawer(d)}
@@ -278,12 +285,7 @@ export default function Deliveries() {
                 ${tab === "in-house" ? "bg-amber-50 ring-amber-200": ""}
                 ${tab === "third-party" ? "bg-sky-100 ring-sky-200" : ""}`}
             >
-              <h3
-                className={`font-semibold mb-4 flex items-center gap-2
-                  ${tab === "pickup" ? "text-black" : ""}
-                  ${tab === "in-house" ? "text-black" : ""}
-                  ${tab === "third-party" ? "text-black" : ""}`}
-              >
+              <h3 className="font-semibold mb-4 text-black">
                 {tab === "pickup"
                   ? "Pickup Scheduler"
                   : tab === "in-house"
@@ -386,6 +388,8 @@ export default function Deliveries() {
   );
 }
 
+/* --------------------------- Editors --------------------------- */
+
 function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
   const [scheduled, setScheduled] = useState(row?.scheduledDate ? new Date(row.scheduledDate).toISOString().slice(0, 16) : "");
   const [location, setLocation] = useState(row?.pickupLocation || "");
@@ -421,7 +425,7 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
       <div className="pt-3">
         <div className="text-xs text-slate-500 mb-2">Quick status</div>
         <div className="flex flex-wrap gap-2">
-          {["pending", "assigned", "in-transit", "completed", "cancelled"].map((s) => (
+          {QUICK_STATUSES.map((s) => (
             <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50">
               {s}
             </button>
@@ -457,7 +461,7 @@ function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus }) {
       <div className="pt-3">
         <div className="text-xs text-slate-500 mb-2">Quick status</div>
         <div className="flex flex-wrap gap-2">
-          {["pending", "assigned", "in-transit", "completed", "cancelled"].map((s) => (
+          {QUICK_STATUSES.map((s) => (
             <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50">
               {s}
             </button>
@@ -468,162 +472,157 @@ function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus }) {
   );
 }
 
-        // Ui of Vehicle and Design for in house    
-        function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
-          const [drivers, setDrivers] = useState([]);
-          const [vehicles, setVehicles] = useState([]);
-          const [driverId, setDriverId] = useState(row?.assignedDriver?._id || "");
-          const [vehicleId, setVehicleId] = useState(row?.assignedVehicle?._id || "");
-          const [loading, setLoading] = useState(true);
-          const [err, setErr] = useState("");
-          const [section, setSection] = useState("driver"); 
+function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [driverId, setDriverId] = useState(row?.assignedDriver?._id || "");
+  const [vehicleId, setVehicleId] = useState(row?.assignedVehicle?._id || "");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [section, setSection] = useState("driver");
 
-          useEffect(() => {
-            let live = true;
-            (async () => {
-              try {
-                setLoading(true);
-                const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
-                if (!live) return;
-                setDrivers(data?.drivers || []);
-                setVehicles(data?.vehicles || []);
-              } catch {
-                setErr("Failed to load drivers/vehicles");
-              } finally {
-                setLoading(false);
-              }
-            })();
-            return () => { live = false; };
-          }, [row?._id]);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
+        if (!live) return;
+        setDrivers(data?.drivers || []);
+        setVehicles(data?.vehicles || []);
+      } catch {
+        setErr("Failed to load drivers/vehicles");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => { live = false; };
+  }, [row?._id]);
 
-          const save = async () => {
-            setErr("");
-            await onAssign({ driverId, vehicleId });
-          };
+  const save = async () => {
+    setErr("");
+    await onAssign({ driverId, vehicleId });
+  };
 
-          // pill-like segmented tabs
-          const Tabs = () => (
-            <div className="inline-flex rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
-              {[
-                { key: "driver", label: "Driver", Icon: User },
-                { key: "vehicle", label: "Vehicle", Icon: Bike },
-              ].map(({ key, label, Icon }) => {
-                const selected = section === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setSection(key)}
-                    className={`px-3 py-2 text-sm inline-flex items-center gap-2 transition
-                      ${selected ? "bg-amber-500 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </button>
-                );
-              })}
+  const Tabs = () => (
+    <div className="inline-flex rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
+      {[
+        { key: "driver", label: "Driver", Icon: User },
+        { key: "vehicle", label: "Vehicle", Icon: Bike },
+      ].map(({ key, label, Icon }) => {
+        const selected = section === key;
+        return (
+          <button
+            key={key}
+            onClick={() => setSection(key)}
+            className={`px-3 py-2 text-sm inline-flex items-center gap-2 transition
+              ${selected ? "bg-amber-500 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const ChoiceItem = ({ active, onClick, leftIcon, title, rightNote }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ring-1 transition
+        ${active ? "bg-emerald-50 ring-emerald-300" : "bg-white ring-slate-200 hover:bg-slate-50"}`}
+    >
+      <span className="inline-flex items-center gap-3 text-slate-800">
+        {leftIcon}
+        <span className="font-medium">{title}</span>
+      </span>
+      {rightNote && <span className="text-xs text-slate-500">{rightNote}</span>}
+    </button>
+  );
+
+  return (
+    <div className="space-y-4">
+      {loading ? (
+        <div className="text-slate-500">Loading…</div>
+      ) : (
+        <>
+          <Tabs />
+
+          {section === "driver" ? (
+            <div>
+              <div className="text-sm font-medium text-slate-700 mb-2">Driver</div>
+              <div className="space-y-2">
+                {drivers.map((d) => (
+                  <ChoiceItem
+                    key={d._id}
+                    active={driverId === d._id}
+                    onClick={() => setDriverId(d._id)}
+                    leftIcon={<User className="w-4 h-4 text-emerald-600" />}
+                    title={d.name}
+                    rightNote={d.phone}
+                  />
+                ))}
+                {!drivers.length && (
+                  <div className="text-xs text-slate-500">No drivers found.</div>
+                )}
+              </div>
             </div>
-          );
+          ) : (
+            <div>
+              <div className="text-sm font-medium text-slate-700 mb-2">Vehicle</div>
+              <div className="space-y-2">
+                {vehicles.map((v) => (
+                  <ChoiceItem
+                    key={v._id}
+                    active={vehicleId === v._id}
+                    onClick={() => setVehicleId(v._id)}
+                    leftIcon={<Bike className="w-4 h-4 text-emerald-600" />}
+                    title={v.plate}
+                    rightNote={`Capacity ${v.capacityKg?.toLocaleString() || 0} kg`}
+                  />
+                ))}
+                {!vehicles.length && (
+                  <div className="text-xs text-slate-500">No vehicles found.</div>
+                )}
+              </div>
+            </div>
+          )}
 
-          const ChoiceItem = ({ active, onClick, leftIcon, title, rightNote }) => (
+          {err && <div className="text-sm text-red-600">{err}</div>}
+
+          <div className="flex gap-2">
             <button
-              type="button"
-              onClick={onClick}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ring-1 transition
-                ${active ? "bg-emerald-50 ring-emerald-300" : "bg-white ring-slate-200 hover:bg-slate-50"}`}
+              onClick={save}
+              disabled={!driverId || !vehicleId}
+              className={`flex-1 px-4 py-2 rounded-xl text-white inline-flex items-center justify-center gap-2
+                ${driverId && vehicleId ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed"}`}
             >
-              <span className="inline-flex items-center gap-3 text-slate-800">
-                {leftIcon}
-                <span className="font-medium">{title}</span>
-              </span>
-              {rightNote && <span className="text-xs text-slate-500">{rightNote}</span>}
+              <CheckCircle2 className="w-4 h-4" />
+              Confirm Assignment
             </button>
-          );
+            <button onClick={onCancel} className="px-4 py-2 rounded-xl ring-1 ring-slate-200">
+              Cancel
+            </button>
+          </div>
 
-          return (
-            <div className="space-y-4">
-              {loading ? (
-                <div className="text-slate-500">Loading…</div>
-              ) : (
-                <>
-                  {/* Tabs */}
-                  <Tabs />
-
-                  {/* Driver or Vehicle list */}
-                  {section === "driver" ? (
-                    <div>
-                      <div className="text-sm font-medium text-slate-700 mb-2">Driver</div>
-                      <div className="space-y-2">
-                        {drivers.map((d) => (
-                          <ChoiceItem
-                            key={d._id}
-                            active={driverId === d._id}
-                            onClick={() => setDriverId(d._id)}
-                            leftIcon={<User className="w-4 h-4 text-emerald-600" />}
-                            title={d.name}
-                            rightNote={d.phone}
-                          />
-                        ))}
-                        {!drivers.length && (
-                          <div className="text-xs text-slate-500">No drivers found.</div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="text-sm font-medium text-slate-700 mb-2">Vehicle</div>
-                      <div className="space-y-2">
-                        {vehicles.map((v) => (
-                          <ChoiceItem
-                            key={v._id}
-                            active={vehicleId === v._id}
-                            onClick={() => setVehicleId(v._id)}
-                            leftIcon={<Bike className="w-4 h-4 text-emerald-600" />}
-                            title={v.plate}
-                            rightNote={`Capacity ${v.capacityKg?.toLocaleString() || 0} kg`}
-                          />
-                        ))}
-                        {!vehicles.length && (
-                          <div className="text-xs text-slate-500">No vehicles found.</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {err && <div className="text-sm text-red-600">{err}</div>}
-
-                  {/* Confirm / Cancel */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={save}
-                      disabled={!driverId || !vehicleId}
-                      className={`flex-1 px-4 py-2 rounded-xl text-white inline-flex items-center justify-center gap-2
-                        ${driverId && vehicleId ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed"}`}
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Confirm Assignment
-                    </button>
-                    <button onClick={onCancel} className="px-4 py-2 rounded-xl ring-1 ring-slate-200">
-                      Cancel
-                    </button>
-                  </div>
-
-                  {/* Quick status */}
-                  <div className="pt-2">
-                    <div className="text-xs text-slate-500 mb-2">Quick status</div>
-                    <div className="flex flex-wrap gap-2">
-                      {["pending", "assigned", "in-transit", "completed", "cancelled"].map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => onQuickStatus(s)}
-                          className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+          <div className="pt-2">
+            <div className="text-xs text-slate-500 mb-2">Quick status</div>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_STATUSES.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => onQuickStatus(s)}
+                  className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50"
+                >
+                  {s}
+                </button>
+              ))}
             </div>
-          );
-        }
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+

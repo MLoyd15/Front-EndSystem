@@ -8,6 +8,7 @@ import Categories from './components/categories'
 import AdminKpi from './components/adminkpi'
 import ProductsPage from './components/ProductsPage'
 import Deliveries from './components/Deliveries';
+import Review from './components/Review';
 
 function App() {
 
@@ -42,7 +43,7 @@ function App() {
           />
           <Route
             path='review'
-            element={<h1>profile</h1>}
+            element={<Review/>}
           />
           <Route
             path='users'
