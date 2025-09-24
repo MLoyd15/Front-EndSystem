@@ -7,17 +7,29 @@ import Vehicle from "../models/Vehicle.js";
 export async function listDeliveries(req, res) {
   try {
     const { type, status, q: search } = req.query;
-    const q = {};
-    if (type) q.type = type;
+    const query = {};
 
-    if (status) q.status = new RegExp(`^${String(status).replace(/-/g, " ")}$`, "i");
+    // Filter by type if provided
+    if (type) query.type = type;
 
-    if (search) {
-      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"); // escape user input
-      q.$or = [{ deliveryAddress: rx }, { pickupLocation: rx }];
+    // Normalize status (accept dash, space, case-insensitive)
+    if (status) {
+      const norm = String(status).toLowerCase().trim().replace(/[\s_]+/g, "-");
+      query.status = norm;
     }
 
-    const deliveries = await Delivery.find(q)
+    // Free-text search
+    if (search) {
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      query.$or = [{ deliveryAddress: rx }, { pickupLocation: rx }];
+    }
+
+    // Role-based restriction: if driver, only their own deliveries
+    if (req.user?.role === "driver") {
+      query.assignedDriver = req.user.id;
+    }
+
+    const deliveries = await Delivery.find(query)
       .populate({
         path: "order",
         select: "status totalAmount createdAt products",
@@ -28,7 +40,8 @@ export async function listDeliveries(req, res) {
       .lean();
 
     res.json({ success: true, deliveries });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ success: false, message: "Fetch failed" });
   }
 }

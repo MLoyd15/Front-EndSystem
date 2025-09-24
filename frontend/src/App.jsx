@@ -9,9 +9,7 @@ import AdminKpi from './components/adminkpi'
 import ProductsPage from './components/ProductsPage'
 import Deliveries from './components/Deliveries';
 import Review from './components/Review';
-
-// ⬇️ add this wrapper page (similar to your admin Dashboard)
-// create pages/driverDashboard.jsx that renders DriverSidebar + <Outlet />
+import DriverDashboardComponent from './components/dashboardDriver'
 import DriverDashboard from './pages/driverDashboard'
 
 function App() {
@@ -20,7 +18,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Root />}/>
 
-      {/* ---------------- ADMIN ---------------- */}
+      {/* For admin */}
       <Route 
         path="/admin-dashboard" 
         element={
@@ -39,7 +37,7 @@ function App() {
         <Route path="profile" element={<h1>profile</h1>} />
       </Route>
 
-      {/* ---------------- DRIVER ---------------- */}
+      {/* For Driver*/}
       <Route
         path="/driver-dashboard"
         element={
@@ -48,9 +46,9 @@ function App() {
           </ProtectedRoutes>
         }
       >
-        <Route index element={<h1>Driver Home</h1>} />
+        <Route index element={<DriverDashboardComponent />} />
         <Route path="delivery" element={<Deliveries />} />
-        <Route path="profile" element={<h1>Driver Profile</h1>} />
+        <Route path="profile" element={<h1> profile</h1>}/>
         <Route path="logout" element={<h1>Driver Logout</h1>} />
       </Route>
 
