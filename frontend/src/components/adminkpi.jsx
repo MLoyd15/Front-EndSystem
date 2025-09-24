@@ -140,7 +140,7 @@ export default function AdminKpi() {
     fetchProducts(); 
   }, []);
 
-  /* ---------- Build product stats once, sort later ---------- */
+  /*Product summary */
   const productSummary = useMemo(() => {
     const map = new Map();
     for (const o of orders) {

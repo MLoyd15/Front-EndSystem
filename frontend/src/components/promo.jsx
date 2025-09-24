@@ -1,10 +1,9 @@
-// src/components/promo.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   Percent,
   Search,
-  Calendar,
+  Filter,
   Copy,
   PauseCircle,
   PlayCircle,
@@ -27,7 +26,7 @@ const Chip = ({ tone = "gray", children }) => {
     gray: "bg-gray-100 text-gray-700 ring-gray-200",
   };
   return (
-    <span className={`px-2 py-0.5 text-xs rounded-md ring-1 ${tones[tone]}`}>
+    <span className={`px-2 py-0.5 text-xs rounded-full ring-1 ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -36,8 +35,8 @@ const Chip = ({ tone = "gray", children }) => {
 const Field = (props) => (
   <input
     {...props}
-    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm 
-               placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm 
+               placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
   />
 );
 
@@ -45,31 +44,33 @@ const Field = (props) => (
 const Promo = () => {
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // filters
   const [q, setQ] = useState("");
+  const [type, setType] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
+  // form
   const [form, setForm] = useState({
-  code: "",
-  name: "",
-  type: "Percentage",
-  value: "",
-  minSpend: "",
-  maxDiscount: "",
-  limit: "",
-  startsAt: "",
-  endsAt: "",
-  status: "Active",
-});
-
-  const onChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+    code: "",
+    name: "",
+    type: "Percentage",
+    value: 10,
+    minSpend: 0,
+    maxDiscount: 0,
+    limit: 0,
+    startsAt: "",
+    endsAt: "",
+    status: "Active",
+  });
+  const isFree = form.type === "Free Shipping";
+  const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   /* ----- fetch ----- */
   const load = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}?q=${encodeURIComponent(q)}`, {
-        headers: auth(),
-      });
+      const res = await axios.get(`${API}?q=${encodeURIComponent(q)}`, { headers: auth() });
       setPromos(res.data || []);
     } catch (err) {
       console.error("Error loading promos", err);
@@ -77,15 +78,14 @@ const Promo = () => {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    load();
-  }, [q]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q]);
 
   /* ----- actions ----- */
   const createPromo = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(API, form, { headers: auth() });
+      const payload = { ...form, value: isFree ? 0 : Number(form.value || 0) };
+      await axios.post(API, payload, { headers: auth() });
       setForm({
         code: "",
         name: "",
@@ -121,9 +121,9 @@ const Promo = () => {
   };
 
   /* ----- derived display helpers ----- */
-  const computedRows = useMemo(() => {
+  const rows = useMemo(() => {
     const now = new Date();
-    return promos.map((p) => {
+    const mapped = (promos || []).map((p) => {
       const starts = p.startsAt ? new Date(p.startsAt) : null;
       const ends = p.endsAt ? new Date(p.endsAt) : null;
       let status = p.status || "Active";
@@ -131,118 +131,160 @@ const Promo = () => {
       if (ends && now > ends) status = "Expired";
       return { ...p, _displayStatus: status };
     });
-  }, [promos]);
+
+    return mapped.filter((p) => {
+      const matchType = !type || p.type === type;
+      const matchStatus = !statusFilter || p._displayStatus === statusFilter;
+      return matchType && matchStatus;
+    });
+  }, [promos, type, statusFilter]);
+
+  // KPIs
+  const total = rows.length;
+  const active = rows.filter((r) => r._displayStatus === "Active").length;
+  const paused = rows.filter((r) => r._displayStatus === "Paused").length;
+  const expired = rows.filter((r) => r._displayStatus === "Expired").length;
+
+  const renderValue = (row) => {
+    if (row.type === "Percentage") return `${row.value}%`;
+    if (row.type === "Free Shipping") return "Free Shipping";
+    return peso(row.value);
+  };
+
+  const statusPill = (s) => {
+    if (s === "Active") return <Chip tone="green">Active</Chip>;
+    if (s === "Paused") return <Chip tone="amber">Paused</Chip>;
+    if (s === "Scheduled") return <Chip tone="sky">Scheduled</Chip>;
+    return <Chip tone="gray">Expired</Chip>;
+  };
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="min-h-screen bg-white py-8">
-      {/* Full width, no max constraint */}
-      <div className="px-6 w-full">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Percent className="h-6 w-6 text-emerald-600" />
-            <h1 className="text-xl font-semibold text-gray-900">
-              Discounts & Promotions
-            </h1>
-          </div>
+    <div className="min-h-screen bg-[#F5F7FA]">
+      <div className="max-w-[1600px] mx-auto px-6">
+        {/* Title */}
+        <div className="pt-8">
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Product Promo & Discounts
+          </h1>
+            <p className="mt-1 text-xs text-slate-500">
+              Configure the discount, limits, and schedule.
+            </p>
+        </div>
 
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+        {/* KPI row */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Kpi label="Total Promos" value={total} dotClass="bg-emerald-500" />
+          <Kpi label="Active" value={active} dotClass="bg-emerald-500" />
+          <Kpi label="Paused" value={paused} dotClass="bg-amber-500" />
+          <Kpi label="Expired" value={expired} dotClass="bg-rose-500" />
+        </div>
+
+        {/* Filters row */}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[260px] bg-white rounded-xl shadow-sm ring-1 ring-slate-200 px-3 py-2 flex items-center gap-2">
+            <Search className="w-4 h-4 text-slate-400" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search code or name..."
-              className="w-full rounded-full border border-gray-300 bg-white pl-9 pr-3 py-2 text-sm 
-                         text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              placeholder="Search code or name…"
+              className="outline-none bg-transparent flex-1 text-sm"
             />
           </div>
+
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="px-3 py-2 rounded-xl ring-1 ring-slate-200 bg-white text-sm text-slate-700 hover:bg-slate-50"
+          >
+            <option value="">All types</option>
+            <option>Percentage</option>
+            <option>Fixed Amount</option>
+            <option>Free Shipping</option>
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl ring-1 ring-slate-200 bg-white text-sm text-slate-700 hover:bg-slate-50"
+          >
+            <option value="">All status</option>
+            <option>Active</option>
+            <option>Paused</option>
+            <option>Scheduled</option>
+            <option>Expired</option>
+          </select>
+
+          <button
+            onClick={load}
+            className="bg-white hover:bg-slate-50 transition px-3 py-2 rounded-xl ring-1 ring-slate-200 text-sm inline-flex items-center gap-2"
+          >
+            <Filter className="w-4 h-4" /> Apply
+          </button>
         </div>
 
-        {/* Full-width fluid grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[4fr_1fr]">
-          {/* Left: Table */}
-          <div className="rounded-xl bg-white shadow-sm border border-black/20">
+        {/* Main content: table + right sidebar (70/30 split) */}
+        <div className="mt-4 grid grid-cols-1 lg:grid-cols-[70%_30%] gap-6 pb-24">
+          {/* Table card */}
+          <div className="bg-white rounded-2xl shadow-md ring-1 ring-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full table-fixed">
-                <thead>
-                  <tr className="text-xs uppercase tracking-wide text-gray-600">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr className="text-[12px] uppercase tracking-wide">
                     {[
                       "Code",
                       "Name",
                       "Type",
                       "Value",
                       "Min Spend",
-                      "Used/Limit",
+                      "Used / Limit",
                       "Status",
                       "Actions",
                     ].map((h) => (
-                      <th key={h} className="px-5 py-3 text-left">
+                      <th key={h} className="px-5 py-3 text-left font-semibold">
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="text-sm">
+                <tbody className="divide-y divide-slate-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="px-5 py-6 text-center text-gray-500">
+                      <td colSpan={8} className="px-5 py-8 text-center text-slate-500">
                         Loading promos…
                       </td>
                     </tr>
-                  ) : computedRows.length === 0 ? (
+                  ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-5 py-6 text-center text-gray-500">
+                      <td colSpan={8} className="px-5 py-10 text-center text-slate-500">
                         No promos found.
                       </td>
                     </tr>
                   ) : (
-                    computedRows.map((p) => (
+                    rows.map((p, idx) => (
                       <tr
                         key={p._id}
-                        className="border-t border-gray-100 hover:bg-gray-50/70"
+                         className={`border-b border-slate-200 ${idx % 2 ? "bg-white" : "bg-slate-50/40"} hover:bg-emerald-50/30 transition`}
                       >
-                        <td className="px-5 py-4 font-mono text-xs">{p.code}</td>
-                        <td className="px-5 py-4">{p.name}</td>
-                        <td className="px-5 py-4">{p.type}</td>
-                        <td className="px-5 py-4">
-                          {p.type === "Percentage"
-                            ? `${p.value}%`
-                            : p.type === "Free Shipping"
-                            ? "Free Shipping"
-                            : peso(p.value)}
-                        </td>
-                        <td className="px-5 py-4">
-                          {p.minSpend ? peso(p.minSpend) : "—"}
-                        </td>
-                        <td className="px-5 py-4">
-                          {Number(p.used || 0)}/{Number(p.limit || 0)}
-                        </td>
-                        <td className="px-5 py-4">
-                          {p._displayStatus === "Active" && (
-                            <Chip tone="green">Active</Chip>
-                          )}
-                          {p._displayStatus === "Paused" && (
-                            <Chip tone="amber">Paused</Chip>
-                          )}
-                          {p._displayStatus === "Scheduled" && (
-                            <Chip tone="sky">Scheduled</Chip>
-                          )}
-                          {p._displayStatus === "Expired" && (
-                            <Chip tone="gray">Expired</Chip>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex flex-wrap gap-1.5">
+                        <td className="px-5 py-3 font-mono text-xs text-slate-700">{p.code}</td>
+                        <td className="px-5 py-3 text-slate-800">{p.name}</td>
+                        <td className="px-5 py-3">{p.type}</td>
+                        <td className="px-5 py-3">{renderValue(p)}</td>
+                        <td className="px-5 py-3">{p.minSpend ? peso(p.minSpend) : "—"}</td>
+                        <td className="px-5 py-3">{Number(p.used || 0)}/{Number(p.limit || 0)}</td>
+                        <td className="px-5 py-3">{statusPill(p._displayStatus)}</td>
+                        <td className="px-5 py-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => duplicate(p._id)}
-                              className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                              className="inline-flex items-center gap-1 rounded-lg ring-1 ring-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                             >
-                              <Copy className="h-3.5 w-3.5" /> Copy
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy
                             </button>
                             <button
                               onClick={() => togglePause(p._id)}
-                              className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                              className="inline-flex items-center gap-1 rounded-lg ring-1 ring-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                             >
                               {p._displayStatus === "Active" ? (
                                 <>
@@ -256,9 +298,10 @@ const Promo = () => {
                             </button>
                             <button
                               onClick={() => remove(p._id)}
-                              className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-2.5 py-1.5 text-xs text-white hover:bg-rose-500"
+                              className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs text-white hover:bg-rose-500"
                             >
-                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
                             </button>
                           </div>
                         </td>
@@ -270,90 +313,113 @@ const Promo = () => {
             </div>
           </div>
 
-          {/*Section where you add the promo*/}
-          <div className="rounded-xl bg-white shadow-sm border border-black/20 p-5 self-start">
-            <div className="mb-4 flex items-center gap-2">
-              <Percent className="h-5 w-5 text-emerald-600" />
-              <h2 className="text-base font-semibold text-gray-900">Create Promo</h2>
+          {/* Create promo card */}
+          <div className="bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-5 h-max">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200">
+                <Percent className="h-4 w-4" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">Create Promo</h2>
             </div>
 
-            <form onSubmit={createPromo} className="space-y-3">
-              <Field name="code" value={form.code} onChange={onChange} placeholder="e.g., SAVE10" />
-              <Field name="name" value={form.name} onChange={onChange} placeholder="Internal label" />
+            <form onSubmit={createPromo} className="mt-3 space-y-3">
+              <section className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-0.5">Promo code</label>
+                  <Field name="code" value={form.code} onChange={onChange} placeholder="e.g., SAVE10" />
+                </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  name="type"
-                  value={form.type}
-                  onChange={onChange}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                >
-                  <option>Percentage</option>
-                  <option>Fixed Amount</option>
-                  <option>Free Shipping</option>
-                </select>
-                <Field
-                  name="value"
-                  type="number"
-                  value={form.value}
-                  onChange={onChange}
-                  placeholder="10"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-0.5">Internal label (for admins)</label>
+                  <Field name="name" value={form.name} onChange={onChange} placeholder="Short name" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-0.5">Discount type</label>
+                    <select
+                      name="type"
+                      value={form.type}
+                      onChange={onChange}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    >
+                      <option>Percentage</option>
+                      <option>Fixed Amount</option>
+                      <option>Free Shipping</option>
+                    </select>
+                  </div>
 
-              <Field
-                name="minSpend"
-                type="number"
-                value={form.minSpend}
-                onChange={onChange}
-                placeholder="Min Spend"
-              />
-              <Field
-                name="maxDiscount"
-                type="number"
-                value={form.maxDiscount}
-                onChange={onChange}
-                placeholder="Max Discount"
-              />
-              <Field
-                name="limit"
-                type="number"
-                value={form.limit}
-                onChange={onChange}
-                placeholder="Usage Limit"
-              />
-              
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-0.5">
+                      {form.type === "Percentage"
+                        ? "Discount value (%)"
+                        : form.type === "Fixed Amount"
+                        ? "Discount value (amount)"
+                        : "Value"}
+                    </label>
+                    <Field
+                      name="value"
+                      type="number"
+                      value={form.value}
+                      onChange={onChange}
+                      placeholder={form.type === "Percentage" ? "e.g., 10" : form.type === "Fixed Amount" ? "e.g., 100" : "Not required"}
+                      disabled={form.type === "Free Shipping"}
+                    />
+                  </div>
+                </div>
+              </section>
+              <div className="my-2 border-t border-slate-100" />
+              <section className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-0.5">Minimum spend</label>
+                    <Field name="minSpend" type="number" value={form.minSpend} onChange={onChange} placeholder="0" />
+                    <p className="mt-0.5 text-[11px] text-slate-500">Minimum cart subtotal required</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-0.5">Max discount</label>
+                    <Field name="maxDiscount" type="number" value={form.maxDiscount} onChange={onChange} placeholder="0" />
+                    <p className="mt-0.5 text-[11px] text-slate-500">Cap the discount amount (0 = no cap)</p>
+                  </div>
+                </div>
 
-              <select
-                name="status"
-                value={form.status}
-                onChange={onChange}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                <option>Active</option>
-                <option>Paused</option>
-              </select>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-0.5">Usage limit</label>
+                  <Field name="limit" type="number" value={form.limit} onChange={onChange} placeholder="0" />
+                  <p className="mt-0.5 text-[11px] text-slate-500">How many times this code can be used (0 = unlimited)</p>
+                </div>
+              </section>
 
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="date"
-                  name="startsAt"
-                  value={form.startsAt}
-                  onChange={onChange}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                />
-                <input
-                  type="date"
-                  name="endsAt"
-                  value={form.endsAt}
-                  onChange={onChange}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                />
-              </div>
+              <div className="my-2 border-t border-slate-100" />
+
+              <section className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-0.5">Status</label>
+                  <select
+                    name="status"
+                    value={form.status}
+                    onChange={onChange}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  >
+                    <option>Active</option>
+                    <option>Paused</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-0.5">Start date</label>
+                    <Field type="date" name="startsAt" value={form.startsAt} onChange={onChange} placeholder="mm/dd/yyyy" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-0.5">End date</label>
+                    <Field type="date" name="endsAt" value={form.endsAt} onChange={onChange} placeholder="mm/dd/yyyy" />
+                  </div>
+                </div>
+              </section>
 
               <button
                 type="submit"
-                className="mt-2 w-full rounded-md bg-emerald-600 py-2 text-sm font-medium text-white shadow hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-medium text-white shadow hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
                 + Add Promo
               </button>
@@ -365,7 +431,19 @@ const Promo = () => {
   );
 };
 
+/* ------------- tiny KPI card component ------------- */
+const Kpi = ({ label, value, dotClass }) => (
+  <div className="bg-white rounded-2xl shadow-md ring-1 ring-slate-200 p-4 flex items-center gap-3">
+    <span className={`w-3.5 h-3.5 rounded-full ${dotClass}`} />
+    <div>
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xl font-bold text-slate-900 leading-tight">{value}</div>
+    </div>
+  </div>
+);
+
 export default Promo;
+
 
 
 

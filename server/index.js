@@ -10,6 +10,7 @@ import productRoutes from "./routes/product.js"
 import bundlesRoutes from "./routes/bundles.js";
 import deliveryRoutes from "./routes/delivery.js";
 import promoRoutes from "./routes/promo.js";
+import driverRoutes from "./routes/driver.js"
 import path from "path";
 import fs from "fs";
 
@@ -35,6 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/bundles", bundlesRoutes);
 app.use("/api/delivery", deliveryRoutes);
 app.use("/api/promo", promoRoutes);
+app.use("/api/driver", driverRoutes)
 
 
 app.use("/uploads", express.static(uploadsPath));

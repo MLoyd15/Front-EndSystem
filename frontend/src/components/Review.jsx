@@ -3,20 +3,21 @@ import Promo from "../components/promo";  // ✅ Capitalized import
 
 const Review = () => {
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+    <div className="min-h-screen bg-gray-100">
+      {/* Optional heading */}
+      <h1 className="px-5 pt-7 text-2xl font-bold text-gray-800">
         Product Review & Discounts
       </h1>
 
-      {/* You can later add product reviews here */}
-      <div className="mb-10">
+      {/* Placeholder for product review */}
+      <div className="px-5 mb-8">
         <p className="text-gray-600">
           ⭐ Product review feature will be added here.
         </p>
       </div>
 
-      {/* Discounts & Promotions UI */}
-      <Promo />   {/* ✅ Capitalized usage */}
+      {/* Full-width Discounts & Promotions */}
+      <Promo />
     </div>
   );
 };
