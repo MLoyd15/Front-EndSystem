@@ -24,14 +24,8 @@ const STATUS_COLORS = {
   cancelled: "bg-rose-100 text-rose-700 ring-rose-200",
 };
 
-// normalize any API envelope into []
-const asArray = (res) => {
-  const d = res?.data;
-  if (Array.isArray(d)) return d;
-  if (Array.isArray(d?.data)) return d.data;
-  if (Array.isArray(d?.results)) return d.results;
-  return [];
-};
+// unwrap { success, deliveries } → always return []
+const unwrap = (res) => (Array.isArray(res?.data?.deliveries) ? res.data.deliveries : []);
 
 /* ------------------------------ UI bits ------------------------------ */
 const Pill = ({ tone = "gray", children }) => (
@@ -62,9 +56,13 @@ const Card = ({ children, onClick }) => (
 
 function JobCard({ job, onStart, onDeliver, onView }) {
   const tone = STATUS_COLORS[job?.status] || STATUS_COLORS.pending;
-  const address = job?.dropoff?.address || job?.pickupLocation || job?.address || "—";
-  const name = job?.customer?.name || job?.order?.customerName || "Customer";
-  const items = job?.order?.items?.length || job?.items?.length || 0;
+  const address = job?.deliveryAddress || job?.dropoff?.address || job?.pickupLocation || "—";
+  const name =
+    job?.customer?.name ||
+    job?.order?.customerName ||
+    job?.assignedDriver?.name ||
+    "Customer";
+  const items = job?.order?.products?.length || job?.order?.items?.length || job?.items?.length || 0;
   const weightKg = job?.weightKg || job?.order?.weightKg || null;
   const eta = job?.eta || job?.order?.eta;
 
@@ -83,9 +81,22 @@ function JobCard({ job, onStart, onDeliver, onView }) {
               <Pill tone={tone}>{job?.status}</Pill>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-              <span className="flex items-center gap-1"><User className="w-4 h-4" />{name}</span>
-              {weightKg ? <span className="flex items-center gap-1"><Weight className="w-4 h-4" />{weightKg} kg</span> : null}
-              {items ? <span className="flex items-center gap-1"><Package className="w-4 h-4" />{items} item{items>1?"s":""}</span> : null}
+              <span className="flex items-center gap-1">
+                <User className="w-4 h-4" />
+                {name}
+              </span>
+              {weightKg ? (
+                <span className="flex items-center gap-1">
+                  <Weight className="w-4 h-4" />
+                  {weightKg} kg
+                </span>
+              ) : null}
+              {items ? (
+                <span className="flex items-center gap-1">
+                  <Package className="w-4 h-4" />
+                  {items} item{items > 1 ? "s" : ""}
+                </span>
+              ) : null}
             </div>
             <div className="mt-2 flex items-center gap-2 text-gray-600 text-sm">
               <MapPin className="w-4 h-4" />
@@ -104,9 +115,10 @@ function JobCard({ job, onStart, onDeliver, onView }) {
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <a
           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
-          target="_blank" rel="noreferrer"
+          target="_blank"
+          rel="noreferrer"
           className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          onClick={(e)=>e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           <Navigation className="w-4 h-4" /> Navigate
         </a>
@@ -114,14 +126,17 @@ function JobCard({ job, onStart, onDeliver, onView }) {
           <a
             href={`tel:${job.customer.phone}`}
             className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            onClick={(e)=>e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <Phone className="w-4 h-4" /> Call
           </a>
         )}
         {job?.status === "assigned" && (
           <button
-            onClick={(e)=>{e.stopPropagation(); onStart?.(job);}}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStart?.(job);
+            }}
             className="rounded-xl bg-sky-600 text-white px-3 py-2 text-sm hover:bg-sky-700"
           >
             <Truck className="w-4 h-4 inline mr-1" /> Start Trip
@@ -129,7 +144,10 @@ function JobCard({ job, onStart, onDeliver, onView }) {
         )}
         {job?.status === "in-transit" && (
           <button
-            onClick={(e)=>{e.stopPropagation(); onDeliver?.(job);}}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeliver?.(job);
+            }}
             className="rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700"
           >
             <CheckCircle2 className="w-4 h-4 inline mr-1" /> Mark Delivered
@@ -143,22 +161,31 @@ function JobCard({ job, onStart, onDeliver, onView }) {
 const DetailSheet = ({ open, job, onClose }) => {
   if (!open || !job) return null;
   const tone = STATUS_COLORS[job?.status] || STATUS_COLORS.gray;
-  const address = job?.dropoff?.address || job?.pickupLocation || job?.address || "—";
-  const name = job?.customer?.name || job?.order?.customerName || "Customer";
-  const items = job?.order?.items || job?.items || [];
+  const address = job?.deliveryAddress || job?.dropoff?.address || job?.pickupLocation || "—";
+  const name =
+    job?.customer?.name ||
+    job?.order?.customerName ||
+    job?.assignedDriver?.name ||
+    "Customer";
+  const items = job?.order?.products || job?.order?.items || job?.items || [];
 
   return (
     <AnimatePresence>
       <motion.div
         key="sheet"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
       >
         <motion.div
-          initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%" }}
           transition={{ type: "spring", stiffness: 260, damping: 30 }}
           className="absolute inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white p-5 shadow-2xl"
-          onClick={(e)=>e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-start justify-between">
             <div>
@@ -168,8 +195,12 @@ const DetailSheet = ({ open, job, onClose }) => {
                 </h3>
                 <Pill tone={tone}>{job?.status}</Pill>
               </div>
-              <p className="text-sm text-gray-600 mt-1 flex items-center gap-2"><User className="w-4 h-4" /> {name}</p>
-              <p className="text-sm text-gray-600 mt-1 flex items-center gap-2"><MapPin className="w-4 h-4" /> {address}</p>
+              <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                <User className="w-4 h-4" /> {name}
+              </p>
+              <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                <MapPin className="w-4 h-4" /> {address}
+              </p>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-50">
               <X className="w-5 h-5 text-gray-500" />
@@ -183,7 +214,7 @@ const DetailSheet = ({ open, job, onClose }) => {
               {items.map((it, idx) => (
                 <div key={idx} className="flex items-center justify-between rounded-xl border p-2">
                   <span className="text-sm text-gray-700 line-clamp-1">
-                    {it?.name || it?.product?.name || `Item ${idx+1}`}
+                    {it?.name || it?.product?.name || `Item ${idx + 1}`}
                   </span>
                   <span className="text-sm text-gray-500">x{it?.qty || it?.quantity || 1}</span>
                 </div>
@@ -194,13 +225,17 @@ const DetailSheet = ({ open, job, onClose }) => {
           <div className="mt-4 grid grid-cols-2 gap-2">
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
-              target="_blank" rel="noreferrer"
+              target="_blank"
+              rel="noreferrer"
               className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               <Navigation className="w-4 h-4" /> Navigate
             </a>
             {job?.customer?.phone && (
-              <a href={`tel:${job.customer.phone}`} className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <a
+                href={`tel:${job.customer.phone}`}
+                className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
                 <Phone className="w-4 h-4" /> Call customer
               </a>
             )}
@@ -218,23 +253,23 @@ export default function DriverHome() {
   const [error, setError] = useState("");
   const [assigned, setAssigned] = useState([]);
   const [inTransit, setInTransit] = useState([]);
-  const [completed, setCompleted] = useState([]); // all completed
+  const [completed, setCompleted] = useState([]);
   const [detail, setDetail] = useState(null);
 
   const fetcher = useCallback(async () => {
     try {
       setError("");
 
-      // show ALL deliveries for each status (no per-user filter)
+      // show ALL deliveries for each status (server may still restrict by role)
       const [a, t, c] = await Promise.all([
         axios.get(`${API}?status=assigned`,   { headers: auth() }),
         axios.get(`${API}?status=in-transit`, { headers: auth() }),
         axios.get(`${API}?status=completed`,  { headers: auth() }),
       ]);
 
-      setAssigned(asArray(a));
-      setInTransit(asArray(t));
-      setCompleted(asArray(c));
+      setAssigned(unwrap(a));
+      setInTransit(unwrap(t));
+      setCompleted(unwrap(c));
     } catch (e) {
       console.error(e);
       setError(e?.response?.data?.message || e.message || "Failed to load deliveries");
@@ -277,8 +312,8 @@ export default function DriverHome() {
     return arr.filter(
       (j) =>
         rx.test(j?.order?.code || "") ||
-        rx.test(j?.customer?.name || "") ||
-        rx.test(j?.dropoff?.address || j?.pickupLocation || j?.address || "")
+        rx.test(j?.customer?.name || j?.assignedDriver?.name || "") ||
+        rx.test(j?.deliveryAddress || j?.pickupLocation || "")
     );
   };
 
@@ -296,7 +331,7 @@ export default function DriverHome() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search job code, name, or address…"
+              placeholder="Search job code, driver, or address…"
               className="outline-none text-sm w-56"
             />
           </div>
@@ -322,6 +357,7 @@ export default function DriverHome() {
 
       {/* Sections */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Assigned */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -335,7 +371,13 @@ export default function DriverHome() {
             )}
             <AnimatePresence>
               {filterByQ(assigned).map((j) => (
-                <motion.div key={j._id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                <motion.div
+                  key={j._id}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                >
                   <JobCard job={j} onStart={onStart} onDeliver={onDeliver} onView={(job) => setDetail(job)} />
                 </motion.div>
               ))}
@@ -343,6 +385,7 @@ export default function DriverHome() {
           </div>
         </section>
 
+        {/* In transit */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -356,7 +399,13 @@ export default function DriverHome() {
             )}
             <AnimatePresence>
               {filterByQ(inTransit).map((j) => (
-                <motion.div key={j._id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                <motion.div
+                  key={j._id}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                >
                   <JobCard job={j} onStart={onStart} onDeliver={onDeliver} onView={(job) => setDetail(job)} />
                 </motion.div>
               ))}
@@ -371,7 +420,11 @@ export default function DriverHome() {
           <CheckCircle2 className="w-4 h-4" /> Completed deliveries
         </h2>
         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {loading && <div className="sm:col-span-2 lg:col-span-3"><Empty icon={CheckCircle2} title="Loading…" /></div>}
+          {loading && (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Empty icon={CheckCircle2} title="Loading…" />
+            </div>
+          )}
           {!loading && filterByQ(completed).length === 0 && (
             <div className="sm:col-span-2 lg:col-span-3">
               <Empty icon={CheckCircle2} title="No completed deliveries" note="Completed drops will appear here." />
@@ -401,7 +454,9 @@ export default function DriverHome() {
       </section>
 
       {error && (
-        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 p-3 text-sm">{error}</div>
+        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 p-3 text-sm">
+          {error}
+        </div>
       )}
 
       <DetailSheet open={!!detail} job={detail} onClose={() => setDetail(null)} />
