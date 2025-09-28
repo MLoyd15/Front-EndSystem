@@ -73,6 +73,9 @@ export default function DriverDeliveries() {
       if (tab !== "all") params.status = tab;
       if (q.trim()) params.q = q.trim();
 
+      // Add this line
+      if (me?._id) params.driverId = me._id;
+
       const response = await axios.get(`${API_BASE}/api/delivery`, {
         params,
         headers: authHeaders(),

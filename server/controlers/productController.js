@@ -1,5 +1,8 @@
-import Product from "../models/Product.js"
-import Category from "../models/category.js"
+import Product from "../models/Product.js";
+import Category from "../models/category.js";
+
+/** Helper: get io instance safely */
+const getIO = (req) => req.app && req.app.get && req.app.get("io");
 
 /** Build filtering for list endpoint */
 function buildQuery(q) {
@@ -24,7 +27,7 @@ const list = async (req, res) => {
 
     const [items, total] = await Promise.all([
       Product.find(query)
-        .populate("category", "categoryName") // your Category schema uses categoryName
+        .populate("category", "categoryName")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit),
@@ -58,34 +61,47 @@ const getOne = async (req, res) => {
 
 const normalizeImages = (val) => {
   if (!val) return [];
-  if (Array.isArray(val)) return val.map(s => String(s).trim()).filter(Boolean);
+  if (Array.isArray(val)) return val.map((s) => String(s).trim()).filter(Boolean);
   // allow comma or newline separated string
   return String(val)
     .split(/[\n,]/)
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 };
 
 const create = async (req, res) => {
   try {
     const {
-      name, category, stock = 0, price, catalog = true,
-      description = "", weightKg, minStock = 0      
+      name,
+      category,
+      stock = 0,
+      price,
+      catalog = true,
+      description = "",
+      weightKg,
+      minStock = 0,
     } = req.body || {};
     const images = normalizeImages(req.body?.images);
 
     if (!name || price == null || !category) {
-      return res.status(400).json({ message: "name, price, and category are required" });
+      return res
+        .status(400)
+        .json({ message: "name, price, and category are required" });
     }
     if (minStock != null && (isNaN(Number(minStock)) || Number(minStock) < 0)) {
-      return res.status(400).json({ message: "minStock must be a number ≥ 0" });
+      return res
+        .status(400)
+        .json({ message: "minStock must be a number ≥ 0" });
     }
     if (weightKg != null && (isNaN(Number(weightKg)) || Number(weightKg) < 0)) {
-      return res.status(400).json({ message: "weightKg must be a number ≥ 0" });
+      return res
+        .status(400)
+        .json({ message: "weightKg must be a number ≥ 0" });
     }
 
     const cat = await Category.findById(category);
-    if (!cat) return res.status(400).json({ message: "Category does not exist" });
+    if (!cat)
+      return res.status(400).json({ message: "Category does not exist" });
 
     const product = await Product.create({
       name,
@@ -96,14 +112,30 @@ const create = async (req, res) => {
       description,
       images,
       weightKg: weightKg == null ? null : Number(weightKg),
-      minStock: minStock == null ? 0 : Number(minStock),   // ✅ save
+      minStock: minStock == null ? 0 : Number(minStock),
     });
 
     const created = await product.populate("category", "categoryName");
     res.status(201).json(created);
+
+    // 🔴 real-time: broadcast new product
+    const io = getIO(req);
+    io?.emit("inventory:created", {
+      _id: created._id,
+      name: created.name,
+      stock: created.stock,
+      price: created.price,
+      minStock: created.minStock,
+      weightKg: created.weightKg,
+      images: created.images,
+      catalog: created.catalog,
+      category: created.category, // already populated
+    });
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ message: "Duplicate field (name or sku) already exists" });
+      return res
+        .status(409)
+        .json({ message: "Duplicate field (name or sku) already exists" });
     }
     res.status(500).json({ message: err.message || "Failed to create product" });
   }
@@ -117,23 +149,27 @@ const update = async (req, res) => {
 
     if ("images" in body) body.images = normalizeImages(body.images);
 
-    // ✅ normalize/validate minStock if present
+    // normalize/validate minStock if present
     if ("minStock" in body) {
       const m = Number(body.minStock);
       if (isNaN(m) || m < 0) {
-        return res.status(400).json({ message: "minStock must be a number ≥ 0" });
+        return res
+          .status(400)
+          .json({ message: "minStock must be a number ≥ 0" });
       }
       body.minStock = m;
     }
 
-    // ✅ normalize/validate weightKg if present
+    // normalize/validate weightKg if present
     if ("weightKg" in body) {
       if (body.weightKg == null || body.weightKg === "") {
         body.weightKg = null;
       } else {
         const w = Number(body.weightKg);
         if (isNaN(w) || w < 0) {
-          return res.status(400).json({ message: "weightKg must be a number ≥ 0" });
+          return res
+            .status(400)
+            .json({ message: "weightKg must be a number ≥ 0" });
         }
         body.weightKg = w;
       }
@@ -141,7 +177,8 @@ const update = async (req, res) => {
 
     if (body.category) {
       const cat = await Category.findById(body.category);
-      if (!cat) return res.status(400).json({ message: "Category does not exist" });
+      if (!cat)
+        return res.status(400).json({ message: "Category does not exist" });
     }
 
     const updated = await Product.findByIdAndUpdate(req.params.id, body, {
@@ -151,23 +188,36 @@ const update = async (req, res) => {
 
     if (!updated) return res.status(404).json({ message: "Product not found" });
     res.json(updated);
+
+    // 🔴 real-time: broadcast single product update
+    const io = getIO(req);
+    io?.emit("inventory:update", {
+      productId: updated._id,
+      stock: updated.stock,
+      price: updated.price,
+      minStock: updated.minStock,
+      sold: updated.sold,
+      catalog: updated.catalog,
+      // (you can add other fields if your UI needs them)
+    });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update product" });
   }
 };
-
 
 const remove = async (req, res) => {
   try {
     const deleted = await Product.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Product not found" });
     res.json({ message: "Deleted", id: deleted._id });
+
+    // 🔴 real-time: broadcast deletion
+    const io = getIO(req);
+    io?.emit("inventory:deleted", { productId: deleted._id });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to delete product" });
   }
 };
-
-
 
 /** Toggle catalog visibility */
 const toggleCatalog = async (req, res) => {
@@ -181,6 +231,13 @@ const toggleCatalog = async (req, res) => {
     ).populate("category", "categoryName");
     if (!updated) return res.status(404).json({ message: "Product not found" });
     res.json(updated);
+
+    // 🔴 real-time: broadcast catalog flag change
+    const io = getIO(req);
+    io?.emit("inventory:update", {
+      productId: updated._id,
+      catalog: updated.catalog,
+    });
   } catch (err) {
     res
       .status(500)
@@ -191,7 +248,7 @@ const toggleCatalog = async (req, res) => {
 export const auditList = async (req, res) => {
   try {
     const products = await Product.find({})
-      .select("name stock price category") // keep it light
+      .select("name stock price category")
       .populate("category", "categoryName");
     res.json({ items: products, total: products.length });
   } catch (err) {
@@ -204,16 +261,21 @@ export const auditReconcile = async (req, res) => {
   try {
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     if (items.length === 0) {
-      return res.status(400).json({ message: "items is required (array of {id, physical})" });
+      return res
+        .status(400)
+        .json({ message: "items is required (array of {id, physical})" });
     }
 
     // basic validation + build bulk ops
     const ops = [];
+    const emits = []; // collect payloads for sockets
     for (const r of items) {
       const id = String(r.id || "").trim();
       const physical = Number(r.physical);
       if (!id || Number.isNaN(physical) || physical < 0) {
-        return res.status(400).json({ message: "Each item needs valid id and physical >= 0" });
+        return res
+          .status(400)
+          .json({ message: "Each item needs valid id and physical >= 0" });
       }
       ops.push({
         updateOne: {
@@ -221,6 +283,7 @@ export const auditReconcile = async (req, res) => {
           update: { $set: { stock: physical } },
         },
       });
+      emits.push({ productId: id, stock: physical });
     }
 
     if (ops.length === 0) {
@@ -229,6 +292,10 @@ export const auditReconcile = async (req, res) => {
 
     const result = await Product.bulkWrite(ops, { ordered: false });
     res.json({ ok: true, modified: result.modifiedCount ?? result.nModified ?? 0 });
+
+    // 🔴 real-time: broadcast bulk updates (after write)
+    const io = getIO(req);
+    io?.emit("inventory:bulk", emits);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to reconcile audit" });
   }
@@ -241,7 +308,7 @@ const listFlat = async (req, res) => {
 
     const products = await Product.find(query)
       .populate("category", "categoryName")
-      .populate("reviews.userId", "name email") // 👈 add this line
+      .populate("reviews.userId", "name email")
       .lean();
 
     res.json(products); // <-- array
@@ -268,4 +335,13 @@ const deleteReview = async (req, res) => {
   }
 };
 
-export { list, getOne, create, update, remove, toggleCatalog, listFlat, deleteReview};
+export {
+  list,
+  getOne,
+  create,
+  update,
+  remove,
+  toggleCatalog,
+  listFlat,
+  deleteReview,
+};

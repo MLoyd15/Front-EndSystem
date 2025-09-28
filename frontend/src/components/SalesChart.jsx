@@ -92,7 +92,7 @@ export default function EnhancedSalesChart() {
           revenue: 0, 
           units: 0,
           orderCount: 0,
-          avgOrderValue: 0
+          avgOrderValue: 0,
         };
       }
       
@@ -283,12 +283,10 @@ export default function EnhancedSalesChart() {
                 onChange={(e) => setChartType(e.target.value)}
               >
                 <option value="line">Line</option>
-                <option value="area">Area</option>
                 <option value="bar">Bar</option>
               </select>
             </div>
           </div>
-
           <div className="flex items-center gap-2">
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${

@@ -14,6 +14,7 @@ import DriverDashboard from './pages/driverDashboard'
 import ChatPanel from './components/chat'
 import DriverDeliveries from './components/driverDeliveries'
 import Promo from './components/promo'
+import Logout from "./pages/Logout";
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
         <Route path="review" element={<Review/>} />
         <Route path="promo" element={<Promo/>}/>
         <Route path="profile" element={<h1>profile</h1>} />
+        <Route path="logout" element={<Logout/>}/>
       </Route>
 
       {/* For Driver*/}
@@ -52,7 +54,7 @@ function App() {
         <Route index element={<DriverDashboardComponent />} />
         <Route path="delivery" element={<DriverDeliveries  />} />
         <Route path="profile" element={<ChatPanel/>}/>
-        <Route path="logout" element={<h1>Driver Logout</h1>} />
+        <Route path="logout" element={<Logout/>} />
       </Route>
 
       {/* ---------------- OTHER ---------------- */}

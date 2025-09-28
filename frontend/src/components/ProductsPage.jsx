@@ -1,13 +1,26 @@
-// ProductsPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { io } from "socket.io-client";
 import InventoryAudit from "./InventoryAudit";
 import KpiCard from "../components/kpicard";
 
+// ─── Config ────────────────────────────────────────────────────────────────────
 const API = "http://localhost:5000/api";
+const SOCKET_URL = "http://localhost:5000";
 const authHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
 });
+
+// data-URI tiny placeholder (no network call)
+const DATA_PLACEHOLDER_48 =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'>
+       <rect width='100%' height='100%' fill='#e5e7eb'/>
+       <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
+             font-family='sans-serif' font-size='10' fill='#9ca3af'>no image</text>
+     </svg>`
+  );
 
 // helper: turn comma/newline-separated text into array of URLs
 const toUrlArray = (text) =>
@@ -15,6 +28,12 @@ const toUrlArray = (text) =>
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter(Boolean);
+
+// helper: first image URL (tolerate string or { url })
+const firstImage = (p) => {
+  const x = p?.images?.[0];
+  return typeof x === "string" ? x : x?.url || null;
+};
 
 export default function ProductsPage() {
   // list & filters
@@ -25,7 +44,7 @@ export default function ProductsPage() {
   const [category, setCategory] = useState("");
   const [catalogFilter, setCatalogFilter] = useState(""); // "", "true", "false"
   const [page, setPage] = useState(1);
-  const [limit] = useState(20);
+  const [limit] = useState(10); // 👈 show 10 per page
 
   // categories
   const [categories, setCategories] = useState([]);
@@ -42,11 +61,11 @@ export default function ProductsPage() {
   const [catalog, setCatalog] = useState(true);
   const [imageUrlsText, setImageUrlsText] = useState("");
 
-  // NEW: choose between URLs and local file upload
+  // choose between URLs and local file upload
   const [imageMode, setImageMode] = useState("urls"); // "urls" | "upload"
-  const [localFiles, setLocalFiles] = useState([]);   // File[]
+  const [localFiles, setLocalFiles] = useState([]); // File[]
 
-  // stock-only modal (Restock / Add Stock)
+  // stock-only modal
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockProduct, setStockProduct] = useState(null);
   const [newStock, setNewStock] = useState(0);
@@ -61,8 +80,8 @@ export default function ProductsPage() {
     setCatForForm("");
     setCatalog(true);
     setImageUrlsText("");
-    setImageMode("urls"); // reset new image controls
-    setLocalFiles([]);    // reset new image controls
+    setImageMode("urls");
+    setLocalFiles([]);
   };
 
   const query = useMemo(() => {
@@ -82,7 +101,9 @@ export default function ProductsPage() {
         headers: authHeader(),
       });
       setItems(res.data.items || res.data.products || []);
-      setTotal(res.data.total ?? (res.data.products ? res.data.products.length : 0));
+      setTotal(
+        res.data.total ?? (res.data.products ? res.data.products.length : 0)
+      );
     } catch (e) {
       console.error("Error fetching products:", e);
     } finally {
@@ -97,11 +118,7 @@ export default function ProductsPage() {
       });
       setCategories(data.categories ?? []);
     } catch (e) {
-      console.error(
-        "Fetch categories failed:",
-        e?.response?.status,
-        e?.response?.data || e.message
-      );
+      console.error("Fetch categories failed:", e);
       setCategories([]);
     }
   };
@@ -115,10 +132,68 @@ export default function ProductsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
+  // ─── Socket.IO real-time inventory updates ───────────────────────────────────
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      auth: { token: localStorage.getItem("pos-token") },
+    });
+    socket.on("connect", () => {
+      console.log("✅ Connected to socket server:", socket.id);
+    });
+
+    // single product update
+    socket.on("inventory:update", ({ productId, stock, price, minStock, sold, catalog }) => {
+      setItems((prev) =>
+        prev.map((p) =>
+          p._id === productId
+            ? {
+                ...p,
+                stock: stock ?? p.stock,
+                price: price ?? p.price,
+                minStock: minStock ?? p.minStock,
+                sold: sold ?? p.sold,
+                catalog: typeof catalog === "boolean" ? catalog : p.catalog,
+              }
+            : p
+        )
+      );
+    });
+
+    // multiple updates at once
+    socket.on("inventory:bulk", (updates) => {
+      setItems((prev) => {
+        const map = new Map(prev.map((p) => [p._id, p]));
+        for (const u of updates) {
+          if (map.has(u.productId)) {
+            const old = map.get(u.productId);
+            map.set(u.productId, { ...old, stock: u.stock ?? old.stock });
+          }
+        }
+        return Array.from(map.values());
+      });
+    });
+
+    // newly created product
+    socket.on("inventory:created", (p) => {
+      setItems((prev) => [p, ...prev]);
+      setTotal((t) => t + 1);
+    });
+
+    // deleted product
+    socket.on("inventory:deleted", ({ productId }) => {
+      setItems((prev) => prev.filter((p) => p._id !== productId));
+      setTotal((t) => Math.max(0, t - 1));
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
   // catalog toggle (optimistic)
   const toggleCatalog = async (id, value) => {
     const prev = items.slice();
-    setItems((arr) => arr.map((p) => (p._id === id ? { ...p, catalog: value } : p)));
+    setItems((arr) =>
+      arr.map((p) => (p._id === id ? { ...p, catalog: value } : p))
+    );
     try {
       await axios.patch(
         `${API}/products/${id}/catalog`,
@@ -135,7 +210,7 @@ export default function ProductsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // If using upload mode, upload files first (expects /api/products/upload -> { urls: [...] })
+      // If using upload mode, upload files first (Cloudinary response -> {images:[{url, publicId}]})
       let uploadedUrls = [];
       if (imageMode === "upload" && localFiles.length > 0) {
         const fd = new FormData();
@@ -143,22 +218,22 @@ export default function ProductsPage() {
         const up = await axios.post(`${API}/products/upload`, fd, {
           headers: { ...authHeader(), "Content-Type": "multipart/form-data" },
         });
-        uploadedUrls = up.data?.urls || [];
+        uploadedUrls = (up.data?.images || []).map((x) => x.url);
       }
 
       // Combine pasted URLs + uploaded URLs
       const images = [...toUrlArray(imageUrlsText), ...uploadedUrls];
+      console.log("payload.images =", images);
 
       const payload = {
         name,
         price: Number(price),
         stock: Number(stock || 0),
-        // optional extras
         minStock: minStock === "" ? 0 : Number(minStock),
         weightKg: weightKg === "" ? null : Number(weightKg),
         category: catForForm,
         catalog: !!catalog,
-        images,
+        images, // 👈 schema expects [String]
       };
 
       if (editId) {
@@ -191,7 +266,14 @@ export default function ProductsPage() {
     setWeightKg(p.weightKg ?? "");
     setCatForForm(p.category?._id || "");
     setCatalog(!!p.catalog);
-    setImageUrlsText((p.images || []).join(", "));
+    setImageUrlsText(
+      Array.isArray(p.images)
+        ? p.images
+            .map((x) => (typeof x === "string" ? x : x?.url || ""))
+            .filter(Boolean)
+            .join(", ")
+        : ""
+    );
     setImageMode("urls");
     setLocalFiles([]);
     setShowAdd(true);
@@ -245,11 +327,6 @@ export default function ProductsPage() {
   );
   const outOfStockItems = items.filter((p) => (p.stock ?? 0) <= 0);
 
-  // KPIs
-  const kpiInCatalog = items.filter((i) => i.catalog).length;
-  const kpiLow = lowStockItems.length;
-  const kpiOut = outOfStockItems.length;
-
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       {/* Header + Add */}
@@ -269,9 +346,13 @@ export default function ProductsPage() {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <KpiCard title="Total Items" value={total} color="bg-green-500" />
-        <KpiCard title="In Stock" value={items.filter((i) => (i.stock ?? 0) > 0).length} color="bg-green-500" />
-        <KpiCard title="Low Stock" value={kpiLow} color="bg-amber-500" />
-        <KpiCard title="Out of Stock" value={kpiOut} color="bg-red-500" />
+        <KpiCard
+          title="In Stock"
+          value={items.filter((i) => (i.stock ?? 0) > 0).length}
+          color="bg-green-500"
+        />
+        <KpiCard title="Low Stock" value={lowStockItems.length} color="bg-amber-500" />
+        <KpiCard title="Out of Stock" value={outOfStockItems.length} color="bg-red-500" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -348,9 +429,10 @@ export default function ProductsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <img
-                          src={p.images?.[0] || "https://via.placeholder.com/48"}
+                          src={firstImage(p) || DATA_PLACEHOLDER_48}
                           alt=""
                           className="w-10 h-10 rounded-lg object-cover"
+                          onError={(e) => (e.currentTarget.src = DATA_PLACEHOLDER_48)}
                         />
                         <div className="font-medium">{p.name}</div>
                       </div>
@@ -371,7 +453,6 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-4 py-3">₱{Number(p.price || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      {/* sliding switch with pseudo-element knob */}
                       <label className="inline-flex cursor-pointer items-center">
                         <input
                           type="checkbox"
@@ -436,26 +517,22 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Right column: Alerts */}
+        {/* Right column: Alerts (only render when they have items) */}
         <div className="space-y-6">
-          {/* Low Stock Alerts (no Create PO) */}
-          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
-            <div className="font-semibold text-amber-800 mb-3">⚠️ Low Stock Alerts</div>
-            {lowStockItems.length === 0 && (
-              <div className="text-sm text-amber-700">No low stock items.</div>
-            )}
-            {lowStockItems.map((p) => (
-              <div
-                key={p._id}
-                className="flex items-center justify-between bg-white rounded-xl p-3 mb-2 last:mb-0"
-              >
-                <div>
-                  <div className="font-medium">{p.name}</div>
-                  <div className="text-xs text-gray-500">
-                    Stock {p.stock} / Min {p.minStock}
+          {lowStockItems.length > 0 && (
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+              <div className="font-semibold text-amber-800 mb-3">⚠️ Low Stock Alerts</div>
+              {lowStockItems.map((p) => (
+                <div
+                  key={p._id}
+                  className="flex items-center justify-between bg-white rounded-xl p-3 mb-2 last:mb-0"
+                >
+                  <div>
+                    <div className="font-medium">{p.name}</div>
+                    <div className="text-xs text-gray-500">
+                      Stock {p.stock} / Min {p.minStock}
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
                   <button
                     className="px-3 py-1.5 text-sm rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200"
                     onClick={() => openStockModal(p)}
@@ -463,219 +540,31 @@ export default function ProductsPage() {
                     Add Stock
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {/* Out of Stock */}
-          <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
-            <div className="font-semibold text-rose-800 mb-3">⛔ Out of Stock</div>
-            {outOfStockItems.length === 0 && (
-              <div className="text-sm text-rose-700">Great! Nothing is out of stock.</div>
-            )}
-            {outOfStockItems.map((p) => (
-              <div
-                key={p._id}
-                className="flex items-center justify-between bg-white rounded-xl p-3 mb-2 last:mb-0"
-              >
-                <div className="font-medium">{p.name}</div>
-                <button
-                  className="px-3 py-1.5 text-sm rounded-lg bg-rose-600 text-white hover:bg-rose-700"
-                  onClick={() => openStockModal(p)}
+          {outOfStockItems.length > 0 && (
+            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
+              <div className="font-semibold text-rose-800 mb-3">⛔ Out of Stock</div>
+              {outOfStockItems.map((p) => (
+                <div
+                  key={p._id}
+                  className="flex items-center justify-between bg-white rounded-xl p-3 mb-2 last:mb-0"
                 >
-                  Restock
-                </button>
-              </div>
-            ))}
-          </div>
+                  <div className="font-medium">{p.name}</div>
+                  <button
+                    className="px-3 py-1.5 text-sm rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+                    onClick={() => openStockModal(p)}
+                  >
+                    Restock
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Add / Edit Product Modal */}
-      {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAdd(false)} />
-          <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
-                {editId ? "Edit product" : "Add product"}
-              </h3>
-              <button onClick={() => setShowAdd(false)} className="text-gray-500">
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-
-              {/* Price, Stock, Min, Weight */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Price"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  required
-                />
-                <input
-                  type="number"
-                  min="0"
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Stock"
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
-                  required
-                />
-                <input
-                  type="number"
-                  min="0"
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Min stock"
-                  value={minStock}
-                  onChange={(e) => setMinStock(e.target.value)}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Weight (kg)"
-                  value={weightKg}
-                  onChange={(e) => setWeightKg(e.target.value)}
-                />
-              </div>
-
-              <select
-                className="w-full border rounded-lg px-3 py-2"
-                value={catForForm}
-                onChange={(e) => setCatForForm(e.target.value)}
-                required
-              >
-                <option value="">Select category</option>
-                {categories.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.categoryName}
-                  </option>
-                ))}
-              </select>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={catalog}
-                  onChange={(e) => setCatalog(e.target.checked)}
-                />
-                <span>Show in catalog</span>
-              </label>
-
-              {/* -------- IMAGES AREA (URLs or Upload) -------- */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="imageMode"
-                      value="urls"
-                      checked={imageMode === "urls"}
-                      onChange={() => setImageMode("urls")}
-                    />
-                    Use image URLs
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="imageMode"
-                      value="upload"
-                      checked={imageMode === "upload"}
-                      onChange={() => setImageMode("upload")}
-                    />
-                    Upload images
-                  </label>
-                </div>
-
-                {imageMode === "urls" ? (
-                  <>
-                    <label className="block text-sm font-medium mb-1">Image URLs (optional)</label>
-                    <textarea
-                      rows={3}
-                      className="w-full border rounded-lg px-3 py-2"
-                      placeholder="https://example.com/a.jpg, https://example.com/b.png"
-                      value={imageUrlsText}
-                      onChange={(e) => setImageUrlsText(e.target.value)}
-                    />
-                    {toUrlArray(imageUrlsText).length > 0 && (
-                      <div className="flex gap-2 mt-2 flex-wrap">
-                        {toUrlArray(imageUrlsText).slice(0, 6).map((u, i) => (
-                          <img
-                            key={i}
-                            alt=""
-                            className="w-14 h-14 object-cover rounded"
-                            src={u}
-                            onError={(e) => (e.currentTarget.style.opacity = 0.2)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <label className="block text-sm font-medium mb-1">
-                      Upload images (up to 6, max 5MB each)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      multiple
-                      onChange={(e) => setLocalFiles(Array.from(e.target.files || []))}
-                      className="block w-full border rounded-lg px-3 py-2"
-                    />
-                    {localFiles.length > 0 && (
-                      <div className="flex gap-2 mt-2 flex-wrap">
-                        {localFiles.slice(0, 6).map((f, i) => (
-                          <img
-                            key={i}
-                            alt=""
-                            className="w-14 h-14 object-cover rounded"
-                            src={URL.createObjectURL(f)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-                >
-                  {editId ? "Save changes" : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetForm();
-                    setShowAdd(false);
-                  }}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Stock-only Modal (Add Stock / Restock) */}
       {showStockModal && (
@@ -736,15 +625,6 @@ export default function ProductsPage() {
       )}
 
       <InventoryAudit />
-    </div>
-  );
-}
-
-function Kpi({ label, value, danger }) {
-  return (
-    <div className={`rounded-2xl p-4 shadow ${danger ? "bg-red-50" : "bg-white"}`}>
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-2xl font-semibold">{value}</div>
     </div>
   );
 }
