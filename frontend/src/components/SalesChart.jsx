@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   Line,
   XAxis,
   YAxis,
@@ -18,277 +17,515 @@ import {
 const API = "http://localhost:5000/api";
 const CURRENCY = "₱";
 
-export default function SalesChart() {
+const COLORS = {
+  revenue: "#6366f1",
+  units: "#10b981",
+  revenueGradient: "rgba(99, 102, 241, 0.1)",
+  unitsGradient: "rgba(16, 185, 129, 0.1)",
+  grid: "#f1f5f9",
+  text: "#64748b",
+  border: "#e2e8f0",
+  background: "#ffffff"
+};
+
+export default function EnhancedSalesChart() {
   const [orders, setOrders] = useState([]);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-
-  // ▼ NEW: day vs month
-  const [groupBy, setGroupBy] = useState("day"); // "day" | "month"
-
+  const [error, setError] = useState("");
+  const [groupBy, setGroupBy] = useState("day");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
+  const [chartType, setChartType] = useState("line"); // line, area, bar
 
   useEffect(() => {
-    (async () => {
+    const fetchOrders = async () => {
       setLoading(true);
-      setErr("");
+      setError("");
       try {
-        const res = await axios.get(`${API}/orders`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
+        const response = await fetch(`${API}/orders`, {
+          headers: { 
+            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+            'Content-Type': 'application/json'
+          },
         });
-        setOrders(res.data?.orders ?? []);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setOrders(data?.orders ?? []);
       } catch (e) {
-        setErr(e?.response?.data?.message || e?.message || "Failed to load orders.");
+        setError(e?.message || "Failed to load orders.");
       } finally {
         setLoading(false);
       }
-    })();
+    };
+
+    fetchOrders();
   }, []);
 
-  // ▼ helper: return grouping key per order createdAt
-  const getKey = (isoDate) => {
-    const d = new Date(isoDate);
-    if (Number.isNaN(d.getTime())) return null;
+  const getDateKey = useCallback((isoDate) => {
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return null;
+    
     if (groupBy === "day") {
-      // YYYY-MM-DD
-      return d.toLocaleDateString("en-CA");
+      return date.toISOString().split('T')[0];
+    } else {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      return `${year}-${month}`;
     }
-    // month key: YYYY-MM
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  };
+  }, [groupBy]);
 
-  useEffect(() => {
+  const processedData = useMemo(() => {
     const grouped = orders.reduce((acc, order) => {
-      // Skip 'Pending' orders
       if (order?.status === "Pending") return acc;
 
-      const key = getKey(order?.createdAt);
+      const key = getDateKey(order?.createdAt);
       if (!key) return acc;
 
-      if (!acc[key]) acc[key] = { revenue: 0, units: 0 };
+      if (!acc[key]) {
+        acc[key] = { 
+          date: key, 
+          revenue: 0, 
+          units: 0,
+          orderCount: 0,
+          avgOrderValue: 0
+        };
+      }
+      
       acc[key].revenue += Number(order.totalAmount || 0);
-      for (const p of order.products || []) acc[key].units += Number(p?.quantity || 0);
+      acc[key].orderCount += 1;
+      
+      for (const product of order.products || []) {
+        acc[key].units += Number(product?.quantity || 0);
+      }
+      
       return acc;
     }, {});
 
-    const rows = Object.keys(grouped)
-      .sort()
-      .map((key) => ({ date: key, ...grouped[key] })); // date holds either YYYY-MM-DD or YYYY-MM
-    setData(rows);
-  }, [orders, groupBy]);
+    return Object.values(grouped)
+      .map(item => ({
+        ...item,
+        avgOrderValue: item.orderCount > 0 ? item.revenue / item.orderCount : 0
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [orders, getDateKey]);
+
+  const metrics = useMemo(() => {
+    const totalRevenue = processedData.reduce((sum, item) => sum + item.revenue, 0);
+    const totalUnits = processedData.reduce((sum, item) => sum + item.units, 0);
+    const totalOrders = processedData.reduce((sum, item) => sum + item.orderCount, 0);
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    return { totalRevenue, totalUnits, totalOrders, avgOrderValue };
+  }, [processedData]);
 
   const { maxRevenue, maxUnits } = useMemo(() => {
-    let mr = 0,
-      mu = 0;
-    for (const d of data) {
+    let mr = 0, mu = 0;
+    processedData.forEach(d => {
       if (d.revenue > mr) mr = d.revenue;
       if (d.units > mu) mu = d.units;
-    }
-    return { maxRevenue: Math.ceil(mr * 1.15), maxUnits: Math.ceil(mu * 1.15) };
-  }, [data]);
+    });
+    return { 
+      maxRevenue: Math.ceil(mr * 1.1), 
+      maxUnits: Math.ceil(mu * 1.1) 
+    };
+  }, [processedData]);
 
-  const fmtMoney = (n) =>
-    `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, {
+  const formatCurrency = useCallback((value) => {
+    return `${CURRENCY}${Number(value ?? 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  }, []);
 
-  // ▼ format YYYY-MM or YYYY-MM-DD for axis/tooltip labels
-  const fmtLabel = (key) => {
-    if (groupBy === "day") return key; // already YYYY-MM-DD
-    // month: parse YYYY-MM-01 and show "Sep 2025"
-    const d = new Date(`${key}-01T00:00:00`);
-    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-  };
+  const formatDateLabel = useCallback((key) => {
+    if (groupBy === "day") {
+      const date = new Date(key);
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } else {
+      const date = new Date(`${key}-01`);
+      return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    }
+  }, [groupBy]);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
-    const byKey = Object.fromEntries(payload.map((p) => [p.dataKey, p]));
+
+    const revenueData = payload.find(p => p.dataKey === 'revenue');
+    const unitsData = payload.find(p => p.dataKey === 'units');
+    const orderData = processedData.find(d => d.date === label);
+
     return (
-      <div className="rounded-xl border border-gray-200 bg-white/95 shadow-xl backdrop-blur p-3 min-w-[220px]">
-        <p className="text-xs text-gray-500 mb-2">{fmtLabel(label)}</p>
-        {showRevenue && byKey.revenue && (
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-indigo-500" />
-              Revenue
-            </span>
-            <span className="font-medium">{fmtMoney(byKey.revenue.value)}</span>
-          </div>
-        )}
-        {showUnits && byKey.units && (
-          <div className="flex items-center justify-between text-sm mt-1">
-            <span className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              Units Sold
-            </span>
-            <span className="font-medium">
-              {Number(byKey.units.value ?? 0).toLocaleString()}
-            </span>
-          </div>
-        )}
+      <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl p-4 min-w-[280px]">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          <span className="text-sm font-medium text-gray-900">
+            {formatDateLabel(label)}
+          </span>
+        </div>
+        
+        <div className="space-y-2">
+          {showRevenue && revenueData && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Revenue</span>
+              <span className="font-semibold text-indigo-600">
+                {formatCurrency(revenueData.value)}
+              </span>
+            </div>
+          )}
+          
+          {showUnits && unitsData && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Units Sold</span>
+              <span className="font-semibold text-emerald-600">
+                {Number(unitsData.value).toLocaleString()}
+              </span>
+            </div>
+          )}
+          
+          {orderData && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Orders</span>
+                <span className="font-medium text-gray-800">
+                  {orderData.orderCount}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Avg Order Value</span>
+                <span className="font-medium text-gray-800">
+                  {formatCurrency(orderData.avgOrderValue)}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     );
   };
 
-  return (
-    <div>
-      {/* ▼ controls */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Group by</label>
-          <select
-            className="px-2 py-1.5 rounded-lg border border-gray-200 text-sm"
-            value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value)}
-          >
-            <option value="day">Day</option>
-            <option value="month">Month</option>
-          </select>
+  const MetricCard = ({ title, value, icon, color, trend }) => (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-600 mb-1">{title}</p>
+          <p className={`text-2xl font-bold ${color}`}>{value}</p>
+          {trend && (
+            <p className="text-xs text-gray-500 mt-1">{trend}</p>
+          )}
         </div>
+        <div className={`p-3 rounded-lg ${color.replace('text-', 'bg-').replace('600', '100')}`}>
+          <div className={`text-2xl ${color}`}>{icon}</div>
+        </div>
+      </div>
+    </div>
+  );
 
-        <div className="flex items-center gap-2">
-          <button
-            className={`px-3 py-1.5 rounded-lg text-sm border ${
-              showRevenue
-                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                : "bg-white border-gray-200 text-gray-600"
-            }`}
-            onClick={() => setShowRevenue((v) => !v)}
-          >
-            {showRevenue ? "Hide Revenue" : "Show Revenue"}
-          </button>
-          <button
-            className={`px-3 py-1.5 rounded-lg text-sm border ${
-              showUnits
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : "bg-white border-gray-200 text-gray-600"
-            }`}
-            onClick={() => setShowUnits((v) => !v)}
-          >
-            {showUnits ? "Hide Units" : "Show Units"}
-          </button>
+  if (loading) return <SkeletonChart />;
+  if (error) return <ErrorState message={error} />;
+  if (processedData.length === 0) return <EmptyState />;
+
+  return (
+    <div className="space-y-6">
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          title="Total Revenue"
+          value={formatCurrency(metrics.totalRevenue)}
+          icon="💰"
+          color="text-indigo-600"
+        />
+        <MetricCard
+          title="Units Sold"
+          value={metrics.totalUnits.toLocaleString()}
+          icon="📦"
+          color="text-emerald-600"
+        />
+        <MetricCard
+          title="Total Orders"
+          value={metrics.totalOrders.toLocaleString()}
+          icon="🛒"
+          color="text-blue-600"
+        />
+        <MetricCard
+          title="Avg Order Value"
+          value={formatCurrency(metrics.avgOrderValue)}
+          icon="📊"
+          color="text-purple-600"
+        />
+      </div>
+
+      {/* Controls */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Group by</label>
+              <select
+                className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value)}
+              >
+                <option value="day">Day</option>
+                <option value="month">Month</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Chart Type</label>
+              <select
+                className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                value={chartType}
+                onChange={(e) => setChartType(e.target.value)}
+              >
+                <option value="line">Line</option>
+                <option value="area">Area</option>
+                <option value="bar">Bar</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                showRevenue
+                  ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+              onClick={() => setShowRevenue(!showRevenue)}
+            >
+              {showRevenue ? "Hide" : "Show"} Revenue
+            </button>
+            <button
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                showUnits
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+              onClick={() => setShowUnits(!showUnits)}
+            >
+              {showUnits ? "Hide" : "Show"} Units
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="h-[420px]">
-        {loading && <SkeletonChart />}
-        {!loading && err && <ErrorState message={err} />}
-        {!loading && !err && data.length === 0 && <EmptyState />}
-        {!loading && !err && data.length > 0 && (
+      {/* Chart */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="h-[500px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-
+            <ComposedChart 
+              data={processedData} 
+              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+              
               <XAxis
                 dataKey="date"
-                stroke="#6b7280"
-                tick={{ fontSize: 12 }}
-                tickFormatter={fmtLabel}
+                stroke={COLORS.text}
+                tick={{ fontSize: 12, fill: COLORS.text }}
+                tickFormatter={formatDateLabel}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
+              
               <YAxis
                 yAxisId="left"
-                stroke="#6b7280"
-                tick={{ fontSize: 12 }}
+                stroke={COLORS.revenue}
+                tick={{ fontSize: 12, fill: COLORS.text }}
                 domain={[0, maxRevenue]}
-                tickFormatter={fmtMoney}
+                tickFormatter={formatCurrency}
               />
+              
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                stroke="#6b7280"
-                tick={{ fontSize: 12 }}
+                stroke={COLORS.units}
+                tick={{ fontSize: 12, fill: COLORS.text }}
                 domain={[0, maxUnits]}
                 tickFormatter={(n) => Number(n).toLocaleString()}
               />
 
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ paddingTop: 8 }} />
-              <ReferenceLine y={0} yAxisId="left" stroke="#e5e7eb" />
+              <Legend 
+                wrapperStyle={{ paddingTop: 20 }}
+                iconType="circle"
+              />
+              
+              <ReferenceLine y={0} yAxisId="left" stroke={COLORS.grid} />
 
               <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLORS.revenue} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={COLORS.revenue} stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="unitsGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                <linearGradient id="unitsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLORS.units} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={COLORS.units} stopOpacity={0} />
                 </linearGradient>
               </defs>
 
+              {/* Revenue visualization */}
               {showRevenue && (
-                <Area yAxisId="left" type="monotone" dataKey="revenue" stroke="none" fill="url(#revGrad)" />
-              )}
-              {showUnits && (
-                <Bar yAxisId="right" dataKey="units" barSize={6} radius={[8, 8, 0, 0]} fill="url(#unitsGrad)" />
-              )}
-              {showRevenue && (
-                <Line
-                  yAxisId="left"
-                  name="Revenue"
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#6366f1"
-                  strokeWidth={3}
-                  dot={{ r: 3, stroke: "white", strokeWidth: 2 }}
-                  activeDot={{ r: 6 }}
-                />
-              )}
-              {showUnits && (
-                <Line
-                  yAxisId="right"
-                  name="Units Sold"
-                  type="monotone"
-                  dataKey="units"
-                  stroke="#10b981"
-                  strokeWidth={3}
-                  dot={{ r: 3, stroke: "white", strokeWidth: 2 }}
-                  activeDot={{ r: 6 }}
-                />
+                <>
+                  {chartType === "area" && (
+                    <Area 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="none" 
+                      fill="url(#revenueGradient)" 
+                    />
+                  )}
+                  {chartType === "bar" && (
+                    <Bar 
+                      yAxisId="left" 
+                      dataKey="revenue" 
+                      fill={COLORS.revenue}
+                      radius={[4, 4, 0, 0]}
+                      opacity={0.8}
+                    />
+                  )}
+                  {(chartType === "line" || chartType === "area") && (
+                    <Line
+                      yAxisId="left"
+                      name="Revenue"
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke={COLORS.revenue}
+                      strokeWidth={3}
+                      dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.revenue }}
+                      activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
+                    />
+                  )}
+                </>
               )}
 
-              <Brush height={24} travellerWidth={8} stroke="#c7d2fe" fill="#f8fafc" />
-            </LineChart>
+              {/* Units visualization */}
+              {showUnits && (
+                <>
+                  {chartType === "area" && (
+                    <Area 
+                      yAxisId="right" 
+                      type="monotone" 
+                      dataKey="units" 
+                      stroke="none" 
+                      fill="url(#unitsGradient)" 
+                    />
+                  )}
+                  {chartType === "bar" && (
+                    <Bar 
+                      yAxisId="right" 
+                      dataKey="units" 
+                      fill={COLORS.units}
+                      radius={[4, 4, 0, 0]}
+                      opacity={0.8}
+                    />
+                  )}
+                  {(chartType === "line" || chartType === "area") && (
+                    <Line
+                      yAxisId="right"
+                      name="Units Sold"
+                      type="monotone"
+                      dataKey="units"
+                      stroke={COLORS.units}
+                      strokeWidth={3}
+                      dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.units }}
+                      activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
+                    />
+                  )}
+                </>
+              )}
+
+              <Brush 
+                height={30} 
+                travellerWidth={10} 
+                stroke={COLORS.border} 
+                fill="#f8fafc"
+                dataKey="date"
+                tickFormatter={formatDateLabel}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-/* helpers */
+/* Helper Components */
 function SkeletonChart() {
   return (
-    <div className="h-full animate-pulse">
-      <div className="h-7 w-1/3 bg-gray-200 rounded-lg mb-4" />
-      <div className="h-[320px] bg-gray-100 rounded-xl" />
-      <div className="h-6 w-1/2 bg-gray-100 rounded-lg mt-4" />
-    </div>
-  );
-}
-function EmptyState() {
-  return (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-5xl mb-3">🕳️</div>
-        <p className="text-gray-600 font-medium">No data yet</p>
-        <p className="text-gray-400 text-sm">Add sales to see trends over time.</p>
+    <div className="space-y-6">
+      {/* Skeleton metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
+              </div>
+              <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Skeleton controls */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="flex gap-4">
+            <div className="h-10 w-32 bg-gray-200 rounded"></div>
+            <div className="h-10 w-32 bg-gray-200 rounded"></div>
+          </div>
+          <div className="flex gap-2">
+            <div className="h-10 w-24 bg-gray-200 rounded"></div>
+            <div className="h-10 w-24 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Skeleton chart */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+        <div className="h-[500px] bg-gray-100 rounded-lg"></div>
       </div>
     </div>
   );
 }
+
+function EmptyState() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-12">
+      <div className="text-center">
+        <div className="text-6xl mb-4">📊</div>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">No sales data yet</h3>
+        <p className="text-gray-600 max-w-md mx-auto">
+          Start making sales to see your revenue and units sold trends over time.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ErrorState({ message }) {
   return (
-    <div className="h-full flex items-center justify-center">
+    <div className="bg-white rounded-xl border border-red-200 p-12">
       <div className="text-center">
-        <div className="text-5xl mb-3">⚠️</div>
-        <p className="text-gray-700 font-medium">Couldn’t load sales</p>
-        <p className="text-gray-500 text-sm mt-1">{message}</p>
+        <div className="text-6xl mb-4">⚠️</div>
+        <h3 className="text-xl font-semibold text-red-900 mb-2">Unable to load sales data</h3>
+        <p className="text-red-600 mb-4">{message}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     </div>
   );

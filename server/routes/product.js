@@ -7,6 +7,10 @@ import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// For reviews
+router.get('/flat', ctrl.listFlat);
+router.delete('/:productId/reviews/:reviewId', authMiddleware, ctrl.deleteReview);
+
 router.get("/audit", ctrl.auditList);
 router.post("/audit/reconcile", ctrl.auditReconcile);
 

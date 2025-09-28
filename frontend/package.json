@@ -12,12 +12,14 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.11",
     "axios": "^1.11.0",
+    "dayjs": "^1.11.18",
     "framer-motion": "^12.23.12",
     "icons": "^1.0.0",
     "lucide-react": "^0.544.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.0",
     "react-router": "^7.7.1",
+    "socket.io-client": "^4.8.1",
     "tailwindcss": "^4.1.11"
   },
   "devDependencies": {

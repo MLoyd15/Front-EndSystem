@@ -77,6 +77,7 @@ export async function getResources(req, res) {
 }
 
 // -------------------- Assign driver + vehicle --------------------
+// -------------------- Assign driver + vehicle --------------------
 export async function assignDriverVehicle(req, res) {
   try {
     const { id } = req.params;
@@ -99,9 +100,13 @@ export async function assignDriverVehicle(req, res) {
     const update = {
       assignedDriver: driver._id,
       assignedVehicle: vehicle._id,
+      status: "assigned" // Automatically set to assigned when both driver and vehicle are assigned
     };
-    // keep current status unless client explicitly sends one
-    if (status) update.status = status;
+    
+    // Only override the automatic "assigned" status if client explicitly sends a different status
+    if (status && status !== "assigned") {
+      update.status = status;
+    }
 
     const delivery = await Delivery.findByIdAndUpdate(id, update, { new: true })
       .populate("assignedDriver", "name phone")

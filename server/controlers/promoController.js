@@ -30,12 +30,21 @@ export const createPromo = async (req, res) => {
   res.status(201).json(promo);
 };
 
-// Toggle pause/activate (used by your Pause/Activate button)
 export const togglePause = async (req, res) => {
   const { id } = req.params;
+  const { forceActivate } = req.body;
+
   const promo = await Promotion.findById(id);
   if (!promo) return res.status(404).json({ message: "Not found" });
-  promo.status = promo.status === "Paused" ? "Active" : "Paused";
+
+  if (forceActivate) {
+    promo.status = "Active";
+    // ✨ Make it active immediately — no longer scheduled
+    promo.startsAt = null;           // or: new Date()
+  } else {
+    promo.status = promo.status === "Paused" ? "Active" : "Paused";
+  }
+
   await promo.save();
   res.json(promo);
 };

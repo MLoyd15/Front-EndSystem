@@ -3,7 +3,7 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Bike, Search, Filter, Clock, MapPin, User, Weight,
-  ChevronRight, X, CheckCircle2
+  ChevronRight, X, CheckCircle2, ShoppingCart, Phone, CheckCircle, XCircle
 } from "lucide-react";
 
 /* ----------------------------- API ----------------------------- */
@@ -17,6 +17,7 @@ const chip = (color, text) => {
     amber: "bg-amber-100 text-amber-700 ring-amber-200",
     sky: "bg-sky-100 text-sky-700 ring-sky-200",
     gray: "bg-gray-100 text-gray-700 ring-gray-200",
+    red: "bg-red-100 text-red-700 ring-red-200",
   };
   return <span className={`px-2 py-0.5 text-xs rounded-full ring-1 ${colors[color]}`}>{text}</span>;
 };
@@ -27,7 +28,7 @@ const statusPill = (status) => {
     assigned: ["sky", "Assigned"],
     "in-transit": ["amber", "In transit"],
     completed: ["green", "Completed"],
-    cancelled: ["gray", "Cancelled"],
+    cancelled: ["red", "Cancelled"],
   };
   const [c, label] = map[status] || map.pending;
   return chip(c, label);
@@ -56,52 +57,91 @@ export default function Deliveries() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(null);
+  const [drawerDetails, setDrawerDetails] = useState(null);
+  const [drawerLoading, setDrawerLoading] = useState(false);
   const [editing, setEditing] = useState(null);
 
   const load = async () => {
-    setLoading(true);
+  setLoading(true);
+  try {
+    const params = {};
+    if (status) params.status = status;
+    if (query) params.q = query.trim();
+    const { data } = await axios.get(API, { headers: auth(), params });
+    const deliveries = Array.isArray(data) ? data : (data?.deliveries || []);
+    
+    // Sort by createdAt date (newest first)
+    const sortedDeliveries = deliveries.sort((a, b) => 
+      new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)
+    );
+    
+    setRows(sortedDeliveries);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const loadDeliveryDetails = async (deliveryId) => {
+    setDrawerLoading(true);
     try {
-      const params = {};
-      if (status) params.status = status;
-      if (query) params.q = query.trim();
-      const { data } = await axios.get(API, { headers: auth(), params });
-      setRows(Array.isArray(data) ? data : (data?.deliveries || []));
+      const { data } = await axios.get(`${API}/${deliveryId}`, { headers: auth() });
+      setDrawerDetails(data);
     } catch (e) {
       console.error(e);
+      setDrawerDetails(null);
     } finally {
-      setLoading(false);
+      setDrawerLoading(false);
     }
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab, status]);
 
-  const filtered = useMemo(() => {
-    const typeKey = String(tab).toLowerCase();
-    const byTab = rows.filter(r => String(r.type || "").toLowerCase() === typeKey);
+ const filtered = useMemo(() => {
+  const typeKey = String(tab).toLowerCase();
+  let byTab = [];
+  
+  if (tab === "completed") {
+    byTab = rows.filter(r => r.status === "completed");
+  } else if (tab === "cancelled") {
+    byTab = rows.filter(r => r.status === "cancelled");
+  } else {
+    // For regular tabs, exclude completed and cancelled deliveries
+    byTab = rows.filter(r => 
+      String(r.type || "").toLowerCase() === typeKey && 
+      !["completed", "cancelled"].includes(r.status)
+    );
+  }
 
-    if (!query) return byTab;
+  if (!query) return byTab;
 
-    const q = query.toLowerCase();
-    return byTab.filter((r) => {
-      const addr = String(r.deliveryAddress || "").toLowerCase();
-      const pick = String(r.pickupLocation || "").toLowerCase();
-      const prov = String(r.thirdPartyProvider || "").toLowerCase();
-      const drv = String(driverLabel(r)).toLowerCase();
-      const veh = String(vehicleLabel(r)).toLowerCase();
-      const id  = String(r._id || "").toLowerCase();
-      return [addr, pick, prov, drv, veh, id].some((t) => t.includes(q));
-    });
-  }, [rows, query, tab]);
+  const q = query.toLowerCase();
+  return byTab.filter((r) => {
+    const addr = String(r.deliveryAddress || "").toLowerCase();
+    const pick = String(r.pickupLocation || "").toLowerCase();
+    const prov = String(r.thirdPartyProvider || "").toLowerCase();
+    const drv = String(driverLabel(r)).toLowerCase();
+    const veh = String(vehicleLabel(r)).toLowerCase();
+    const id  = String(r._id || "").toLowerCase();
+    const orderId = String(r.orderId || "").toLowerCase();
+    return [addr, pick, prov, drv, veh, id, orderId].some((t) => t.includes(q));
+  });
+}, [rows, query, tab]);
 
   const headerTitle =
     tab === "pickup" ? "Customer Pickups" :
     tab === "in-house" ? "In-house Deliveries" :
-    "Third-party Deliveries";
+    tab === "third-party" ? "Third-party Deliveries" :
+    tab === "completed" ? "Completed Deliveries" :
+    "Cancelled Deliveries";
 
   const tabColors = {
     "pickup": "bg-emerald-600",
     "in-house": "bg-amber-600",
     "third-party": "bg-sky-600",
+    "completed": "bg-green-600",
+    "cancelled": "bg-red-600",
   };
 
   const onQuickStatus = async (id, st) => {
@@ -131,6 +171,21 @@ export default function Deliveries() {
     load();
   };
 
+  const handleDrawerOpen = (delivery) => {
+    setDrawer(delivery);
+    setDrawerDetails(null);
+    loadDeliveryDetails(delivery._id);
+  };
+
+  const getLocationDisplay = (delivery, tab) => {
+  if (tab === "pickup") {
+    return delivery.pickupLocation || "Set pickup location";
+  } else {
+    // For in-house, third-party, completed, cancelled - all show delivery address
+    return delivery.deliveryAddress || "Set delivery address";
+  }
+};
+
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <div className="relative max-w-7xl mx-auto px-6 pt-10 pb-8">
@@ -144,6 +199,8 @@ export default function Deliveries() {
             { key: "pickup", label: "Pickup", Icon: Package },
             { key: "in-house", label: "In-house", Icon: Package },
             { key: "third-party", label: "3rd-Party", Icon: Bike },
+            { key: "completed", label: "Completed", Icon: CheckCircle },
+            { key: "cancelled", label: "Cancelled", Icon: XCircle },
           ].map(({ key, label, Icon }) => {
             const selected = tab === key;
             return (
@@ -173,23 +230,26 @@ export default function Deliveries() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && load()}
-                placeholder="Search address, pickup location, provider, driver, vehicle, id…"
+                placeholder="Search address, pickup location, provider, driver, vehicle, order id…"
                 className="outline-none bg-transparent flex-1 text-sm"
               />
             </div>
 
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="px-3 py-2 rounded-xl ring-1 ring-slate-200 bg-white text-sm text-slate-700 hover:bg-slate-50"
-            >
-              <option value="">All status</option>
-              <option value="pending">Pending</option>
-              <option value="assigned">Assigned</option>
-              <option value="in-transit">In transit</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+            {/* Only show status filter for active tabs, not for completed/cancelled */}
+            {!["completed", "cancelled"].includes(tab) && (
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="px-3 py-2 rounded-xl ring-1 ring-slate-200 bg-white text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <option value="">All status</option>
+                <option value="pending">Pending</option>
+                <option value="assigned">Assigned</option>
+                <option value="in-transit">In transit</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            )}
 
             <button
               onClick={load}
@@ -221,7 +281,7 @@ export default function Deliveries() {
                       >
                         <div className="flex flex-wrap items-center gap-3">
                           <div className="flex items-center gap-2 min-w-[8rem]">
-                            <span className="font-semibold text-slate-800">{last6(d._id)}</span>
+                            <span className="font-semibold text-slate-800">{last6(d.order?._id || d.order || d._id)}</span>
                             {statusPill(d.status)}
                           </div>
 
@@ -235,9 +295,7 @@ export default function Deliveries() {
                           <div className="flex items-center gap-2 text-slate-600 min-w-[14rem]">
                             <MapPin className="w-4 h-4" />
                             <span className="truncate">
-                              {tab !== "third-party"
-                                ? (d.pickupLocation || "Set pickup location")
-                                : (d.deliveryAddress || "Delivery address")}
+                              {getLocationDisplay(d, tab)}
                             </span>
                           </div>
 
@@ -248,7 +306,7 @@ export default function Deliveries() {
 
                           <div className="flex items-center gap-2 text-slate-600">
                             <Weight className="w-4 h-4" />
-                            <span>0 kg</span>
+                            <span>{d.order?.totalWeight || d.weight || 0} kg</span>
                           </div>
 
                           <div className="ml-auto flex items-center gap-2">
@@ -256,18 +314,21 @@ export default function Deliveries() {
                             {vehiclePill(d)}
 
                             <button
-                              onClick={() => setDrawer(d)}
+                              onClick={() => handleDrawerOpen(d)}
                               className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
                             >
                               Details <ChevronRight className="w-4 h-4" />
                             </button>
 
-                            <button
-                              onClick={() => setEditing(d)}
-                              className="px-3 py-1.5 text-sm rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
-                            >
-                              Manage
-                            </button>
+                            {/* Only show Manage button for active deliveries (not completed/cancelled) */}
+                            {!["completed", "cancelled"].includes(d.status) && (
+                              <button
+                                onClick={() => setEditing(d)}
+                                className="px-3 py-1.5 text-sm rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                              >
+                                Manage
+                              </button>
+                            )}
                           </div>
                         </div>
                       </motion.div>
@@ -279,47 +340,52 @@ export default function Deliveries() {
           </div>
 
           <div className="lg:col-span-1">
-            <div
-              className={`rounded-3xl shadow-xl ring-1 p-5 
-                ${tab === "pickup" ? "bg-emerald-50 ring-emerald-200" : ""}
-                ${tab === "in-house" ? "bg-amber-50 ring-amber-200": ""}
-                ${tab === "third-party" ? "bg-sky-100 ring-sky-200" : ""}`}
-            >
-              <h3 className="font-semibold mb-4 text-black">
-                {tab === "pickup"
-                  ? "Pickup Scheduler"
-                  : tab === "in-house"
-                  ? "In-House Scheduler"
-                  : "3rd-Party Booking"}
-              </h3>
+            {/* Only show scheduler for active tabs, show summary for completed/cancelled */}
+            {["completed", "cancelled"].includes(tab) ? (
+              <CompletedCancelledSummary deliveries={filtered} tab={tab} />
+            ) : (
+              <div
+                className={`rounded-3xl shadow-xl ring-1 p-5 
+                  ${tab === "pickup" ? "bg-emerald-50 ring-emerald-200" : ""}
+                  ${tab === "in-house" ? "bg-amber-50 ring-amber-200": ""}
+                  ${tab === "third-party" ? "bg-sky-100 ring-sky-200" : ""}`}
+              >
+                <h3 className="font-semibold mb-4 text-black">
+                  {tab === "pickup"
+                    ? "Pickup Scheduler"
+                    : tab === "in-house"
+                    ? "In-House Scheduler"
+                    : "3rd-Party Booking"}
+                </h3>
 
-              {!editing ? (
-                <p className="text-sm text-slate-600">
-                  Select a delivery and click <b>Manage</b>.
-                </p>
-              ) : tab === "pickup" ? (
-                <PickupEditor
-                  row={editing}
-                  onCancel={() => setEditing(null)}
-                  onSave={(v) => onSavePickup(editing._id, v)}
-                  onQuickStatus={(st) => onQuickStatus(editing._id, st)}
-                />
-              ) : tab === "in-house" ? (
-                <InHouseEditor
-                  row={editing}
-                  onCancel={() => setEditing(null)}
-                  onAssign={(payload) => onSaveInHouse(editing._id, payload)}
-                  onQuickStatus={(st) => onQuickStatus(editing._id, st)}
-                />
-              ) : (
-                <ThirdPartyEditor
-                  row={editing}
-                  onCancel={() => setEditing(null)}
-                  onSave={(provider) => onSaveThirdParty(editing._id, provider)}
-                  onQuickStatus={(st) => onQuickStatus(editing._id, st)}
-                />
-              )}
-            </div>
+                {!editing ? (
+                  <p className="text-sm text-slate-600">
+                    Select a delivery and click <b>Manage</b>.
+                  </p>
+                ) : tab === "pickup" ? (
+                  <PickupEditor
+                    row={editing}
+                    onCancel={() => setEditing(null)}
+                    onSave={(v) => onSavePickup(editing._id, v)}
+                    onQuickStatus={(st) => onQuickStatus(editing._id, st)}
+                  />
+                ) : tab === "in-house" ? (
+                  <InHouseEditor
+                    row={editing}
+                    onCancel={() => setEditing(null)}
+                    onAssign={(payload) => onSaveInHouse(editing._id, payload)}
+                    onQuickStatus={(st) => onQuickStatus(editing._id, st)}
+                  />
+                ) : (
+                  <ThirdPartyEditor
+                    row={editing}
+                    onCancel={() => setEditing(null)}
+                    onSave={(provider) => onSaveThirdParty(editing._id, provider)}
+                    onQuickStatus={(st) => onQuickStatus(editing._id, st)}
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -333,57 +399,250 @@ export default function Deliveries() {
             <motion.div
               initial={{ x: 420 }} animate={{ x: 0 }} exit={{ x: 420 }}
               transition={{ type: "spring", stiffness: 220, damping: 24 }}
-              className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl ring-1 ring-slate-200 p-6"
+              className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl ring-1 ring-slate-200 p-6 overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-800">Delivery {last6(drawer._id)}</h3>
-                <button onClick={() => setDrawer(null)} className="p-2 rounded-xl hover:bg-slate-50"><X className="w-5 h-5" /></button>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Order {last6(drawer.order?._id || drawer.order || drawer._id)}
+                </h3>
+                <button onClick={() => setDrawer(null)} className="p-2 rounded-xl hover:bg-slate-50">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center gap-2 text-slate-700">
-                  <span className="font-medium">Type:</span>
-                  <span>{drawer.type || "—"}</span>
+              {drawerLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-slate-500">Loading order details...</div>
                 </div>
-
-                <div className="flex items-center gap-2 text-slate-700">
-                  <span className="font-medium">Status:</span>
-                  <span>{statusPill(drawer.status)}</span>
-                </div>
-
-                <div className="flex items-start gap-2 text-slate-700">
-                  <MapPin className="w-4 h-4 mt-0.5" />
-                  <div>
-                    <div><span className="font-medium">Pickup:</span> {drawer.pickupLocation || "—"}</div>
-                    <div><span className="font-medium">Delivery:</span> {drawer.deliveryAddress || "—"}</div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Order Information */}
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4" />
+                      Order Information
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Order ID:</span>
+                        <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Delivery Type:</span>
+                        <span className="font-medium capitalize">{drawer.type || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Status:</span>
+                        <div>{statusPill(drawer.status)}</div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Weight:</span>
+                        <span className="font-medium">{drawer.order?.totalWeight || drawer.weight || 0} kg</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 text-slate-700">
-                  <Clock className="w-4 h-4" />
-                  <div>{fmtDateTime(drawer.scheduledDate)}</div>
-                </div>
+                  {/* Customer Information */}
+                  {(drawerDetails?.order?.customer || drawer?.order?.customer) && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        Customer Information
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Name:</span>
+                          <span className="font-medium">{(drawerDetails?.order?.customer || drawer?.order?.customer)?.name || "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Phone:</span>
+                          <span className="font-medium">{(drawerDetails?.order?.customer || drawer?.order?.customer)?.phone || "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Email:</span>
+                          <span className="font-medium">{(drawerDetails?.order?.customer || drawer?.order?.customer)?.email || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                <div className="flex items-center gap-2 text-slate-700">
-                  <span className="font-medium">Provider:</span>
-                  <div>{drawer.thirdPartyProvider || "—"}</div>
-                </div>
+                  {/* Location Information */}
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Location Details
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <span className="text-slate-600 block mb-1">Pickup Location:</span>
+                        <span className="font-medium">{drawer.pickupLocation || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 block mb-1">Delivery Address:</span>
+                        <span className="font-medium">{drawer.deliveryAddress || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Scheduled Time:</span>
+                        <span className="font-medium">{fmtDateTime(drawer.scheduledDate)}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="flex items-center gap-2 text-slate-700">
-                  <span className="font-medium">Driver:</span>
-                  <div>{driverLabel(drawer) || "—"}</div>
-                </div>
+                  {/* Assignment Information */}
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                      <Bike className="w-4 h-4" />
+                      Assignment Details
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {drawer.thirdPartyProvider ? (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">3rd Party Provider:</span>
+                          <span className="font-medium">{drawer.thirdPartyProvider}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Driver:</span>
+                            <span className="font-medium">{driverLabel(drawer) || "Not assigned"}</span>
+                          </div>
+                          {drawer.assignedDriver?.phone && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Driver Phone:</span>
+                              <span className="font-medium flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {drawer.assignedDriver.phone}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Vehicle:</span>
+                            <span className="font-medium">{vehicleLabel(drawer) || "Not assigned"}</span>
+                          </div>
+                          {drawer.assignedVehicle?.capacityKg && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Vehicle Capacity:</span>
+                              <span className="font-medium">{drawer.assignedVehicle.capacityKg} kg</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
 
-                <div className="flex items-center gap-2 text-slate-700">
-                  <span className="font-medium">Vehicle:</span>
-                  <div>{vehicleLabel(drawer) || "—"}</div>
+                  {/* Order Items */}
+                  {(drawerDetails?.order?.items || drawer?.order?.items) && (drawerDetails?.order?.items || drawer?.order?.items).length > 0 && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                        <Package className="w-4 h-4" />
+                        Order Items ({(drawerDetails?.order?.items || drawer?.order?.items).length})
+                      </h4>
+                      <div className="space-y-3 max-h-48 overflow-y-auto">
+                        {(drawerDetails?.order?.items || drawer?.order?.items).map((item, idx) => (
+                          <div key={idx} className="bg-white rounded-lg p-3 text-sm">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-medium text-slate-800">{item.productName || item.name || "—"}</span>
+                              <span className="text-slate-600">×{item.quantity || 1}</span>
+                            </div>
+                            {item.price && (
+                              <div className="text-slate-600">₱{item.price.toLocaleString()}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Order Summary */}
+                  {(drawerDetails?.order?.total || drawer?.order?.total) && (
+                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                      <h4 className="font-medium text-emerald-800 mb-2">Order Total</h4>
+                      <div className="text-2xl font-bold text-emerald-700">
+                        ₱{(drawerDetails?.order?.total || drawer?.order?.total).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/* --------------------------- Summary Component for Completed/Cancelled --------------------------- */
+function CompletedCancelledSummary({ deliveries, tab }) {
+  const bgColor = tab === "completed" ? "bg-green-50 ring-green-200" : "bg-red-50 ring-red-200";
+  const iconColor = tab === "completed" ? "text-green-600" : "text-red-600";
+  const Icon = tab === "completed" ? CheckCircle : XCircle;
+  
+  const totalDeliveries = deliveries.length;
+  const today = new Date();
+  const todayDeliveries = deliveries.filter(d => {
+    const deliveryDate = new Date(d.updatedAt || d.createdAt);
+    return deliveryDate.toDateString() === today.toDateString();
+  }).length;
+
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setDate(today.getDate() - today.getDay());
+  const thisWeekDeliveries = deliveries.filter(d => {
+    const deliveryDate = new Date(d.updatedAt || d.createdAt);
+    return deliveryDate >= thisWeekStart;
+  }).length;
+
+  const totalWeight = deliveries.reduce((sum, d) => sum + (d.order?.totalWeight || d.weight || 0), 0);
+  
+  return (
+    <div className={`rounded-3xl shadow-xl ring-1 p-5 ${bgColor}`}>
+      <div className="flex items-center gap-2 mb-4">
+        <Icon className={`w-5 h-5 ${iconColor}`} />
+        <h3 className="font-semibold text-black capitalize">{tab} Deliveries Summary</h3>
+      </div>
+
+      <div className="space-y-4">
+        <div className="bg-white rounded-xl p-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="text-slate-600">Total</div>
+              <div className="text-xl font-bold text-slate-800">{totalDeliveries}</div>
+            </div>
+            <div>
+              <div className="text-slate-600">Today</div>
+              <div className="text-xl font-bold text-slate-800">{todayDeliveries}</div>
+            </div>
+            <div>
+              <div className="text-slate-600">This Week</div>
+              <div className="text-xl font-bold text-slate-800">{thisWeekDeliveries}</div>
+            </div>
+            <div>
+              <div className="text-slate-600">Total Weight</div>
+              <div className="text-xl font-bold text-slate-800">{totalWeight} kg</div>
+            </div>
+          </div>
+        </div>
+
+        {deliveries.length > 0 && (
+          <div className="bg-white rounded-xl p-4">
+            <h4 className="font-medium text-slate-800 mb-3">Recent {tab === "completed" ? "Completed" : "Cancelled"}</h4>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {deliveries.slice(0, 5).map((d) => (
+                <div key={d._id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                  <div>
+                    <div className="font-medium text-sm">{last6(d.order?._id || d._id)}</div>
+                    <div className="text-xs text-slate-600">{fmtDateTime(d.updatedAt || d.createdAt)}</div>
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    {d.order?.totalWeight || d.weight || 0} kg
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -479,7 +738,6 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
   const [vehicleId, setVehicleId] = useState(row?.assignedVehicle?._id || "");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [section, setSection] = useState("driver");
 
   useEffect(() => {
     let live = true;
@@ -504,28 +762,6 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
     await onAssign({ driverId, vehicleId });
   };
 
-  const Tabs = () => (
-    <div className="inline-flex rounded-xl ring-1 ring-slate-200 bg-white overflow-hidden">
-      {[
-        { key: "driver", label: "Driver", Icon: User },
-        { key: "vehicle", label: "Vehicle", Icon: Bike },
-      ].map(({ key, label, Icon }) => {
-        const selected = section === key;
-        return (
-          <button
-            key={key}
-            onClick={() => setSection(key)}
-            className={`px-3 py-2 text-sm inline-flex items-center gap-2 transition
-              ${selected ? "bg-amber-500 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </button>
-        );
-      })}
-    </div>
-  );
-
   const ChoiceItem = ({ active, onClick, leftIcon, title, rightNote }) => (
     <button
       type="button"
@@ -547,47 +783,51 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
         <div className="text-slate-500">Loading…</div>
       ) : (
         <>
-          <Tabs />
+          {/* Driver Section - Always Visible */}
+          <div>
+            <div className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Driver
+            </div>
+            <div className="space-y-2">
+              {drivers.map((d) => (
+                <ChoiceItem
+                  key={d._id}
+                  active={driverId === d._id}
+                  onClick={() => setDriverId(d._id)}
+                  leftIcon={<User className="w-4 h-4 text-emerald-600" />}
+                  title={d.name}
+                  rightNote={d.phone}
+                />
+              ))}
+              {!drivers.length && (
+                <div className="text-xs text-slate-500 p-3 text-center bg-slate-50 rounded-xl">No drivers available</div>
+              )}
+            </div>
+          </div>
 
-          {section === "driver" ? (
-            <div>
-              <div className="text-sm font-medium text-slate-700 mb-2">Driver</div>
-              <div className="space-y-2">
-                {drivers.map((d) => (
-                  <ChoiceItem
-                    key={d._id}
-                    active={driverId === d._id}
-                    onClick={() => setDriverId(d._id)}
-                    leftIcon={<User className="w-4 h-4 text-emerald-600" />}
-                    title={d.name}
-                    rightNote={d.phone}
-                  />
-                ))}
-                {!drivers.length && (
-                  <div className="text-xs text-slate-500">No drivers found.</div>
-                )}
-              </div>
+          {/* Vehicle Section - Always Visible */}
+          <div>
+            <div className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+              <Bike className="w-4 h-4" />
+              Vehicle
             </div>
-          ) : (
-            <div>
-              <div className="text-sm font-medium text-slate-700 mb-2">Vehicle</div>
-              <div className="space-y-2">
-                {vehicles.map((v) => (
-                  <ChoiceItem
-                    key={v._id}
-                    active={vehicleId === v._id}
-                    onClick={() => setVehicleId(v._id)}
-                    leftIcon={<Bike className="w-4 h-4 text-emerald-600" />}
-                    title={v.plate}
-                    rightNote={`Capacity ${v.capacityKg?.toLocaleString() || 0} kg`}
-                  />
-                ))}
-                {!vehicles.length && (
-                  <div className="text-xs text-slate-500">No vehicles found.</div>
-                )}
-              </div>
+            <div className="space-y-2">
+              {vehicles.map((v) => (
+                <ChoiceItem
+                  key={v._id}
+                  active={vehicleId === v._id}
+                  onClick={() => setVehicleId(v._id)}
+                  leftIcon={<Bike className="w-4 h-4 text-emerald-600" />}
+                  title={v.plate}
+                  rightNote={`Capacity ${v.capacityKg?.toLocaleString() || 0} kg`}
+                />
+              ))}
+              {!vehicles.length && (
+                <div className="text-xs text-slate-500 p-3 text-center bg-slate-50 rounded-xl">No vehicles available</div>
+              )}
             </div>
-          )}
+          </div>
 
           {err && <div className="text-sm text-red-600">{err}</div>}
 
@@ -625,4 +865,5 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
     </div>
   );
 }
-
+      
+      

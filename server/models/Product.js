@@ -15,6 +15,17 @@ const productSchema = new mongoose.Schema(
     minStock: { type: Number, default: 0, min: 0 },
     weightKg: { type: Number, min: 0, default: null },
 
+     // 🔽 Add reviews here
+    reviews: [
+      {
+        userId:   { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        rating:   { type: Number, min: 1, max: 5 },
+        comment:  String,
+        imageUrls:[String],
+        createdAt:{ type: Date, default: Date.now },
+      },
+    ],
+
     category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true },
     images: {
       type: [String],

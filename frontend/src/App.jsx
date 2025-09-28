@@ -11,6 +11,9 @@ import Deliveries from './components/Deliveries';
 import Review from './components/Review';
 import DriverDashboardComponent from './components/dashboardDriver'
 import DriverDashboard from './pages/driverDashboard'
+import ChatPanel from './components/chat'
+import DriverDeliveries from './components/driverDeliveries'
+import Promo from './components/promo'
 
 function App() {
   return (
@@ -33,7 +36,7 @@ function App() {
         <Route path="delivery" element={<Deliveries />} />
         <Route path="inventory" element={<h1>inventory</h1>} />
         <Route path="review" element={<Review/>} />
-        <Route path="users" element={<h1>users</h1>} />
+        <Route path="promo" element={<Promo/>}/>
         <Route path="profile" element={<h1>profile</h1>} />
       </Route>
 
@@ -47,8 +50,8 @@ function App() {
         }
       >
         <Route index element={<DriverDashboardComponent />} />
-        <Route path="delivery" element={<Deliveries />} />
-        <Route path="profile" element={<h1> profile</h1>}/>
+        <Route path="delivery" element={<DriverDeliveries  />} />
+        <Route path="profile" element={<ChatPanel/>}/>
         <Route path="logout" element={<h1>Driver Logout</h1>} />
       </Route>
 

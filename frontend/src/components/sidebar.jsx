@@ -10,6 +10,7 @@ import {
   FaUser
 } from "react-icons/fa";
 import { NavLink } from "react-router";
+import { MdDiscount } from "react-icons/md";
 
 const Sidebar = () => {
   const menuItems = [
@@ -17,8 +18,8 @@ const Sidebar = () => {
     { name: "Categories", path: "/admin-dashboard/categories", icon: <FaTable />, isParent: false },
     { name: "Products", path: "/admin-dashboard/products", icon: <FaBox />, isParent: false },
     { name: "Delivery", path: "/admin-dashboard/delivery", icon: <FaTruck />, isParent: false },
-    { name: "Product review & discount", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
-    { name: "Users", path: "/admin-dashboard/users", icon: <FaUsers />, isParent: false },
+    { name: "Product review ", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
+    { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false },
     { name: "Logout", path: "/admin-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 

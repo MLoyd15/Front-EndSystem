@@ -234,4 +234,38 @@ export const auditReconcile = async (req, res) => {
   }
 };
 
-export { list, getOne, create, update, remove, toggleCatalog };
+// Return a plain array (handy for the reviews page that expects an array)
+const listFlat = async (req, res) => {
+  try {
+    const query = buildQuery(req.query);
+
+    const products = await Product.find(query)
+      .populate("category", "categoryName")
+      .populate("reviews.userId", "name email") // 👈 add this line
+      .lean();
+
+    res.json(products); // <-- array
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch products" });
+  }
+};
+
+// DELETE /api/products/:productId/reviews/:reviewId
+const deleteReview = async (req, res) => {
+  try {
+    const { productId, reviewId } = req.params;
+
+    const updated = await Product.findByIdAndUpdate(
+      productId,
+      { $pull: { reviews: { _id: reviewId } } },
+      { new: true }
+    ).lean();
+
+    if (!updated) return res.status(404).json({ message: "Review not found" });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to delete review" });
+  }
+};
+
+export { list, getOne, create, update, remove, toggleCatalog, listFlat, deleteReview};
