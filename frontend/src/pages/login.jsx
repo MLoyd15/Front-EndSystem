@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router";
 import axios from "axios";
 
-import { VITE_API_BASE, VITE_SOCKET_URL } from "./config"
+import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 const API = VITE_API_BASE;
