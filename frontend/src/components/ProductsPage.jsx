@@ -12,6 +12,29 @@ const authHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
 });
 
+
+
+// KPI Card Component
+function KpiCard({ title, value, color }) {
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <div className={`w-10 h-10 ${color} rounded-lg mb-3`}></div>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-sm text-gray-500">{title}</div>
+    </div>
+  );
+}
+
+// Placeholder component for InventoryAudit
+function InventoryAudit() {
+  return (
+    <div className="mt-6 bg-white rounded-2xl p-6">
+      <h3 className="text-lg font-semibold mb-4">✓ Inventory Audit</h3>
+      <p className="text-sm text-gray-500">Audit component placeholder</p>
+    </div>
+  );
+}
+
 // data-URI tiny placeholder (no network call)
 const DATA_PLACEHOLDER_48 =
   "data:image/svg+xml;utf8," +
@@ -43,9 +66,9 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
-  const [catalogFilter, setCatalogFilter] = useState(""); // "", "true", "false"
+  const [catalogFilter, setCatalogFilter] = useState("");
   const [page, setPage] = useState(1);
-  const [limit] = useState(10); // 👈 show 10 per page
+  const [limit] = useState(10);
 
   // categories
   const [categories, setCategories] = useState([]);
@@ -63,8 +86,8 @@ export default function ProductsPage() {
   const [imageUrlsText, setImageUrlsText] = useState("");
 
   // choose between URLs and local file upload
-  const [imageMode, setImageMode] = useState("urls"); // "urls" | "upload"
-  const [localFiles, setLocalFiles] = useState([]); // File[]
+  const [imageMode, setImageMode] = useState("urls");
+  const [localFiles, setLocalFiles] = useState([]);
 
   // stock-only modal
   const [showStockModal, setShowStockModal] = useState(false);
@@ -130,10 +153,8 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  // ─── Socket.IO real-time inventory updates ───────────────────────────────────
   useEffect(() => {
     const socket = io(SOCKET_URL, {
       auth: { token: localStorage.getItem("pos-token") },
@@ -142,7 +163,6 @@ export default function ProductsPage() {
       console.log("✅ Connected to socket server:", socket.id);
     });
 
-    // single product update
     socket.on("inventory:update", ({ productId, stock, price, minStock, sold, catalog }) => {
       setItems((prev) =>
         prev.map((p) =>
@@ -160,7 +180,6 @@ export default function ProductsPage() {
       );
     });
 
-    // multiple updates at once
     socket.on("inventory:bulk", (updates) => {
       setItems((prev) => {
         const map = new Map(prev.map((p) => [p._id, p]));
@@ -174,13 +193,11 @@ export default function ProductsPage() {
       });
     });
 
-    // newly created product
     socket.on("inventory:created", (p) => {
       setItems((prev) => [p, ...prev]);
       setTotal((t) => t + 1);
     });
 
-    // deleted product
     socket.on("inventory:deleted", ({ productId }) => {
       setItems((prev) => prev.filter((p) => p._id !== productId));
       setTotal((t) => Math.max(0, t - 1));
@@ -189,7 +206,6 @@ export default function ProductsPage() {
     return () => socket.disconnect();
   }, []);
 
-  // catalog toggle (optimistic)
   const toggleCatalog = async (id, value) => {
     const prev = items.slice();
     setItems((arr) =>
@@ -207,11 +223,9 @@ export default function ProductsPage() {
     }
   };
 
-  // add / edit submit (supports upload or URLs)
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // If using upload mode, upload files first (Cloudinary response -> {images:[{url, publicId}]})
       let uploadedUrls = [];
       if (imageMode === "upload" && localFiles.length > 0) {
         const fd = new FormData();
@@ -222,9 +236,7 @@ export default function ProductsPage() {
         uploadedUrls = (up.data?.images || []).map((x) => x.url);
       }
 
-      // Combine pasted URLs + uploaded URLs
       const images = [...toUrlArray(imageUrlsText), ...uploadedUrls];
-      console.log("payload.images =", images);
 
       const payload = {
         name,
@@ -234,7 +246,7 @@ export default function ProductsPage() {
         weightKg: weightKg === "" ? null : Number(weightKg),
         category: catForForm,
         catalog: !!catalog,
-        images, // 👈 schema expects [String]
+        images,
       };
 
       if (editId) {
@@ -290,7 +302,6 @@ export default function ProductsPage() {
     }
   };
 
-  // ----- Stock-only modal controls -----
   const openStockModal = (product) => {
     setStockProduct(product);
     setNewStock(product?.stock ?? 0);
@@ -322,7 +333,6 @@ export default function ProductsPage() {
     }
   };
 
-  // Derived alerts
   const lowStockItems = items.filter(
     (p) => (p.stock ?? 0) > 0 && (p.minStock ?? 0) > 0 && p.stock < p.minStock
   );
@@ -330,7 +340,6 @@ export default function ProductsPage() {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      {/* Header + Add */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Inventory Tracking</h1>
         <button
@@ -344,7 +353,6 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <KpiCard title="Total Items" value={total} color="bg-green-500" />
         <KpiCard
@@ -357,9 +365,7 @@ export default function ProductsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main table */}
         <div className="lg:col-span-2">
-          {/* Filters */}
           <div className="flex flex-wrap gap-3 items-center mb-4">
             <input
               className="border rounded-xl px-3 py-2 w-72"
@@ -402,7 +408,6 @@ export default function ProductsPage() {
             </span>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto border rounded-2xl bg-white">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
@@ -498,7 +503,6 @@ export default function ProductsPage() {
             </table>
           </div>
 
-          {/* Pagination (compact) */}
           <div className="flex items-center justify-end gap-1 mt-2 text-xs">
             <button
               disabled={page <= 1}
@@ -518,7 +522,6 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Right column: Alerts (only render when they have items) */}
         <div className="space-y-6">
           {lowStockItems.length > 0 && (
             <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
@@ -567,7 +570,179 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Stock-only Modal (Add Stock / Restock) */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowAdd(false)}
+          />
+          <div className="relative bg-white w-full max-w-2xl rounded-2xl shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                {editId ? "Edit Product" : "Add New Product"}
+              </h3>
+              <button onClick={() => setShowAdd(false)} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Product Name *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full border rounded-lg px-3 py-2"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Price *</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Stock</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Min Stock</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={minStock}
+                    onChange={(e) => setMinStock(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Weight (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={weightKg}
+                    onChange={(e) => setWeightKg(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2"
+                  value={catForForm}
+                  onChange={(e) => setCatForForm(e.target.value)}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.categoryName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mr-2"
+                    checked={catalog}
+                    onChange={(e) => setCatalog(e.target.checked)}
+                  />
+                  <span className="text-sm font-medium">Show in Catalog</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Product Images</label>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    className={`px-4 py-2 rounded-lg ${
+                      imageMode === "urls"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
+                    onClick={() => setImageMode("urls")}
+                  >
+                    URLs
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-4 py-2 rounded-lg ${
+                      imageMode === "upload"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
+                    onClick={() => setImageMode("upload")}
+                  >
+                    Upload Files
+                  </button>
+                </div>
+
+                {imageMode === "urls" ? (
+                  <textarea
+                    className="w-full border rounded-lg px-3 py-2"
+                    rows="3"
+                    placeholder="Enter image URLs (comma or newline separated)"
+                    value={imageUrlsText}
+                    onChange={(e) => setImageUrlsText(e.target.value)}
+                  />
+                ) : (
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="w-full border rounded-lg px-3 py-2"
+                    onChange={(e) => setLocalFiles(Array.from(e.target.files || []))}
+                  />
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+                >
+                  {editId ? "Update Product" : "Add Product"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAdd(false)}
+                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showStockModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -577,8 +752,8 @@ export default function ProductsPage() {
           <div className="relative bg-white w-full max-w-md rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Stock Adjustment</h3>
-              <button onClick={() => setShowStockModal(false)} className="text-gray-500">
-                Close
+              <button onClick={() => setShowStockModal(false)} className="text-gray-500 hover:text-gray-700">
+                ✕
               </button>
             </div>
 
@@ -593,7 +768,7 @@ export default function ProductsPage() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className="w-10 h-10 border rounded-lg"
+                  className="w-10 h-10 border rounded-lg hover:bg-gray-50"
                   onClick={() => adjustNewStock(-1)}
                 >
                   –
@@ -607,7 +782,7 @@ export default function ProductsPage() {
                 />
                 <button
                   type="button"
-                  className="w-10 h-10 border rounded-lg"
+                  className="w-10 h-10 border rounded-lg hover:bg-gray-50"
                   onClick={() => adjustNewStock(1)}
                 >
                   +
