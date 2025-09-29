@@ -3,6 +3,12 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router";
 import axios from "axios";
 
+import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
+
+// ─── Config ────────────────────────────────────────────────────────────────────
+const API = VITE_API_BASE;
+const SOCKET_URL = VITE_SOCKET_URL;
+
 const Login = () => {
   const [activeTab, setActiveTab] = useState("admin"); // "admin" | "driver"
   const [email, setEmail] = useState("");

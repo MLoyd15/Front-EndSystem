@@ -33,8 +33,7 @@ app.use(
       "http://localhost:5173",   // Vite admin
       "http://127.0.0.1:5173",
       "http://localhost:19006",  // Expo web preview (if used)
-      // If testing on device, add your LAN IP for web panel:
-      // "http://192.168.1.10:5173",
+      
     ],
     credentials: true,
   })

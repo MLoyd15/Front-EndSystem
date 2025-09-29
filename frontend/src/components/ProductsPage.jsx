@@ -7,7 +7,7 @@ import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 const API = VITE_API_BASE;
-const SOCKET_URL = "http://localhost:5000";
+const SOCKET_URL = VITE_SOCKET_URL;
 const authHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
 });
