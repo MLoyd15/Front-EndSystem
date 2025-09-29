@@ -1,2 +1,2 @@
-export const API_BASE = import.meta.env.VITE_API_BASE;
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+export const API_BASE = "https://goat-agri-trading-backend.onrender.com/api";
+export const SOCKET_URL = "https://goat-agri-trading-backend.onrender.com";
