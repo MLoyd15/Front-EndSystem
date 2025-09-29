@@ -3,9 +3,10 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import InventoryAudit from "./InventoryAudit";
 import KpiCard from "../components/kpicard";
+import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
 
 // ─── Config ────────────────────────────────────────────────────────────────────
-const API = "http://localhost:5000/api";
+const API = VITE_API_BASE;
 const SOCKET_URL = "http://localhost:5000";
 const authHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
