@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react"; 
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -50,6 +50,9 @@ const vehiclePill = (row) => {
 // Only allow these 3 quick-status options (order: Completed, In transit, Cancelled)
 const QUICK_STATUSES = ["completed", "in-transit", "cancelled"];
 
+// Pagination size
+const PAGE_SIZE = 5;
+
 export default function Deliveries() {
   const [tab, setTab] = useState("in-house"); // default to In-house like in your screenshot
   const [query, setQuery] = useState("");
@@ -61,27 +64,28 @@ export default function Deliveries() {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [editing, setEditing] = useState(null);
 
+  // pagination state
+  const [page, setPage] = useState(1);
+
   const load = async () => {
-  setLoading(true);
-  try {
-    const params = {};
-    if (status) params.status = status;
-    if (query) params.q = query.trim();
-    const { data } = await axios.get(API, { headers: auth(), params });
-    const deliveries = Array.isArray(data) ? data : (data?.deliveries || []);
-    
-    // Sort by createdAt date (newest first)
-    const sortedDeliveries = deliveries.sort((a, b) => 
-      new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)
-    );
-    
-    setRows(sortedDeliveries);
-  } catch (e) {
-    console.error(e);
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    try {
+      const params = {};
+      if (status) params.status = status;
+      if (query) params.q = query.trim();
+      const { data } = await axios.get(API, { headers: auth(), params });
+      const deliveries = Array.isArray(data) ? data : (data?.deliveries || []);
+      const sortedDeliveries = deliveries.sort(
+        (a, b) =>
+          new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)
+      );
+      setRows(sortedDeliveries);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadDeliveryDetails = async (deliveryId) => {
     setDrawerLoading(true);
@@ -98,36 +102,53 @@ export default function Deliveries() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab, status]);
 
- const filtered = useMemo(() => {
-  const typeKey = String(tab).toLowerCase();
-  let byTab = [];
-  
-  if (tab === "completed") {
-    byTab = rows.filter(r => r.status === "completed");
-  } else if (tab === "cancelled") {
-    byTab = rows.filter(r => r.status === "cancelled");
-  } else {
-    // For regular tabs, exclude completed and cancelled deliveries
-    byTab = rows.filter(r => 
-      String(r.type || "").toLowerCase() === typeKey && 
-      !["completed", "cancelled"].includes(r.status)
-    );
-  }
+  // reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [tab, status, query]);
 
-  if (!query) return byTab;
+  const filtered = useMemo(() => {
+    const typeKey = String(tab).toLowerCase();
+    let byTab = [];
 
-  const q = query.toLowerCase();
-  return byTab.filter((r) => {
-    const addr = String(r.deliveryAddress || "").toLowerCase();
-    const pick = String(r.pickupLocation || "").toLowerCase();
-    const prov = String(r.thirdPartyProvider || "").toLowerCase();
-    const drv = String(driverLabel(r)).toLowerCase();
-    const veh = String(vehicleLabel(r)).toLowerCase();
-    const id  = String(r._id || "").toLowerCase();
-    const orderId = String(r.orderId || "").toLowerCase();
-    return [addr, pick, prov, drv, veh, id, orderId].some((t) => t.includes(q));
-  });
-}, [rows, query, tab]);
+    if (tab === "completed") {
+      byTab = rows.filter((r) => r.status === "completed");
+    } else if (tab === "cancelled") {
+      byTab = rows.filter((r) => r.status === "cancelled");
+    } else {
+      byTab = rows.filter(
+        (r) =>
+          String(r.type || "").toLowerCase() === typeKey &&
+          !["completed", "cancelled"].includes(r.status)
+      );
+    }
+
+    if (!query) return byTab;
+
+    const q = query.toLowerCase();
+    return byTab.filter((r) => {
+      const addr = String(r.deliveryAddress || "").toLowerCase();
+      const pick = String(r.pickupLocation || "").toLowerCase();
+      const prov = String(r.thirdPartyProvider || "").toLowerCase();
+      const drv = String(driverLabel(r)).toLowerCase();
+      const veh = String(vehicleLabel(r)).toLowerCase();
+      const id = String(r._id || "").toLowerCase();
+      const orderId = String(r.orderId || "").toLowerCase();
+      return [addr, pick, prov, drv, veh, id, orderId].some((t) => t.includes(q));
+    });
+  }, [rows, query, tab]);
+
+  // clamp page if filtered shrinks
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [totalPages]);
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+
+  const showingFrom = filtered.length ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const showingTo = Math.min(page * PAGE_SIZE, filtered.length);
 
   const headerTitle =
     tab === "pickup" ? "Customer Pickups" :
@@ -137,15 +158,19 @@ export default function Deliveries() {
     "Cancelled Deliveries";
 
   const tabColors = {
-    "pickup": "bg-emerald-600",
+    pickup: "bg-emerald-600",
     "in-house": "bg-amber-600",
     "third-party": "bg-sky-600",
-    "completed": "bg-green-600",
-    "cancelled": "bg-red-600",
+    completed: "bg-green-600",
+    cancelled: "bg-red-600",
   };
 
   const onQuickStatus = async (id, st) => {
     if (!QUICK_STATUSES.includes(st)) return;
+    if (st === "cancelled") {
+      const ok = window.confirm("Cancel this delivery?");
+      if (!ok) return;
+    }
     await axios.put(`${API}/${id}`, { status: st }, { headers: auth() });
     load();
   };
@@ -178,13 +203,12 @@ export default function Deliveries() {
   };
 
   const getLocationDisplay = (delivery, tab) => {
-  if (tab === "pickup") {
-    return delivery.pickupLocation || "Set pickup location";
-  } else {
-    // For in-house, third-party, completed, cancelled - all show delivery address
-    return delivery.deliveryAddress || "Set delivery address";
-  }
-};
+    if (tab === "pickup") {
+      return delivery.pickupLocation || "Set pickup location";
+    } else {
+      return delivery.deliveryAddress || "Set delivery address";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -268,73 +292,110 @@ export default function Deliveries() {
               {loading ? (
                 <div className="p-6 text-slate-500">Loading…</div>
               ) : (
-                <div className="space-y-3">
-                  <AnimatePresence>
-                    {filtered.map((d) => (
-                      <motion.div
-                        key={d._id}
-                        layout
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="p-4 rounded-2xl ring-1 ring-slate-200 bg-white hover:shadow-lg transition"
-                      >
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex items-center gap-2 min-w-[8rem]">
-                            <span className="font-semibold text-slate-800">{last6(d.order?._id || d.order || d._id)}</span>
-                            {statusPill(d.status)}
-                          </div>
+                <>
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {paged.map((d) => (
+                        <motion.div
+                          key={d._id}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="p-4 rounded-2xl ring-1 ring-slate-200 bg-white hover:shadow-lg transition"
+                        >
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2 min-w-[8rem]">
+                              <span className="font-semibold text-slate-800">{last6(d.order?._id || d.order || d._id)}</span>
+                              {statusPill(d.status)}
+                            </div>
 
-                          <div className="flex items-center gap-2 text-slate-600 min-w-[13rem]">
-                            <User className="w-4 h-4" />
-                            <span className="truncate">
-                              {d.thirdPartyProvider || driverLabel(d) || "—"}
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-2 text-slate-600 min-w-[13rem]">
+                              <User className="w-4 h-4" />
+                              <span className="truncate">
+                                {d.thirdPartyProvider || driverLabel(d) || "—"}
+                              </span>
+                            </div>
 
-                          <div className="flex items-center gap-2 text-slate-600 min-w-[14rem]">
-                            <MapPin className="w-4 h-4" />
-                            <span className="truncate">
-                              {getLocationDisplay(d, tab)}
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-2 text-slate-600 min-w-[14rem]">
+                              <MapPin className="w-4 h-4" />
+                              <span className="truncate">
+                                {getLocationDisplay(d, tab)}
+                              </span>
+                            </div>
 
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Clock className="w-4 h-4" />
-                            <span>{fmtDateTime(d.scheduledDate)}</span>
-                          </div>
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <Clock className="w-4 h-4" />
+                              <span>{fmtDateTime(d.scheduledDate)}</span>
+                            </div>
 
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Weight className="w-4 h-4" />
-                            <span>{d.order?.totalWeight || d.weight || 0} kg</span>
-                          </div>
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <Weight className="w-4 h-4" />
+                              <span>{d.order?.totalWeight || d.weight || 0} kg</span>
+                            </div>
 
-                          <div className="ml-auto flex items-center gap-2">
-                            {/* RIGHT SIDE: show vehicle name/plate instead of duplicate status */}
-                            {vehiclePill(d)}
+                            <div className="ml-auto flex items-center gap-2">
+                              {/* RIGHT SIDE: show vehicle name/plate instead of duplicate status */}
+                              {vehiclePill(d)}
 
-                            <button
-                              onClick={() => handleDrawerOpen(d)}
-                              className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
-                            >
-                              Details <ChevronRight className="w-4 h-4" />
-                            </button>
-
-                            {/* Only show Manage button for active deliveries (not completed/cancelled) */}
-                            {!["completed", "cancelled"].includes(d.status) && (
                               <button
-                                onClick={() => setEditing(d)}
-                                className="px-3 py-1.5 text-sm rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                                onClick={() => handleDrawerOpen(d)}
+                                className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
                               >
-                                Manage
+                                Details <ChevronRight className="w-4 h-4" />
                               </button>
-                            )}
+
+                              {/* Only show Manage button for active deliveries (not completed/cancelled) */}
+                              {!["completed", "cancelled"].includes(d.status) && (
+                                <button
+                                  onClick={() => setEditing(d)}
+                                  className="px-3 py-1.5 text-sm rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                                >
+                                  Manage
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Pagination controls */}
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div className="text-slate-600">
+                      Showing <span className="font-medium text-slate-800">{showingFrom || 0}</span>
+                      {"–"}
+                      <span className="font-medium text-slate-800">{showingTo || 0}</span> of{" "}
+                      <span className="font-medium text-slate-800">{filtered.length}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page <= 1}
+                        className={`px-3 py-1.5 rounded-xl ring-1 transition ${
+                          page <= 1
+                            ? "ring-slate-100 text-slate-300 cursor-not-allowed"
+                            : "ring-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        Prev
+                      </button>
+                      <span className="px-2 text-slate-600">Page {page} of {totalPages}</span>
+                      <button
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages}
+                        className={`px-3 py-1.5 rounded-xl ring-1 transition ${
+                          page >= totalPages
+                            ? "ring-slate-100 text-slate-300 cursor-not-allowed"
+                            : "ring-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -617,10 +678,6 @@ function CompletedCancelledSummary({ deliveries, tab }) {
               <div className="text-slate-600">This Week</div>
               <div className="text-xl font-bold text-slate-800">{thisWeekDeliveries}</div>
             </div>
-            <div>
-              <div className="text-slate-600">Total Weight</div>
-              <div className="text-xl font-bold text-slate-800">{totalWeight} kg</div>
-            </div>
           </div>
         </div>
 
@@ -685,7 +742,7 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
         <div className="text-xs text-slate-500 mb-2">Quick status</div>
         <div className="flex flex-wrap gap-2">
           {QUICK_STATUSES.map((s) => (
-            <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50">
+            <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate50">
               {s}
             </button>
           ))}
@@ -717,16 +774,17 @@ function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus }) {
         <button onClick={onCancel} className="px-4 py-2 rounded-xl ring-1 ring-slate-200">Cancel</button>
       </div>
 
-      <div className="pt-3">
-        <div className="text-xs text-slate-500 mb-2">Quick status</div>
-        <div className="flex flex-wrap gap-2">
-          {QUICK_STATUSES.map((s) => (
-            <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50">
-              {s}
-            </button>
-          ))}
+      {/* For 3rd party cancel*/}
+        <div className="pt-2">
+          <div className="text-xs text-slate-500 mb-2">Quick action</div>
+          <button
+            onClick={() => onQuickStatus("cancelled")}
+            className="w-full px-4 py-2 rounded-xl ring-1 ring-rose-300 text-rose-700 hover:bg-rose-50 active:bg-rose-100 inline-flex items-center justify-center gap-2"
+          >
+            <XCircle className="w-4 h-4" />
+            Cancel delivery
+          </button>
         </div>
-      </div>
     </div>
   );
 }
@@ -846,24 +904,22 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
             </button>
           </div>
 
+         {/* Quick status: only Cancel */}
           <div className="pt-2">
-            <div className="text-xs text-slate-500 mb-2">Quick status</div>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_STATUSES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => onQuickStatus(s)}
-                  className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            <div className="text-xs text-slate-500 mb-2">Quick action</div>
+            <button
+              onClick={() => onQuickStatus("cancelled")}
+              className="w-full px-4 py-2 rounded-xl ring-1 ring-rose-300 text-rose-700 hover:bg-rose-50 active:bg-rose-100 inline-flex items-center justify-center gap-2"
+            >
+              <XCircle className="w-4 h-4" />
+              Cancel delivery
+            </button>
           </div>
         </>
       )}
     </div>
   );
 }
+
       
       

@@ -1,5 +1,5 @@
 import express from "express";
-import { listPromos, createPromo, togglePause, duplicatePromo, deletePromo, applyPromo } from "../controlers/promoController.js";
+import { listPromos, createPromo, togglePause, duplicatePromo, deletePromo, applyPromo, reactivatePromo } from "../controlers/promoController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -13,5 +13,7 @@ router.delete("/:id", authMiddleware, deletePromo);
 
 // Optional customer-side validator (can be public or protected)
 router.post("/apply", applyPromo);
+router.patch("/:id/reactivate", reactivatePromo);
+
 
 export default router;

@@ -117,3 +117,26 @@ export const redeemPromoOnOrder = async (session, promoId) => {
     { session }
   );
 };
+
+export const reactivatePromo = async (req, res) => {
+  const { id } = req.params;
+  const { startsAt, endsAt } = req.body;
+
+  const promo = await Promotion.findById(id);
+  if (!promo) return res.status(404).json({ message: "Not found" });
+
+  // Update dates and set status back to Active or Scheduled
+  promo.startsAt = startsAt ? new Date(startsAt) : null;
+  promo.endsAt = endsAt ? new Date(endsAt) : null;
+  
+  // If start date is in the future, set as scheduled, otherwise active
+  const now = new Date();
+  if (startsAt && new Date(startsAt) > now) {
+    promo.status = "Active"; // Frontend will show as "Scheduled"
+  } else {
+    promo.status = "Active";
+  }
+
+  await promo.save();
+  res.json(promo);
+};
