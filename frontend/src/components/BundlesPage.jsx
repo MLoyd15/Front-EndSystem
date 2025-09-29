@@ -24,7 +24,7 @@ const BundlesPage = () => {
   // Fetch bundles
   const fetchBundles = async () => {
     try {
-      const response = await axios.get(`${API}/api/bundles`, {
+      const response = await axios.get(`${API}/bundles`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
       });
       const bundlesArray = Array.isArray(response.data)
@@ -40,7 +40,7 @@ const BundlesPage = () => {
   // Fetch products
   const fetchProducts = async () => {
     try {
-      const response = await axios.get(`${API}/api/bundles`, {
+      const response = await axios.get(`${API}/bundles`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
       });
       const fetchedProducts = Array.isArray(response.data)
@@ -73,12 +73,12 @@ const BundlesPage = () => {
 
     try {
       if (editBundle) {
-        await axios.put(`${API}/api/bundles/${editBundle}`, payload, {
+        await axios.put(`${API}/bundles/${editBundle}`, payload, {
           headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
         });
         alert("Bundle updated successfully!");
       } else {
-        await axios.post(`${API}/api/bundles`, payload, {
+        await axios.post(`${API}/bundles`, payload, {
           headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
         });
         alert("Bundle created successfully!");
@@ -112,7 +112,7 @@ const BundlesPage = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this bundle?")) return;
     try {
-      await axios.delete(`${API}/api/bundles/${id}`, {
+      await axios.delete(`${API}/bundles/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
       });
       fetchBundles();
