@@ -9,7 +9,7 @@ import {
 import { VITE_API_BASE } from "../config"
 
 // Fixed API URL construction - add the specific endpoint
-const API = `${VITE_API_BASE}/deliveries`;
+const API = `${VITE_API_BASE}/delivery`;
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
 /* ---------------------------- HELPERS -------------------------- */
