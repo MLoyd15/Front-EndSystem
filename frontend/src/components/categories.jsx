@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import BundlesPage from "./BundlesPage"; // Import the BundlesPage component
+import BundlesPage from "./BundlesPage";
 import { VITE_API_BASE } from "../config"
 
 const API = VITE_API_BASE;
@@ -11,19 +11,37 @@ const Categories = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editCategory, setEditCategory] = useState(null);
+  const [error, setError] = useState(null);
 
   const fetchCategories = async () => {
     setLoading(true);
+    setError(null);
     try {
+      const token = localStorage.getItem("pos-token");
+      
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
       const response = await axios.get(`${API}/api/category`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
       });
-      console.log(response.data.categories);
-      setCategories(response.data.categories);
+      
+      console.log("Categories response:", response.data);
+      setCategories(response.data.categories || []);
     } catch (error) {
-      console.error("Error in fetching categories", error);
+      console.error("Error fetching categories:", error);
+      const errorMsg = error.response?.data?.message || error.message || "Error fetching categories";
+      setError(errorMsg);
+      
+      // If unauthorized, clear token
+      if (error.response?.status === 401) {
+        localStorage.removeItem("pos-token");
+        window.location.href = "/login";
+      }
     } finally {
       setLoading(false);
     }
@@ -35,47 +53,70 @@ const Categories = () => {
 
   const handleSumbit = async (e) => {
     e.preventDefault();
-    if (editCategory) {
-      const response = await axios.put(
-        `${API}/api/category/${editCategory}`,
-        { categoryName, categoryDescription },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
-          },
-        }
-      );
+    
+    if (!categoryName.trim()) {
+      alert("Category name is required");
+      return;
+    }
 
-      if (response.data.success) {
-        setEditCategory(null);
-        alert("Category edited successfully!");
-        fetchCategories();
-      } else {
-        alert("Error editing category. Please try again.");
+    try {
+      const token = localStorage.getItem("pos-token");
+      
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
       }
-    } else {
-      const response = await axios.post(
-         `${API}/api/category/add`,
-        { categoryName, categoryDescription },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
-          },
-        }
-      );
 
-      if (response.data.success) {
-        alert("Category added successfully!");
-        setCategoryName("");
-        setCategoryDescription("");
-        fetchCategories();
-        // Refresh list after adding
-        setCategories((prev) => [
-          ...prev,
-          { categoryName, categoryDescription },
-        ]);
+      if (editCategory) {
+        const response = await axios.put(
+          `${API}/api/category/${editCategory}`,
+          { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json"
+            },
+          }
+        );
+
+        if (response.data.success) {
+          setEditCategory(null);
+          setCategoryName("");
+          setCategoryDescription("");
+          alert("Category edited successfully!");
+          fetchCategories();
+        } else {
+          alert(response.data.message || "Error editing category. Please try again.");
+        }
       } else {
-        alert("Error adding category. Please try again.");
+        const response = await axios.post(
+          `${API}/api/category/add`,
+          { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json"
+            },
+          }
+        );
+
+        if (response.data.success) {
+          alert("Category added successfully!");
+          setCategoryName("");
+          setCategoryDescription("");
+          fetchCategories();
+        } else {
+          alert(response.data.message || "Error adding category. Please try again.");
+        }
+      }
+    } catch (error) {
+      console.error("Error submitting category:", error);
+      const errorMsg = error.response?.data?.message || error.message || "An error occurred";
+      alert(`Error: ${errorMsg}`);
+      
+      if (error.response?.status === 401) {
+        localStorage.removeItem("pos-token");
+        window.location.href = "/login";
       }
     }
   };
@@ -83,7 +124,7 @@ const Categories = () => {
   const handleEdit = async (cat) => {
     setEditCategory(cat._id);
     setCategoryName(cat.categoryName);
-    setCategoryDescription(cat.categoryDescription);
+    setCategoryDescription(cat.categoryDescription || "");
   };
 
   const handleCancel = async () => {
@@ -92,35 +133,76 @@ const Categories = () => {
     setCategoryDescription("");
   };
 
-  // NEW: delete handler
   const handleDelete = async (id) => {
-  const confirmDelete = window.confirm("Are you sure you want to delete this category?");
-  if (confirmDelete) {
+    const confirmDelete = window.confirm("Are you sure you want to delete this category?");
+    if (!confirmDelete) return;
+
     try {
+      const token = localStorage.getItem("pos-token");
+      
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
+
       const response = await axios.delete(
         `${API}/api/category/${id}`,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
           },
         }
       );
 
       if (response.data.success) {
         alert("Category deleted successfully!");
-        fetchCategories(); // Refresh categories list after deletion
+        fetchCategories();
       } else {
-        console.error("Error deleting category:", response.data);
-        alert("Error deleting category. Please try again.");
+        alert(response.data.message || "Error deleting category. Please try again.");
       }
     } catch (error) {
       console.error("Error deleting category:", error);
-      alert("Error deleting category. Please try again.");
+      const errorMsg = error.response?.data?.message || error.message || "An error occurred";
+      alert(`Error deleting category: ${errorMsg}`);
+      
+      if (error.response?.status === 401) {
+        localStorage.removeItem("pos-token");
+        window.location.href = "/login";
+      }
     }
-  }
-};
+  };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-emerald-500 border-r-transparent"></div>
+          <p className="mt-2 text-gray-600">Loading categories...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="max-w-2xl mx-auto">
+          <div className="rounded-lg bg-red-50 border border-red-200 p-4">
+            <h3 className="text-red-800 font-semibold mb-2">Error Loading Categories</h3>
+            <p className="text-red-600 text-sm mb-4">{error}</p>
+            <button
+              onClick={fetchCategories}
+              className="rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 transition"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
@@ -150,11 +232,14 @@ const Categories = () => {
 
           <form className="p-4 space-y-4" onSubmit={handleSumbit}>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Category Name</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Category Name <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 placeholder="e.g. Beverages"
                 value={categoryName}
+                required
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 onChange={(e) => setCategoryName(e.target.value)}
               />
@@ -242,7 +327,7 @@ const Categories = () => {
                           <button
                             type="button"
                             className="inline-flex items-center rounded-lg bg-white text-red-700 px-3 py-1.5 text-xs font-medium ring-1 ring-red-200 hover:bg-red-50"
-                            onClick={() => handleDelete(cat._id)}  // ← hooked up
+                            onClick={() => handleDelete(cat._id)}
                             title="Delete"
                           >
                             Delete
