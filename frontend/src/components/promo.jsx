@@ -20,7 +20,7 @@ import {
 import { VITE_API_BASE } from "../config"
 
 /* ---------------- CONFIG ---------------- */
-const API = `${VITE_API_BASE}/promo`; // Fixed: Added /promo endpoint
+const API = `${VITE_API_BASE}/promo`; // Fixed: Changed from /promo to /promos
 const auth = () => ({ 
   Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}`,
   "Content-Type": "application/json"
@@ -359,6 +359,7 @@ const Promo = () => {
     if (s === "Paused" || s === "Scheduled") return { text: "Activate", icon: <Play className="h-3.5 w-3.5" />, action: () => togglePause(p) };
     return null;
   };
+
 
   /* ---------------- UI ---------------- */
   return (
