@@ -9,7 +9,7 @@ import {
 import { VITE_API_BASE } from "../config"
 
 // Fixed API URL construction - add the specific endpoint
-const API = VITE_API_BASE
+const API = `${VITE_API_BASE}/delivery`;
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
 /* ---------------------------- HELPERS -------------------------- */
@@ -831,11 +831,11 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
         // Try multiple possible endpoints for resources
         let data = null;
         const possibleEndpoints = [
-          `${API}/resources/all`,
-          `${API}/resources`,
-          `${API}/drivers-vehicles`,
-          `${API}/driver`,
-          `${API}/vehicle`
+          `${VITE_API_BASE}/resources/all`,
+          `${VITE_API_BASE}/resources`,
+          `${VITE_API_BASE}/drivers-vehicles`,
+          `${VITE_API_BASE}/driver`,
+          `${VITE_API_BASE}/vehicle`
         ];
         
         for (const endpoint of possibleEndpoints) {
@@ -855,8 +855,8 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
           // If all endpoints fail, try to fetch drivers and vehicles separately
           try {
             const [driversRes, vehiclesRes] = await Promise.all([
-              axios.get(`${API}/driver`, { headers: auth() }).catch(() => ({ data: [] })),
-              axios.get(`${API}/vehicle`, { headers: auth() }).catch(() => ({ data: [] }))
+              axios.get(`${VITE_API_BASE}/driver`, { headers: auth() }).catch(() => ({ data: [] })),
+              axios.get(`${VITE_API_BASE}/vehicle`, { headers: auth() }).catch(() => ({ data: [] }))
             ]);
             data = {
               drivers: Array.isArray(driversRes.data) ? driversRes.data : driversRes.data?.drivers || [],
