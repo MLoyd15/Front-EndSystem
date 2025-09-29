@@ -33,6 +33,8 @@ app.use(
       "http://localhost:5173",   // Vite admin
       "http://127.0.0.1:5173",
       "http://localhost:19006",  // Expo web preview (if used)
+      "https://goat-agritrading-frontend.vercel.app",
+      
       
     ],
     credentials: true,
