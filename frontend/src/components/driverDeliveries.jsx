@@ -5,7 +5,7 @@ import ChatModal from "./chatmodal";       // <- use the ChatModal we created ea
 import ChatPanel from "./chat";       // <- real Socket.IO chat panel
 import { VITE_API_BASE} from "../config"
 
-const API = VITE_API_BASE
+const API_BASE = VITE_API_BASE
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
 
 /* ---------- Small UI helpers ---------- */

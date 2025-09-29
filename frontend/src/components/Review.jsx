@@ -5,7 +5,7 @@ import {
   Star, Search, Eye, Trash2, Package, MessageSquare,
   ArrowLeft, Filter, Calendar, User
 } from "lucide-react";
-import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
+import { VITE_API_BASE } from "../config"
 
 
 /* ----------------------------- API ----------------------------- */

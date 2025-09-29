@@ -23,8 +23,6 @@ function KpiCard({ title, value, icon, color = "from-emerald-500 to-green-500" }
   );
 }
 
-
-
 const API = VITE_API_BASE
 const CURRENCY = "₱";
 const peso = (n) => `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;

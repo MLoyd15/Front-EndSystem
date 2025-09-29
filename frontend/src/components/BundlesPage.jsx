@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import axios from "axios";
+import { VITE_API_BASE } from "../config"
+
+const API = VITE_API_BASE;
 
 const peso = (n) =>
   typeof n === "number"
@@ -21,7 +24,7 @@ const BundlesPage = () => {
   // Fetch bundles
   const fetchBundles = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/bundles", {
+      const response = await axios.get(`${API}/api/bundles`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
       });
       const bundlesArray = Array.isArray(response.data)
@@ -37,7 +40,7 @@ const BundlesPage = () => {
   // Fetch products
   const fetchProducts = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/products", {
+      const response = await axios.get(`${API}/api/bundles`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
       });
       const fetchedProducts = Array.isArray(response.data)
@@ -70,12 +73,12 @@ const BundlesPage = () => {
 
     try {
       if (editBundle) {
-        await axios.put(`http://localhost:5000/api/bundles/${editBundle}`, payload, {
+        await axios.put(`${API}/api/bundles/${editBundle}`, payload, {
           headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
         });
         alert("Bundle updated successfully!");
       } else {
-        await axios.post("http://localhost:5000/api/bundles", payload, {
+        await axios.post(`${API}/api/bundles`, payload, {
           headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
         });
         alert("Bundle created successfully!");
@@ -109,7 +112,7 @@ const BundlesPage = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this bundle?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/bundles/${id}`, {
+      await axios.delete(`${API}/api/bundles/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
       });
       fetchBundles();

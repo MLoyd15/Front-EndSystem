@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import BundlesPage from "./BundlesPage"; // Import the BundlesPage component
+import { VITE_API_BASE } from "../config"
+
+const API = VITE_API_BASE;
 
 const Categories = () => {
   const [categoryName, setCategoryName] = useState("");
@@ -12,7 +15,7 @@ const Categories = () => {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/api/category", {
+      const response = await axios.get(`${API}/api/category`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
         },
@@ -34,7 +37,7 @@ const Categories = () => {
     e.preventDefault();
     if (editCategory) {
       const response = await axios.put(
-        `http://localhost:5000/api/category/${editCategory}`,
+        `${API}/api/category/${editCategory}`,
         { categoryName, categoryDescription },
         {
           headers: {
@@ -52,7 +55,7 @@ const Categories = () => {
       }
     } else {
       const response = await axios.post(
-        "http://localhost:5000/api/category/add",
+         `${API}/api/category/add`,
         { categoryName, categoryDescription },
         {
           headers: {
@@ -95,7 +98,7 @@ const Categories = () => {
   if (confirmDelete) {
     try {
       const response = await axios.delete(
-        `http://localhost:5000/api/category/${id}`,
+        `${API}/api/category/${id}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("pos-token")}`,

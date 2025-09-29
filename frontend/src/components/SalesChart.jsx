@@ -13,8 +13,9 @@ import {
   Area,
   Bar,
 } from "recharts";
+import { VITE_API_BASE} from "../config"
 
-const API = "http://localhost:5000/api";
+const API = VITE_API_BASE;
 const CURRENCY = "₱";
 
 const COLORS = {

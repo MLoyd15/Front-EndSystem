@@ -17,7 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
+import { VITE_API_BASE } from "../config"
 
 /* ---------------- CONFIG ---------------- */
 const API = VITE_API_BASE;
