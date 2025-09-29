@@ -19,6 +19,9 @@ const Categories = () => {
     try {
       const token = localStorage.getItem("pos-token");
       
+      console.log("🔍 DEBUG - API Base:", API);
+      console.log("🔍 DEBUG - Full URL:", `${API}/category`);
+      
       if (!token) {
         throw new Error("No authentication token found");
       }
@@ -30,10 +33,13 @@ const Categories = () => {
         },
       });
       
-      console.log("Categories response:", response.data);
+      console.log("✅ Categories response:", response.data);
       setCategories(response.data.categories || []);
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      console.error("❌ Error fetching categories:", error);
+      console.error("❌ Error response:", error.response);
+      console.error("❌ Error URL:", error.config?.url);
+      
       const errorMsg = error.response?.data?.message || error.message || "Error fetching categories";
       setError(errorMsg);
       
@@ -69,7 +75,7 @@ const Categories = () => {
 
       if (editCategory) {
         const response = await axios.put(
-          `${API}/category/${editCategory}`,
+          `${API}/api/category/${editCategory}`,
           { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
           {
             headers: {
@@ -90,7 +96,7 @@ const Categories = () => {
         }
       } else {
         const response = await axios.post(
-          `${API}/category/add`,
+          `${API}/api/category/add`,
           { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
           {
             headers: {
@@ -146,7 +152,7 @@ const Categories = () => {
       }
 
       const response = await axios.delete(
-        `${API}/category/${id}`,
+        `${API}/api/category/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
