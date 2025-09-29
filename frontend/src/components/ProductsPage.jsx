@@ -3,7 +3,7 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import InventoryAudit from "./InventoryAudit";
 import KpiCard from "../components/kpicard";
-import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
+import { VITE_API_BASE, VITE_SOCKET_URL } from "../config";
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 const API = VITE_API_BASE;
@@ -65,11 +65,6 @@ export default function ProductsPage() {
   // choose between URLs and local file upload
   const [imageMode, setImageMode] = useState("urls"); // "urls" | "upload"
   const [localFiles, setLocalFiles] = useState([]); // File[]
-
-  // stock-only modal
-  const [showStockModal, setShowStockModal] = useState(false);
-  const [stockProduct, setStockProduct] = useState(null);
-  const [newStock, setNewStock] = useState(0);
 
   const resetForm = () => {
     setEditId(null);
@@ -211,7 +206,7 @@ export default function ProductsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // If using upload mode, upload files first (Cloudinary response -> {images:[{url, publicId}]})
+      // If using upload mode, upload files first (Cloudinary response -> {images:[{url, publicId}]}))
       let uploadedUrls = [];
       if (imageMode === "upload" && localFiles.length > 0) {
         const fd = new FormData();
@@ -224,7 +219,6 @@ export default function ProductsPage() {
 
       // Combine pasted URLs + uploaded URLs
       const images = [...toUrlArray(imageUrlsText), ...uploadedUrls];
-      console.log("payload.images =", images);
 
       const payload = {
         name,
@@ -337,6 +331,8 @@ export default function ProductsPage() {
           onClick={() => {
             resetForm();
             setShowAdd(true);
+            onSubmit={handleSubmit};
+            
           }}
           className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
         >
