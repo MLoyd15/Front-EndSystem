@@ -6,9 +6,10 @@ import {
   ChevronRight, X, CheckCircle2, ShoppingCart, Phone, CheckCircle, XCircle
 } from "lucide-react";
 
-import { VITE_API_BASE} from "../config"
+import { VITE_API_BASE } from "../config"
 
-const API = VITE_API_BASE
+// Fixed API URL construction - add the specific endpoint
+const API = `${VITE_API_BASE}/deliveries`;
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
 /* ---------------------------- HELPERS -------------------------- */
@@ -74,7 +75,14 @@ export default function Deliveries() {
       const params = {};
       if (status) params.status = status;
       if (query) params.q = query.trim();
+      
+      console.log('Making API request to:', API);
+      console.log('With params:', params);
+      console.log('With headers:', auth());
+      
       const { data } = await axios.get(API, { headers: auth(), params });
+      console.log('API response:', data);
+      
       const deliveries = Array.isArray(data) ? data : (data?.deliveries || []);
       const sortedDeliveries = deliveries.sort(
         (a, b) =>
@@ -82,7 +90,8 @@ export default function Deliveries() {
       );
       setRows(sortedDeliveries);
     } catch (e) {
-      console.error(e);
+      console.error('API Error:', e.response?.data || e.message);
+      console.error('Full error:', e);
     } finally {
       setLoading(false);
     }
@@ -94,7 +103,7 @@ export default function Deliveries() {
       const { data } = await axios.get(`${API}/${deliveryId}`, { headers: auth() });
       setDrawerDetails(data);
     } catch (e) {
-      console.error(e);
+      console.error('Error loading delivery details:', e.response?.data || e.message);
       setDrawerDetails(null);
     } finally {
       setDrawerLoading(false);
@@ -172,29 +181,45 @@ export default function Deliveries() {
       const ok = window.confirm("Cancel this delivery?");
       if (!ok) return;
     }
-    await axios.put(`${API}/${id}`, { status: st }, { headers: auth() });
-    load();
+    try {
+      await axios.put(`${API}/${id}`, { status: st }, { headers: auth() });
+      load();
+    } catch (e) {
+      console.error('Error updating status:', e.response?.data || e.message);
+    }
   };
 
   const onSavePickup = async (id, values) => {
-    const body = {};
-    if ("scheduledDate" in values) body.scheduledDate = values.scheduledDate ? new Date(values.scheduledDate) : null;
-    if ("pickupLocation" in values) body.pickupLocation = values.pickupLocation;
-    await axios.put(`${API}/${id}`, body, { headers: auth() });
-    setEditing(null);
-    load();
+    try {
+      const body = {};
+      if ("scheduledDate" in values) body.scheduledDate = values.scheduledDate ? new Date(values.scheduledDate) : null;
+      if ("pickupLocation" in values) body.pickupLocation = values.pickupLocation;
+      await axios.put(`${API}/${id}`, body, { headers: auth() });
+      setEditing(null);
+      load();
+    } catch (e) {
+      console.error('Error saving pickup:', e.response?.data || e.message);
+    }
   };
 
   const onSaveThirdParty = async (id, provider) => {
-    await axios.put(`${API}/${id}`, { thirdPartyProvider: provider }, { headers: auth() });
-    setEditing(null);
-    load();
+    try {
+      await axios.put(`${API}/${id}`, { thirdPartyProvider: provider }, { headers: auth() });
+      setEditing(null);
+      load();
+    } catch (e) {
+      console.error('Error saving third party:', e.response?.data || e.message);
+    }
   };
 
   const onSaveInHouse = async (id, { driverId, vehicleId }) => {
-    await axios.put(`${API}/${id}/assign`, { driverId, vehicleId }, { headers: auth() });
-    setEditing(null);
-    load();
+    try {
+      await axios.put(`${API}/${id}/assign`, { driverId, vehicleId }, { headers: auth() });
+      setEditing(null);
+      load();
+    } catch (e) {
+      console.error('Error assigning in-house:', e.response?.data || e.message);
+    }
   };
 
   const handleDrawerOpen = (delivery) => {
@@ -743,7 +768,7 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
         <div className="text-xs text-slate-500 mb-2">Quick status</div>
         <div className="flex flex-wrap gap-2">
           {QUICK_STATUSES.map((s) => (
-            <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate50">
+            <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50">
               {s}
             </button>
           ))}
@@ -803,11 +828,13 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
     (async () => {
       try {
         setLoading(true);
-        const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
+        // Fixed the resources endpoint URL
+        const { data } = await axios.get(`${VITE_API_BASE}/resources/all`, { headers: auth() });
         if (!live) return;
         setDrivers(data?.drivers || []);
         setVehicles(data?.vehicles || []);
-      } catch {
+      } catch (e) {
+        console.error('Error loading resources:', e.response?.data || e.message);
         setErr("Failed to load drivers/vehicles");
       } finally {
         setLoading(false);
@@ -921,6 +948,3 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
     </div>
   );
 }
-
-      
-      
