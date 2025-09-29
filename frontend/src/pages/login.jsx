@@ -28,8 +28,8 @@ const Login = () => {
     try {
       const endpoint =
         activeTab === "driver"
-          ? "http://localhost:5000/api/driver/login"
-          : "http://localhost:5000/api/auth/login";
+          ? `${API}/driver/login` // Use VITE_API_BASE here
+          : `${API}/auth/login`;
 
       const res = await axios.post(endpoint, { email, password });
 

@@ -5,9 +5,11 @@ import {
   Star, Search, Eye, Trash2, Package, MessageSquare,
   ArrowLeft, Filter, Calendar, User
 } from "lucide-react";
+import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
+
 
 /* ----------------------------- API ----------------------------- */
-const API = "http://localhost:5000/api";
+const API = VITE_API_BASE;
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
 /* ---------------------------- HELPERS -------------------------- */

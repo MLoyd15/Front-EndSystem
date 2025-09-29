@@ -3,6 +3,7 @@ import axios from "axios";
 import { FaUsers, FaDollarSign, FaShoppingCart, FaBoxes } from "react-icons/fa";
 import SalesChart from "./SalesChart";
 import { ResponsiveContainer, PieChart, Pie, Tooltip, Cell, Legend } from "recharts";
+import { VITE_API_BASE} from "../config"
 
 /* ---------- KPI Card ---------- */
 function KpiCard({ title, value, icon, color = "from-emerald-500 to-green-500" }) {
@@ -22,7 +23,9 @@ function KpiCard({ title, value, icon, color = "from-emerald-500 to-green-500" }
   );
 }
 
-const API = "http://localhost:5000/api";
+
+
+const API = VITE_API_BASE
 const CURRENCY = "₱";
 const peso = (n) => `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 

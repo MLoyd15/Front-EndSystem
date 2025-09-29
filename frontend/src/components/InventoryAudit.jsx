@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { VITE_API_BASE} from "../config"
 
-const API = "http://localhost:5000/api";
+const API = VITE_API_BASE;
 const authHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
 });

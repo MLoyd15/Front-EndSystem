@@ -6,8 +6,9 @@ import {
   ChevronRight, X, CheckCircle2, ShoppingCart, Phone, CheckCircle, XCircle
 } from "lucide-react";
 
-/* ----------------------------- API ----------------------------- */
-const API = "http://localhost:5000/api/delivery";
+import { VITE_API_BASE} from "../config"
+
+const API = VITE_API_BASE
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
 /* ---------------------------- HELPERS -------------------------- */

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import dayjs from "dayjs";
 import axios from "axios";
+import { VITE_API_BASE} from "../config"
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5173"; // adjust if needed
+const API = VITE_API_BASE
 
 export default function ChatPanel({ orderId, role = "driver", onClose }) {
   const token = localStorage.getItem("pos-token") || "";

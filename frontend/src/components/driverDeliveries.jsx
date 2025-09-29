@@ -3,8 +3,9 @@ import axios from "axios";
 import { Search, MapPin, Clock, User, MessageSquare, Phone, RefreshCw } from "lucide-react";
 import ChatModal from "./chatmodal";       // <- use the ChatModal we created earlier
 import ChatPanel from "./chat";       // <- real Socket.IO chat panel
+import { VITE_API_BASE} from "../config"
 
-const API_BASE = "http://localhost:5000";
+const API = VITE_API_BASE
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
 
 /* ---------- Small UI helpers ---------- */

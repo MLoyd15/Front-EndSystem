@@ -17,8 +17,10 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { VITE_API_BASE, VITE_SOCKET_URL } from "../config"
+
 /* ---------------- CONFIG ---------------- */
-const API = "http://localhost:5000/api/promo";
+const API = VITE_API_BASE;
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
 
 /* ---------------- Helpers ---------------- */

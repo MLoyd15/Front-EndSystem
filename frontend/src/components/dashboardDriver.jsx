@@ -6,9 +6,9 @@ import {
   Navigation, Phone, RefreshCcw, Truck, CheckCircle2, Timer,
   MapPin, Package, User, Weight, ChevronRight, Search, Clock, X,
 } from "lucide-react";
+import { VITE_API_BASE} from "../config"
 
-/* ----------------------- config & helpers ----------------------- */
-const API = "http://localhost:5000/api/delivery";
+const API = VITE_API_BASE
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
 
 const when = (iso) =>
