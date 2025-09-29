@@ -14,27 +14,6 @@ const authHeader = () => ({
 
 
 
-// KPI Card Component
-function KpiCard({ title, value, color }) {
-  return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm">
-      <div className={`w-10 h-10 ${color} rounded-lg mb-3`}></div>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-sm text-gray-500">{title}</div>
-    </div>
-  );
-}
-
-// Placeholder component for InventoryAudit
-function InventoryAudit() {
-  return (
-    <div className="mt-6 bg-white rounded-2xl p-6">
-      <h3 className="text-lg font-semibold mb-4">✓ Inventory Audit</h3>
-      <p className="text-sm text-gray-500">Audit component placeholder</p>
-    </div>
-  );
-}
-
 // data-URI tiny placeholder (no network call)
 const DATA_PLACEHOLDER_48 =
   "data:image/svg+xml;utf8," +
