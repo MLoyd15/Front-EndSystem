@@ -17,6 +17,8 @@ const BundlesPage = () => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [products, setProducts] = useState([]);
   const [editBundle, setEditBundle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const formTopRef = useRef(null);
   const nameInputRef = useRef(null);
@@ -24,46 +26,84 @@ const BundlesPage = () => {
   // Fetch bundles
   const fetchBundles = async () => {
     try {
+      console.log("🔍 Fetching bundles from:", `${API}/bundles`);
       const response = await axios.get(`${API}/bundles`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+          "Content-Type": "application/json"
+        },
       });
+      console.log("✅ Bundles response:", response.data);
       const bundlesArray = Array.isArray(response.data)
         ? response.data
         : response.data.bundles ?? response.data.items ?? [];
       setBundles(bundlesArray);
     } catch (error) {
-      console.error("Error fetching bundles:", error);
+      console.error("❌ Error fetching bundles:", error);
+      console.error("❌ Error response:", error.response?.data);
       setBundles([]);
     }
   };
 
-  // Fetch products
+  // Fetch products - FIXED: Changed from /bundles to /products
   const fetchProducts = async () => {
     try {
-      const response = await axios.get(`${API}/bundles`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
+      console.log("🔍 Fetching products from:", `${API}/products`);
+      const response = await axios.get(`${API}/products`, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+          "Content-Type": "application/json"
+        },
       });
+      console.log("✅ Products response:", response.data);
       const fetchedProducts = Array.isArray(response.data)
         ? response.data
-        : response.data.items ?? [];
+        : response.data.products ?? response.data.items ?? [];
       setProducts(fetchedProducts);
     } catch (error) {
-      console.error("Error fetching products:", error);
+      console.error("❌ Error fetching products:", error);
+      console.error("❌ Error response:", error.response?.data);
       setProducts([]);
     }
   };
 
   useEffect(() => {
-    fetchBundles();
-    fetchProducts();
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        await Promise.all([fetchBundles(), fetchProducts()]);
+      } catch (err) {
+        setError("Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
   
   // Edit Bundle
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!bundleName.trim()) {
+      alert("Bundle name is required");
+      return;
+    }
+
+    if (!bundlePrice || Number(bundlePrice) <= 0) {
+      alert("Please enter a valid price");
+      return;
+    }
+
+    if (selectedProducts.length === 0) {
+      alert("Please add at least one product to the bundle");
+      return;
+    }
+
     const payload = {
-      name: bundleName,
-      description: bundleDescription,
+      name: bundleName.trim(),
+      description: bundleDescription.trim(),
       price: Number(bundlePrice),
       products: selectedProducts.map((p) => ({
         product: p.product,
@@ -72,23 +112,34 @@ const BundlesPage = () => {
     };
 
     try {
+      console.log("📤 Submitting bundle:", payload);
+      
       if (editBundle) {
-        await axios.put(`${API}/bundles/${editBundle}`, payload, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
+        const response = await axios.put(`${API}/bundles/${editBundle}`, payload, {
+          headers: { 
+            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+            "Content-Type": "application/json"
+          },
         });
+        console.log("✅ Update response:", response.data);
         alert("Bundle updated successfully!");
       } else {
-        await axios.post(`${API}/bundles`, payload, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
+        const response = await axios.post(`${API}/bundles`, payload, {
+          headers: { 
+            Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+            "Content-Type": "application/json"
+          },
         });
+        console.log("✅ Create response:", response.data);
         alert("Bundle created successfully!");
       }
 
       fetchBundles();
       handleCancel(); 
     } catch (error) {
-      console.error("Error submitting bundle:", error.response?.data ?? error);
-      alert(`Error creating/updating bundle: ${error.response?.data?.message ?? "Check console."}`);
+      console.error("❌ Error submitting bundle:", error.response?.data ?? error);
+      const errorMsg = error.response?.data?.message || error.message || "Unknown error";
+      alert(`Error creating/updating bundle: ${errorMsg}`);
     }
   };
 
@@ -111,15 +162,23 @@ const BundlesPage = () => {
   // Delete Bundle
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this bundle?")) return;
+    
     try {
-      await axios.delete(`${API}/bundles/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` },
+      console.log("🗑️ Deleting bundle:", id);
+      const response = await axios.delete(`${API}/bundles/${id}`, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
+          "Content-Type": "application/json"
+        },
       });
+      console.log("✅ Delete response:", response.data);
       fetchBundles();
       alert("Bundle deleted successfully!");
     } catch (error) {
-      console.error("Error deleting bundle:", error);
-      alert("Error deleting bundle.");
+      console.error("❌ Error deleting bundle:", error);
+      console.error("❌ Error response:", error.response?.data);
+      const errorMsg = error.response?.data?.message || error.message || "Unknown error";
+      alert(`Error deleting bundle: ${errorMsg}`);
     }
   };
 
@@ -155,6 +214,17 @@ const BundlesPage = () => {
     return [bundles[idx], ...bundles.slice(0, idx), ...bundles.slice(idx + 1)];
   }, [bundles, editBundle]);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-emerald-500 border-r-transparent"></div>
+          <p className="mt-2 text-gray-600">Loading bundles...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <h1 className="text-xl font-semibold mb-8">Manage Bundles</h1>
@@ -183,13 +253,16 @@ const BundlesPage = () => {
 
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Bundle Name</label>
+              <label className="block text-sm font-medium mb-1">
+                Bundle Name <span className="text-red-500">*</span>
+              </label>
               <input
                 ref={nameInputRef}
                 type="text"
                 placeholder="e.g. Starter Pack"
                 value={bundleName}
                 onChange={(e) => setBundleName(e.target.value)}
+                required
                 className="w-full border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -206,19 +279,26 @@ const BundlesPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Price</label>
+              <label className="block text-sm font-medium mb-1">
+                Price <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
+                step="0.01"
+                min="0"
                 placeholder="0.00"
                 value={bundlePrice}
                 onChange={(e) => setBundlePrice(e.target.value)}
+                required
                 className="w-full border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-semibold">Products in Bundle</label>
+                <label className="block text-sm font-semibold">
+                  Products in Bundle <span className="text-red-500">*</span>
+                </label>
                 <button
                   type="button"
                   onClick={addProductField}
@@ -229,39 +309,45 @@ const BundlesPage = () => {
               </div>
 
               <div className="space-y-2">
-                {selectedProducts.map((p, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <select
-                      value={p.product}
-                      onChange={(e) => handleProductChange(e, idx)}
-                      className="flex-1 border px-3 py-2 rounded-lg"
-                    >
-                      <option value="">Select Product</option>
-                      {products.map((prod) => (
-                        <option key={prod._id} value={prod._id}>
-                          {prod.name}
-                        </option>
-                      ))}
-                    </select>
+                {selectedProducts.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-2">No products added yet. Click "Add Product" to start.</p>
+                ) : (
+                  selectedProducts.map((p, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <select
+                        value={p.product}
+                        onChange={(e) => handleProductChange(e, idx)}
+                        className="flex-1 border px-3 py-2 rounded-lg"
+                        required
+                      >
+                        <option value="">Select Product</option>
+                        {products.map((prod) => (
+                          <option key={prod._id} value={prod._id}>
+                            {prod.name}
+                          </option>
+                        ))}
+                      </select>
 
-                    <input
-                      type="number"
-                      min={1}
-                      value={p.quantity}
-                      onChange={(e) => handleQuantityChange(e, idx)}
-                      className="w-28 border px-3 py-2 rounded-lg"
-                    />
+                      <input
+                        type="number"
+                        min={1}
+                        value={p.quantity}
+                        onChange={(e) => handleQuantityChange(e, idx)}
+                        className="w-28 border px-3 py-2 rounded-lg"
+                        required
+                      />
 
-                    <button
-                      type="button"
-                      onClick={() => removeProductField(idx)}
-                      className="px-3 py-2 rounded-lg border text-red-600 hover:bg-red-50"
-                      title="Remove"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => removeProductField(idx)}
+                        className="px-3 py-2 rounded-lg border text-red-600 hover:bg-red-50"
+                        title="Remove"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -297,7 +383,12 @@ const BundlesPage = () => {
 
           <div className="p-4 overflow-y-auto overflow-x-hidden max-h-[700px]">
             {displayedBundles.length === 0 ? (
-              <p className="text-gray-500 text-center py-12">No bundles added yet.</p>
+              <div className="text-center py-12">
+                <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 grid place-items-center mb-2">
+                  <span className="text-gray-400">📦</span>
+                </div>
+                <p className="text-gray-500">No bundles added yet.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 lg:[grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] gap-4">
                 {displayedBundles.map((bundle) => {
@@ -374,4 +465,3 @@ const BundlesPage = () => {
 };
 
 export default BundlesPage;
-

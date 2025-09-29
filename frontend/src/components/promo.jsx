@@ -20,8 +20,11 @@ import {
 import { VITE_API_BASE } from "../config"
 
 /* ---------------- CONFIG ---------------- */
-const API = VITE_API_BASE;
-const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
+const API = `${VITE_API_BASE}/promo`; // Fixed: Added /promo endpoint
+const auth = () => ({ 
+  Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}`,
+  "Content-Type": "application/json"
+});
 
 /* ---------------- Helpers ---------------- */
 const peso = (n) => `₱${Number(n || 0).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
@@ -39,7 +42,7 @@ const computeDisplayStatus = (p) => {
 const nowLocalInput = () => {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+  return d.toISOString().slice(0, 16);
 };
 
 /* ---------------- Field + KPI ---------------- */
@@ -97,16 +100,14 @@ const Promo = () => {
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [showArchived, setShowArchived] = useState(false); // false = active view, true = archived (Expired only)
+  const [showArchived, setShowArchived] = useState(false);
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  // pagination
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
 
-  // create form
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -121,7 +122,6 @@ const Promo = () => {
   });
   const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  // reactivate modal
   const [reactivateOpen, setReactivateOpen] = useState(false);
   const [reactivateTarget, setReactivateTarget] = useState(null);
   const [savingReactivate, setSavingReactivate] = useState(false);
@@ -131,25 +131,38 @@ const Promo = () => {
   const load = async () => {
     setLoading(true);
     try {
+      console.log("🔍 Fetching promos from:", `${API}?q=${encodeURIComponent(q)}`);
       const res = await axios.get(`${API}?q=${encodeURIComponent(q)}`, { headers: auth() });
-      setPromos(res.data || []);
+      console.log("✅ Promos response:", res.data);
+      setPromos(Array.isArray(res.data) ? res.data : res.data.promos || []);
     } catch (e) {
-      console.error("Load promos failed", e);
+      console.error("❌ Load promos failed:", e);
+      console.error("❌ Error response:", e.response?.data);
       setPromos([]);
+      if (e.response?.status === 401) {
+        alert("Session expired. Please login again.");
+        localStorage.removeItem("pos-token");
+        window.location.href = "/login";
+      }
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q]);
+  
+  useEffect(() => { 
+    load(); 
+  }, [q]);
 
   const createPromo = async () => {
-    // numeric coercions
     const val = Number(form.value || 0);
     const minSpend = Number(form.minSpend || 0);
     const maxDiscount = Number(form.maxDiscount || 0);
     const limit = Number(form.limit || 0);
 
-    // ************* FRONTEND VALIDATION (limiters) *************
+    // Validation
+    if (!form.code.trim()) return alert("Promo code is required");
+    if (!form.name.trim()) return alert("Internal label is required");
+    
     if (form.type === "Percentage") {
       if (val < 1) return alert("Percentage must be at least 1%");
       if (val > 99) return alert("Percentage cannot exceed 99%");
@@ -165,12 +178,19 @@ const Promo = () => {
     try {
       const payload = {
         ...form,
+        code: form.code.trim().toUpperCase(),
+        name: form.name.trim(),
         value: form.type === "Free Shipping" ? 0 : val,
         minSpend,
         maxDiscount,
         limit,
       };
-      await axios.post(API, payload, { headers: auth() });
+      console.log("📤 Creating promo:", payload);
+      
+      const response = await axios.post(API, payload, { headers: auth() });
+      console.log("✅ Create response:", response.data);
+      
+      alert("Promo created successfully!");
       setForm({
         code: "",
         name: "",
@@ -185,15 +205,20 @@ const Promo = () => {
       });
       load();
     } catch (e) {
+      console.error("❌ Error creating promo:", e.response?.data || e);
       alert(e?.response?.data?.message || "Error creating promo");
     }
   };
 
   const duplicate = async (id) => {
     try {
-      await axios.post(`${API}/${id}/duplicate`, {}, { headers: auth() });
+      console.log("📋 Duplicating promo:", id);
+      const response = await axios.post(`${API}/${id}/duplicate`, {}, { headers: auth() });
+      console.log("✅ Duplicate response:", response.data);
+      alert("Promo duplicated successfully!");
       load();
     } catch (e) {
+      console.error("❌ Error duplicating promo:", e.response?.data || e);
       alert(e?.response?.data?.message || "Error duplicating promo");
     }
   };
@@ -202,48 +227,64 @@ const Promo = () => {
     try {
       const status = computeDisplayStatus(p);
       const body = status === "Scheduled" ? { forceActivate: true } : {};
-      await axios.patch(`${API}/${p._id}/toggle`, body, { headers: auth() });
+      console.log("⏯️ Toggling promo:", p._id, body);
+      
+      const response = await axios.patch(`${API}/${p._id}/toggle`, body, { headers: auth() });
+      console.log("✅ Toggle response:", response.data);
       load();
     } catch (e) {
+      console.error("❌ Error updating status:", e.response?.data || e);
       alert(e?.response?.data?.message || "Error updating status");
     }
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Delete this promo?")) return;
+    if (!window.confirm("Delete this promo? This action cannot be undone.")) return;
     try {
-      await axios.delete(`${API}/${id}`, { headers: auth() });
+      console.log("🗑️ Deleting promo:", id);
+      const response = await axios.delete(`${API}/${id}`, { headers: auth() });
+      console.log("✅ Delete response:", response.data);
+      alert("Promo deleted successfully!");
       load();
     } catch (e) {
+      console.error("❌ Error deleting promo:", e.response?.data || e);
       alert(e?.response?.data?.message || "Error deleting promo");
     }
   };
 
-  // Reactivate
   const openReactivate = (p) => {
     setReactivateTarget(p);
     setSched({ startsAt: nowLocalInput(), endsAt: "" });
     setReactivateOpen(true);
   };
+  
   const closeReactivate = () => {
     setReactivateOpen(false);
     setReactivateTarget(null);
   };
+  
   const submitReactivate = async () => {
     const s = sched.startsAt ? new Date(sched.startsAt) : null;
     const e = sched.endsAt ? new Date(sched.endsAt) : null;
     if (!s || !e) return alert("Please pick both Start and End.");
     if (e <= s) return alert("End must be after Start.");
+    
     try {
       setSavingReactivate(true);
-      await axios.patch(
+      console.log("🔄 Reactivating promo:", reactivateTarget._id);
+      
+      const response = await axios.patch(
         `${API}/${reactivateTarget._id}/reactivate`,
         { startsAt: s.toISOString(), endsAt: e.toISOString() },
         { headers: auth() }
       );
+      console.log("✅ Reactivate response:", response.data);
+      
+      alert("Promo reactivated successfully!");
       closeReactivate();
       load();
     } catch (err) {
+      console.error("❌ Failed to reactivate promo:", err.response?.data || err);
       alert(err?.response?.data?.message || "Failed to reactivate promo");
     } finally {
       setSavingReactivate(false);
@@ -256,7 +297,6 @@ const Promo = () => {
     [promos]
   );
 
-  // view switch: Active view hides Expired; Archive shows only Expired
   const viewRows = useMemo(
     () => withDisplay.filter((p) => (showArchived ? p._displayStatus === "Expired" : p._displayStatus !== "Expired")),
     [withDisplay, showArchived]
@@ -281,7 +321,6 @@ const Promo = () => {
   const expired = rows.filter((p) => p._displayStatus === "Expired").length;
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  theStart: ;
   const startIdx = (page - 1) * pageSize;
   const endIdx = Math.min(startIdx + pageSize, total);
   const pageRows = rows.slice(startIdx, endIdx);
