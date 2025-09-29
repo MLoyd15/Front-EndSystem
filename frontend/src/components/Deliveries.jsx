@@ -828,8 +828,46 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
     (async () => {
       try {
         setLoading(true);
-        // Fixed the resources endpoint URL
-        const { data } = await axios.get(`${VITE_API_BASE}/resources/all`, { headers: auth() });
+        // Try multiple possible endpoints for resources
+        let data = null;
+        const possibleEndpoints = [
+          `${VITE_API_BASE}/resources/all`,
+          `${VITE_API_BASE}/resources`,
+          `${VITE_API_BASE}/drivers-vehicles`,
+          `${VITE_API_BASE}/driver`,
+          `${VITE_API_BASE}/vehicle`
+        ];
+        
+        for (const endpoint of possibleEndpoints) {
+          try {
+            console.log('Trying endpoint:', endpoint);
+            const response = await axios.get(endpoint, { headers: auth() });
+            data = response.data;
+            console.log('Success with endpoint:', endpoint, 'Data:', data);
+            break;
+          } catch (err) {
+            console.log('Failed endpoint:', endpoint, 'Error:', err.response?.status);
+            continue;
+          }
+        }
+        
+        if (!data) {
+          // If all endpoints fail, try to fetch drivers and vehicles separately
+          try {
+            const [driversRes, vehiclesRes] = await Promise.all([
+              axios.get(`${VITE_API_BASE}/driver`, { headers: auth() }).catch(() => ({ data: [] })),
+              axios.get(`${VITE_API_BASE}/vehicle`, { headers: auth() }).catch(() => ({ data: [] }))
+            ]);
+            data = {
+              drivers: Array.isArray(driversRes.data) ? driversRes.data : driversRes.data?.drivers || [],
+              vehicles: Array.isArray(vehiclesRes.data) ? vehiclesRes.data : vehiclesRes.data?.vehicles || []
+            };
+            console.log('Fetched separately - Drivers:', data.drivers, 'Vehicles:', data.vehicles);
+          } catch (separateErr) {
+            console.error('All endpoints failed:', separateErr);
+            throw new Error('Could not load drivers and vehicles from any endpoint');
+          }
+        }
         if (!live) return;
         setDrivers(data?.drivers || []);
         setVehicles(data?.vehicles || []);
