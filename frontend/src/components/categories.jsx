@@ -23,7 +23,7 @@ const Categories = () => {
         throw new Error("No authentication token found");
       }
 
-      const response = await axios.get(`${API}/api/category`, {
+      const response = await axios.get(`${API}/category`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -69,7 +69,7 @@ const Categories = () => {
 
       if (editCategory) {
         const response = await axios.put(
-          `${API}/api/category/${editCategory}`,
+          `${API}/category/${editCategory}`,
           { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
           {
             headers: {
@@ -90,7 +90,7 @@ const Categories = () => {
         }
       } else {
         const response = await axios.post(
-          `${API}/api/category/add`,
+          `${API}/category/add`,
           { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
           {
             headers: {
@@ -146,7 +146,7 @@ const Categories = () => {
       }
 
       const response = await axios.delete(
-        `${API}/api/category/${id}`,
+        `${API}/category/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
