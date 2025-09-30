@@ -3,14 +3,19 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Navigation, Phone, RefreshCcw, Truck, CheckCircle2, Timer,
+  Phone, RefreshCcw, Truck, CheckCircle2, Timer,
   MapPin, Package, User, Weight, ChevronRight, Search, Clock, X,
 } from "lucide-react";
-import { VITE_API_BASE} from "../config"
+import { VITE_API_BASE } from "../config";
 
-const API = VITE_API_BASE
-const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
+/* ----------------------------- API ----------------------------- */
+const API = `${VITE_API_BASE}/delivery`; // ✅ same as Deliveries.jsx
+const auth = () => {
+  const t = localStorage.getItem("pos-token");
+  return t ? { Authorization: `Bearer ${t}` } : {};
+};
 
+/* ----------------------------- Helpers ----------------------------- */
 const when = (iso) =>
   iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
 const todayStr = () =>
@@ -24,8 +29,8 @@ const STATUS_COLORS = {
   cancelled: "bg-rose-100 text-rose-700 ring-rose-200",
 };
 
-// unwrap { success, deliveries } → always return []
-const unwrap = (res) => (Array.isArray(res?.data?.deliveries) ? res.data.deliveries : []);
+// unwrap { success, deliveries } → always return array
+const unwrap = (res) => (Array.isArray(res?.data) ? res.data : (res?.data?.deliveries || []));
 
 /* ------------------------------ UI bits ------------------------------ */
 const Pill = ({ tone = "gray", children }) => (
@@ -112,16 +117,9 @@ function JobCard({ job, onStart, onDeliver, onView }) {
         <ChevronRight className="w-5 h-5 text-gray-400" />
       </div>
 
+      {/* Actions */}
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Navigation className="w-4 h-4" /> Navigate
-        </a>
+        {/* 🚫 Removed the Google Maps "Navigate" link */}
         {job?.customer?.phone && (
           <a
             href={`tel:${job.customer.phone}`}
@@ -222,24 +220,17 @@ const DetailSheet = ({ open, job, onClose }) => {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <Navigation className="w-4 h-4" /> Navigate
-            </a>
-            {job?.customer?.phone && (
+          {/* 🚫 Removed the "Navigate" button here as well */}
+          {job?.customer?.phone && (
+            <div className="mt-4 grid grid-cols-1 gap-2">
               <a
                 href={`tel:${job.customer.phone}`}
                 className="flex items-center justify-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
                 <Phone className="w-4 h-4" /> Call customer
               </a>
-            )}
-          </div>
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -259,12 +250,11 @@ export default function DriverHome() {
   const fetcher = useCallback(async () => {
     try {
       setError("");
-
-      // show ALL deliveries for each status (server may still restrict by role)
+      // ✅ use params & same header style as Deliveries.jsx
       const [a, t, c] = await Promise.all([
-        axios.get(`${API}?status=assigned`,   { headers: auth() }),
-        axios.get(`${API}?status=in-transit`, { headers: auth() }),
-        axios.get(`${API}?status=completed`,  { headers: auth() }),
+        axios.get(API, { headers: auth(), params: { status: "assigned" } }),
+        axios.get(API, { headers: auth(), params: { status: "in-transit" } }),
+        axios.get(API, { headers: auth(), params: { status: "completed" } }),
       ]);
 
       setAssigned(unwrap(a));
@@ -295,7 +285,7 @@ export default function DriverHome() {
 
   const mutateStatus = async (job, status) => {
     try {
-      await axios.put(`${API}/${job._id}`, { status }, { headers: auth() });
+      await axios.put(`${API}/${job._id}`, { status }, { headers: auth() }); // ✅ same base
       fetcher();
     } catch (e) {
       alert(e?.response?.data?.message || e.message);
@@ -414,7 +404,7 @@ export default function DriverHome() {
         </section>
       </div>
 
-      {/* Completed (all) */}
+      {/* Completed */}
       <section className="mt-6">
         <h2 className="font-semibold text-gray-800 flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" /> Completed deliveries
