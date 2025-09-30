@@ -80,8 +80,9 @@ export default function EnhancedSalesChart() {
     }
   }, [groupBy]);
 
-  const processedData = useMemo(() => {
+    const processedData = useMemo(() => {
     const grouped = orders.reduce((acc, order) => {
+      // Include all orders except "Pending" - includes "pending_payment"
       if (order?.status === "Pending") return acc;
 
       const key = getDateKey(order?.createdAt);
