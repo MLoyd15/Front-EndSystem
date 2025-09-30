@@ -1,16 +1,18 @@
-import React, { useEffect, useMemo, useState } from "react"; 
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Bike, Search, Filter, Clock, MapPin, User, Weight,
   ChevronRight, X, CheckCircle2, ShoppingCart, Phone, CheckCircle, XCircle
 } from "lucide-react";
+import { VITE_API_BASE } from "../config";
 
-import { VITE_API_BASE } from "../config"
-
-// Fixed API URL construction - add the specific endpoint
-const API = `${VITE_API_BASE}/delivery`;
-const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")}` });
+/* ----------------------------- API ----------------------------- */
+const API = `${VITE_API_BASE}/delivery`; // <— namespaced
+const auth = () => {
+  const t = localStorage.getItem("pos-token");
+  return t ? { Authorization: `Bearer ${t}` } : {};
+};
 
 /* ---------------------------- HELPERS -------------------------- */
 const chip = (color, text) => {
@@ -39,24 +41,18 @@ const statusPill = (status) => {
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString() : "—");
 const last6 = (id = "") => `#${String(id).slice(-6)}`;
 
-// Assigned Driver / Vehicle display helpers
 const driverLabel = (row) => row?.assignedDriver?.name || row?.assignedDriver || "";
 const vehicleLabel = (row) => row?.assignedVehicle?.plate || row?.assignedVehicle || "";
-
-// NEW: vehicle pill helper (used on the right)
 const vehiclePill = (row) => {
   const label = vehicleLabel(row);
   return label ? chip("sky", label) : null;
 };
 
-// Only allow these 3 quick-status options (order: Completed, In transit, Cancelled)
 const QUICK_STATUSES = ["completed", "in-transit", "cancelled"];
-
-// Pagination size
 const PAGE_SIZE = 5;
 
 export default function Deliveries() {
-  const [tab, setTab] = useState("in-house"); // default to In-house like in your screenshot
+  const [tab, setTab] = useState("in-house");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState([]);
@@ -66,7 +62,6 @@ export default function Deliveries() {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // pagination state
   const [page, setPage] = useState(1);
 
   const load = async () => {
@@ -75,23 +70,15 @@ export default function Deliveries() {
       const params = {};
       if (status) params.status = status;
       if (query) params.q = query.trim();
-      
-      console.log('Making API request to:', API);
-      console.log('With params:', params);
-      console.log('With headers:', auth());
-      
+
       const { data } = await axios.get(API, { headers: auth(), params });
-      console.log('API response:', data);
-      
       const deliveries = Array.isArray(data) ? data : (data?.deliveries || []);
       const sortedDeliveries = deliveries.sort(
-        (a, b) =>
-          new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)
+        (a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)
       );
       setRows(sortedDeliveries);
     } catch (e) {
-      console.error('API Error:', e.response?.data || e.message);
-      console.error('Full error:', e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -103,7 +90,7 @@ export default function Deliveries() {
       const { data } = await axios.get(`${API}/${deliveryId}`, { headers: auth() });
       setDrawerDetails(data);
     } catch (e) {
-      console.error('Error loading delivery details:', e.response?.data || e.message);
+      console.warn("Details endpoint unavailable:", e?.response?.status);
       setDrawerDetails(null);
     } finally {
       setDrawerLoading(false);
@@ -111,8 +98,6 @@ export default function Deliveries() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab, status]);
-
-  // reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [tab, status, query]);
 
   const filtered = useMemo(() => {
@@ -146,7 +131,6 @@ export default function Deliveries() {
     });
   }, [rows, query, tab]);
 
-  // clamp page if filtered shrinks
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
@@ -185,7 +169,7 @@ export default function Deliveries() {
       await axios.put(`${API}/${id}`, { status: st }, { headers: auth() });
       load();
     } catch (e) {
-      console.error('Error updating status:', e.response?.data || e.message);
+      console.error('Error updating status:', e?.response?.data || e.message);
     }
   };
 
@@ -198,7 +182,7 @@ export default function Deliveries() {
       setEditing(null);
       load();
     } catch (e) {
-      console.error('Error saving pickup:', e.response?.data || e.message);
+      console.error('Error saving pickup:', e?.response?.data || e.message);
     }
   };
 
@@ -208,7 +192,7 @@ export default function Deliveries() {
       setEditing(null);
       load();
     } catch (e) {
-      console.error('Error saving third party:', e.response?.data || e.message);
+      console.error('Error saving third party:', e?.response?.data || e.message);
     }
   };
 
@@ -218,7 +202,7 @@ export default function Deliveries() {
       setEditing(null);
       load();
     } catch (e) {
-      console.error('Error assigning in-house:', e.response?.data || e.message);
+      console.error('Error assigning in-house:', e?.response?.data || e.message);
     }
   };
 
@@ -229,11 +213,8 @@ export default function Deliveries() {
   };
 
   const getLocationDisplay = (delivery, tab) => {
-    if (tab === "pickup") {
-      return delivery.pickupLocation || "Set pickup location";
-    } else {
-      return delivery.deliveryAddress || "Set delivery address";
-    }
+    if (tab === "pickup") return delivery.pickupLocation || "Set pickup location";
+    return delivery.deliveryAddress || "Set delivery address";
   };
 
   return (
@@ -285,7 +266,6 @@ export default function Deliveries() {
               />
             </div>
 
-            {/* Only show status filter for active tabs, not for completed/cancelled */}
             {!["completed", "cancelled"].includes(tab) && (
               <select
                 value={status}
@@ -361,7 +341,6 @@ export default function Deliveries() {
                             </div>
 
                             <div className="ml-auto flex items-center gap-2">
-                              {/* RIGHT SIDE: show vehicle name/plate instead of duplicate status */}
                               {vehiclePill(d)}
 
                               <button
@@ -371,7 +350,6 @@ export default function Deliveries() {
                                 Details <ChevronRight className="w-4 h-4" />
                               </button>
 
-                              {/* Only show Manage button for active deliveries (not completed/cancelled) */}
                               {!["completed", "cancelled"].includes(d.status) && (
                                 <button
                                   onClick={() => setEditing(d)}
@@ -387,7 +365,6 @@ export default function Deliveries() {
                     </AnimatePresence>
                   </div>
 
-                  {/* Pagination controls */}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
                     <div className="text-slate-600">
                       Showing <span className="font-medium text-slate-800">{showingFrom || 0}</span>
@@ -427,7 +404,6 @@ export default function Deliveries() {
           </div>
 
           <div className="lg:col-span-1">
-            {/* Only show scheduler for active tabs, show summary for completed/cancelled */}
             {["completed", "cancelled"].includes(tab) ? (
               <CompletedCancelledSummary deliveries={filtered} tab={tab} />
             ) : (
@@ -660,12 +636,12 @@ export default function Deliveries() {
   );
 }
 
-/* --------------------------- Summary Component for Completed/Cancelled --------------------------- */
+/* --------------------------- Summary Component --------------------------- */
 function CompletedCancelledSummary({ deliveries, tab }) {
   const bgColor = tab === "completed" ? "bg-green-50 ring-green-200" : "bg-red-50 ring-red-200";
   const iconColor = tab === "completed" ? "text-green-600" : "text-red-600";
   const Icon = tab === "completed" ? CheckCircle : XCircle;
-  
+
   const totalDeliveries = deliveries.length;
   const today = new Date();
   const todayDeliveries = deliveries.filter(d => {
@@ -681,7 +657,7 @@ function CompletedCancelledSummary({ deliveries, tab }) {
   }).length;
 
   const totalWeight = deliveries.reduce((sum, d) => sum + (d.order?.totalWeight || d.weight || 0), 0);
-  
+
   return (
     <div className={`rounded-3xl shadow-xl ring-1 p-5 ${bgColor}`}>
       <div className="flex items-center gap-2 mb-4">
@@ -800,17 +776,16 @@ function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus }) {
         <button onClick={onCancel} className="px-4 py-2 rounded-xl ring-1 ring-slate-200">Cancel</button>
       </div>
 
-      {/* For 3rd party cancel*/}
-        <div className="pt-2">
-          <div className="text-xs text-slate-500 mb-2">Quick action</div>
-          <button
-            onClick={() => onQuickStatus("cancelled")}
-            className="w-full px-4 py-2 rounded-xl ring-1 ring-rose-300 text-rose-700 hover:bg-rose-50 active:bg-rose-100 inline-flex items-center justify-center gap-2"
-          >
-            <XCircle className="w-4 h-4" />
-            Cancel delivery
-          </button>
-        </div>
+      <div className="pt-2">
+        <div className="text-xs text-slate-500 mb-2">Quick action</div>
+        <button
+          onClick={() => onQuickStatus("cancelled")}
+          className="w-full px-4 py-2 rounded-xl ring-1 ring-rose-300 text-rose-700 hover:bg-rose-50 active:bg-rose-100 inline-flex items-center justify-center gap-2"
+        >
+          <XCircle className="w-4 h-4" />
+          Cancel delivery
+        </button>
+      </div>
     </div>
   );
 }
@@ -828,51 +803,12 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
     (async () => {
       try {
         setLoading(true);
-        // Try multiple possible endpoints for resources
-        let data = null;
-        const possibleEndpoints = [
-          `${VITE_API_BASE}/resources/all`,
-          `${VITE_API_BASE}/resources`,
-          `${VITE_API_BASE}/drivers-vehicles`,
-          `${VITE_API_BASE}/driver`,
-          `${VITE_API_BASE}/vehicle`
-        ];
-        
-        for (const endpoint of possibleEndpoints) {
-          try {
-            console.log('Trying endpoint:', endpoint);
-            const response = await axios.get(endpoint, { headers: auth() });
-            data = response.data;
-            console.log('Success with endpoint:', endpoint, 'Data:', data);
-            break;
-          } catch (err) {
-            console.log('Failed endpoint:', endpoint, 'Error:', err.response?.status);
-            continue;
-          }
-        }
-        
-        if (!data) {
-          // If all endpoints fail, try to fetch drivers and vehicles separately
-          try {
-            const [driversRes, vehiclesRes] = await Promise.all([
-              axios.get(`${VITE_API_BASE}/driver`, { headers: auth() }).catch(() => ({ data: [] })),
-              axios.get(`${VITE_API_BASE}/vehicle`, { headers: auth() }).catch(() => ({ data: [] }))
-            ]);
-            data = {
-              drivers: Array.isArray(driversRes.data) ? driversRes.data : driversRes.data?.drivers || [],
-              vehicles: Array.isArray(vehiclesRes.data) ? vehiclesRes.data : vehiclesRes.data?.vehicles || []
-            };
-            console.log('Fetched separately - Drivers:', data.drivers, 'Vehicles:', data.vehicles);
-          } catch (separateErr) {
-            console.error('All endpoints failed:', separateErr);
-            throw new Error('Could not load drivers and vehicles from any endpoint');
-          }
-        }
+        // ***** Correct namespaced endpoint *****
+        const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
         if (!live) return;
         setDrivers(data?.drivers || []);
         setVehicles(data?.vehicles || []);
-      } catch (e) {
-        console.error('Error loading resources:', e.response?.data || e.message);
+      } catch {
         setErr("Failed to load drivers/vehicles");
       } finally {
         setLoading(false);
@@ -907,7 +843,6 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
         <div className="text-slate-500">Loading…</div>
       ) : (
         <>
-          {/* Driver Section - Always Visible */}
           <div>
             <div className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
               <User className="w-4 h-4" />
@@ -930,7 +865,6 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
             </div>
           </div>
 
-          {/* Vehicle Section - Always Visible */}
           <div>
             <div className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
               <Bike className="w-4 h-4" />
@@ -970,7 +904,6 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
             </button>
           </div>
 
-         {/* Quick status: only Cancel */}
           <div className="pt-2">
             <div className="text-xs text-slate-500 mb-2">Quick action</div>
             <button
