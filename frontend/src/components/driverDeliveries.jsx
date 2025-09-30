@@ -77,7 +77,7 @@ export default function DriverDeliveries() {
       // Add this line
       if (me?._id) params.driverId = me._id;
 
-      const response = await axios.get(`${API_BASE}/delivery`, {
+      const response = await axios.get(`${VITE_API_BASE}`, {
         params,
         headers: authHeaders(),
       });
