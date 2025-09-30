@@ -866,10 +866,7 @@ const Promo = () => {
           </div>
         </div>
       )}
-    </div>
-
-    
+    </div>      
   );
 };
-
 export default Promo;
