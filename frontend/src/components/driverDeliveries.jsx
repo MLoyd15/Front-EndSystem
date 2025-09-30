@@ -5,7 +5,7 @@ import ChatModal from "./chatmodal";       // <- use the ChatModal we created ea
 import ChatPanel from "./chat";       // <- real Socket.IO chat panel
 import { VITE_API_BASE} from "../config"
 
-const API_BASE = VITE_API_BASE
+const API = `${VITE_API_BASE}/delivery`
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
 
 /* ---------- Small UI helpers ---------- */
@@ -77,7 +77,7 @@ export default function DriverDeliveries() {
       // Add this line
       if (me?._id) params.driverId = me._id;
 
-      const response = await axios.get(`${API_BASE}/api/delivery`, {
+      const response = await axios.get(`${API_BASE}/delivery`, {
         params,
         headers: authHeaders(),
       });

@@ -20,7 +20,7 @@ export default function ChatPanel({ orderId, role = "driver", onClose }) {
     let live = true;
     (async () => {
       try {
-        const { data } = await axios.get(`${API}/api/chat/history`, {
+        const { data } = await axios.get(`${API}/chat/history`, {
           params: { orderId, limit: 100 },
           headers: { Authorization: `Bearer ${token}` },
         });

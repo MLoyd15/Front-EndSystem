@@ -26,7 +26,7 @@ const Sidebar = () => {
   const driverItems = [
     { name: "Dashboard", path: "/driver-dashboard", icon: <FaHome />, isParent: true },
     { name: "Deliveries", path: "/driver-dashboard/delivery", icon: <FaTruck />, isParent: false },
-    { name: "Profile", path: "/driver-dashboard/profile", icon: <FaUser />, isParent: false },
+    
     { name: "Logout", path: "/driver-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 
