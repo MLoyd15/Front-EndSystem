@@ -827,40 +827,41 @@ const Promo = () => {
                 {savingReactivate ? "Reactivating..." : "Reactivate Promo"}
               </button>
 
+                   {/* Details Modal */}
               {detailsOpen && detailsPromo && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeDetails} />
-                    <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
-                      <div className="flex items-start justify-between mb-6">
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-900">Promo Details</h3>
-                          <p className="text-sm text-slate-600">Full information for code <code className="bg-slate-100 px-1.5 py-0.5 rounded">{detailsPromo.code}</code></p>
-                        </div>
-                        <button onClick={closeDetails} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                          <XCircle className="w-5 h-5" />
-                        </button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeDetails} />
+                  <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+                    <div className="flex items-start justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900">Promo Details</h3>
+                        <p className="text-sm text-slate-600">Full information for code <code className="bg-slate-100 px-1.5 py-0.5 rounded">{detailsPromo.code}</code></p>
                       </div>
+                      <button onClick={closeDetails} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                    </div>
 
-                      <div className="space-y-3 text-sm text-slate-700">
-                        <p><span className="font-semibold">Name:</span> {detailsPromo.name}</p>
-                        <p><span className="font-semibold">Type:</span> {detailsPromo.type}</p>
-                        <p><span className="font-semibold">Value:</span> {renderValue(detailsPromo)}</p>
-                        <p><span className="font-semibold">Min Spend:</span> {peso(detailsPromo.minSpend)}</p>
-                        <p><span className="font-semibold">Max Discount:</span> {detailsPromo.maxDiscount ? peso(detailsPromo.maxDiscount) : "No cap"}</p>
-                        <p><span className="font-semibold">Limit:</span> {detailsPromo.limit || "Unlimited"} | Used: {detailsPromo.used || 0}</p>
-                        <p><span className="font-semibold">Status:</span> {statusPill(detailsPromo._displayStatus)}</p>
-                        <p><span className="font-semibold">Start:</span> {detailsPromo.startsAt ? new Date(detailsPromo.startsAt).toLocaleString() : "—"}</p>
-                        <p><span className="font-semibold">End:</span> {detailsPromo.endsAt ? new Date(detailsPromo.endsAt).toLocaleString() : "—"}</p>
-                      </div>
+                    <div className="space-y-3 text-sm text-slate-700">
+                      <p><span className="font-semibold">Name:</span> {detailsPromo.name}</p>
+                      <p><span className="font-semibold">Type:</span> {detailsPromo.type}</p>
+                      <p><span className="font-semibold">Value:</span> {renderValue(detailsPromo)}</p>
+                      <p><span className="font-semibold">Min Spend:</span> {peso(detailsPromo.minSpend)}</p>
+                      <p><span className="font-semibold">Max Discount:</span> {detailsPromo.maxDiscount ? peso(detailsPromo.maxDiscount) : "No cap"}</p>
+                      <p><span className="font-semibold">Limit:</span> {detailsPromo.limit || "Unlimited"} | Used: {detailsPromo.used || 0}</p>
+                      <p><span className="font-semibold">Status:</span> {statusPill(detailsPromo._displayStatus)}</p>
+                      <p><span className="font-semibold">Start:</span> {detailsPromo.startsAt ? new Date(detailsPromo.startsAt).toLocaleString() : "—"}</p>
+                      <p><span className="font-semibold">End:</span> {detailsPromo.endsAt ? new Date(detailsPromo.endsAt).toLocaleString() : "—"}</p>
+                    </div>
 
-                      <div className="mt-6 flex justify-end">
-                        <button onClick={closeDetails} className="px-5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-medium text-sm">
-                          Close
-                        </button>
-                      </div>
+                    <div className="mt-6 flex justify-end">
+                      <button onClick={closeDetails} className="px-5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-medium text-sm">
+                        Close
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
             </div>
           </div>
         </div>
