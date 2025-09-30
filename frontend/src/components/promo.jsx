@@ -833,9 +833,12 @@ const Promo = () => {
 
       {/* ✅ Details Modal (separate from Reactivate modal) */}
       {detailsOpen && detailsPromo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeDetails} />
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">   {/* z-boost */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={closeDetails}
+            />
+            <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl p-6 z-[210]"> {/* ensure above overlay */}
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Promo Details</h3>
