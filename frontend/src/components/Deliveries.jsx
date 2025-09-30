@@ -799,23 +799,26 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    let live = true;
-    (async () => {
-      try {
-        setLoading(true);
-        // ***** Correct namespaced endpoint *****
-        const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
-        if (!live) return;
-        setDrivers(data?.drivers || []);
-        setVehicles(data?.vehicles || []);
-      } catch {
-        setErr("Failed to load drivers/vehicles");
-      } finally {
-        setLoading(false);
-      }
-    })();
-    return () => { live = false; };
-  }, [row?._id]);
+  let live = true;
+  (async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
+      if (!live) return;
+      setDrivers(data?.drivers || []);
+      setVehicles(data?.vehicles || []);
+      setErr("");
+    } catch (e) {
+      console.error("Failed to load drivers/vehicles", e?.response?.status, e?.response?.data);
+      setErr("Failed to load drivers/vehicles");
+      setDrivers([]);
+      setVehicles([]);
+    } finally {
+      setLoading(false);
+    }
+  })();
+  return () => { live = false; };
+}, [row?._id]);
 
   const save = async () => {
     setErr("");
