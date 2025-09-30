@@ -82,7 +82,7 @@ export default function EnhancedSalesChart() {
 
     const processedData = useMemo(() => {
     const grouped = orders.reduce((acc, order) => {
-      // Include all orders except "Pending" - includes "pending_payment"
+      // Include all orders except "Pending" status
       if (order?.status === "Pending") return acc;
 
       const key = getDateKey(order?.createdAt);
@@ -98,11 +98,15 @@ export default function EnhancedSalesChart() {
         };
       }
       
-      acc[key].revenue += Number(order.totalAmount || 0);
+      // Use total or totalAmount field
+      const orderTotal = Number(order.total || order.totalAmount || 0);
+      acc[key].revenue += orderTotal;
       acc[key].orderCount += 1;
       
-      for (const product of order.products || []) {
-        acc[key].units += Number(product?.quantity || 0);
+      // Handle both products and items arrays
+      const items = order.products || order.items || [];
+      for (const item of items) {
+        acc[key].units += Number(item?.quantity || 0);
       }
       
       return acc;
