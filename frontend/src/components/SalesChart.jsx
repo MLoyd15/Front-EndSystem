@@ -80,7 +80,7 @@ export default function EnhancedSalesChart() {
     }
   }, [groupBy]);
 
-     const processedData = useMemo(() => {
+    const processedData = useMemo(() => {
     const grouped = orders.reduce((acc, order) => {
       // Include all orders except "Pending" status
       if (order?.status === "Pending") return acc;
@@ -105,10 +105,26 @@ export default function EnhancedSalesChart() {
       
       // Handle both products and items arrays, and various quantity field names
       const items = order.products || order.items || [];
+      
+      // Debug log for first order
+      if (acc[key].orderCount === 1) {
+        console.log('Sample order:', { 
+          status: order.status,
+          items: items,
+          isArray: Array.isArray(items),
+          itemCount: items?.length 
+        });
+      }
+      
       if (Array.isArray(items)) {
         for (const item of items) {
           const qty = Number(item?.quantity || item?.qty || item?.amount || 0);
           acc[key].units += qty;
+          
+          // Debug log for first item
+          if (acc[key].orderCount === 1) {
+            console.log('Sample item:', { item, qty });
+          }
         }
       }
       
