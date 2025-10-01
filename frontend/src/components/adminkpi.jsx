@@ -1,12 +1,7 @@
 // src/components/AdminKpi.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import {
-  FaUsers,
-  FaBoxes,
-  FaExclamationTriangle,
-} from "react-icons/fa";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { FaUsers, FaBoxes, FaExclamationTriangle, FaTruck } from "react-icons/fa";
 import SalesChart from "./SalesChart";
 import { ResponsiveContainer, PieChart, Pie, Tooltip, Cell } from "recharts";
 import { VITE_API_BASE } from "../config";
@@ -15,35 +10,34 @@ import { VITE_API_BASE } from "../config";
 const API = VITE_API_BASE;
 const CURRENCY = "₱";
 const peso = (n) =>
-  `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-  })}`;
+  `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
-// % change helper
-const pct = (curr, prev) =>
-  Math.round(((Number(curr || 0) - Number(prev || 0)) / Math.max(Number(prev || 0), 1)) * 100);
+const ONE_DAY = 24 * 60 * 60 * 1000;
 
-// sum revenue in a time range
-const sumRevenueByRange = (orders, startMs, endMs) =>
-  orders.reduce((s, o) => {
-    if (!o || o.status === "Pending") return s;
-    const t = new Date(o.createdAt || o.date || o.updatedAt || Date.now()).getTime();
-    if (t >= startMs && t < endMs) {
-      const val = Number(o.total ?? o.totalAmount ?? 0);
-      return s + (Number.isFinite(val) ? val : 0);
-    }
-    return s;
+// Count deliveries in a time range (delivered/completed/fulfilled)
+const countDeliveredInRange = (deliveries, startMs, endMs) =>
+  deliveries.reduce((count, d) => {
+    const t = new Date(d?.createdAt || d?.date || d?.updatedAt || Date.now()).getTime();
+    const status = String(d?.status || "").toLowerCase();
+    const isDelivered =
+      status.includes("deliver") || status.includes("complete") || status.includes("fulfill");
+    return t >= startMs && t < endMs && isDelivered ? count + 1 : count;
   }, 0);
 
+// Helpers for delivery toggle ranges
+function deliveryRangeFor(period /* 'week' | 'month' */) {
+  const now = Date.now();
+  if (period === "month") {
+    const startThis = new Date();
+    startThis.setDate(1);
+    startThis.setHours(0, 0, 0, 0);
+    return { start: startThis.getTime(), end: now, label: "This month" };
+  }
+  return { start: now - 7 * ONE_DAY, end: now, label: "Last 7 days" };
+}
+
 /* ---------- Enhanced KPI Card ---------- */
-function EnhancedKpiCard({
-  title,
-  value,
-  icon,
-  gradient = "from-indigo-500 to-purple-600",
-  trend, // number (positive/negative/zero) optional
-  subtitle,
-}) {
+function EnhancedKpiCard({ title, value, icon, gradient = "from-indigo-500 to-purple-600", subtitle }) {
   return (
     <div className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
       <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient}`} />
@@ -52,29 +46,8 @@ function EnhancedKpiCard({
           <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
             <div className="text-white text-xl">{icon}</div>
           </div>
-          {typeof trend === "number" && (
-            <div
-              className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
-                trend > 0
-                  ? "bg-emerald-50 text-emerald-700"
-                  : trend < 0
-                  ? "bg-red-50 text-red-700"
-                  : "bg-gray-50 text-gray-700"
-              }`}
-            >
-              {trend > 0 ? (
-                <TrendingUp className="w-3 h-3" />
-              ) : trend < 0 ? (
-                <TrendingDown className="w-3 h-3" />
-              ) : null}
-              {Math.abs(trend)}%
-            </div>
-          )}
         </div>
-
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
-          {title}
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">{title}</p>
         <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
         {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
       </div>
@@ -101,20 +74,8 @@ function SectionHeader({ icon, title, subtitle }) {
 /* ---------- Stock Alert Card ---------- */
 function StockAlertCard({ title, items, type = "low" }) {
   const config = {
-    low: {
-      icon: <FaExclamationTriangle />,
-      bgColor: "bg-amber-50",
-      textColor: "text-amber-700",
-      badgeBg: "bg-amber-100",
-      emptyIcon: "📦",
-    },
-    out: {
-      icon: <FaExclamationTriangle />,
-      bgColor: "bg-red-50",
-      textColor: "text-red-700",
-      badgeBg: "bg-red-100",
-      emptyIcon: "🚫",
-    },
+    low: { icon: <FaExclamationTriangle />, bgColor: "bg-amber-50", textColor: "text-amber-700", badgeBg: "bg-amber-100", emptyIcon: "📦" },
+    out: { icon: <FaExclamationTriangle />, bgColor: "bg-red-50", textColor: "text-red-700", badgeBg: "bg-red-100", emptyIcon: "🚫" },
   };
   const style = config[type];
 
@@ -122,14 +83,10 @@ function StockAlertCard({ title, items, type = "low" }) {
     <div className="rounded-xl bg-white border border-gray-200 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg ${style.bgColor} ${style.textColor}`}>
-            {style.icon}
-          </div>
+          <div className={`p-1.5 rounded-lg ${style.bgColor} ${style.textColor}`}>{style.icon}</div>
           <h4 className="text-sm font-bold text-gray-900">{title}</h4>
         </div>
-        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.bgColor} ${style.textColor}`}>
-          {items.length}
-        </span>
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.bgColor} ${style.textColor}`}>{items.length}</span>
       </div>
 
       {items.length === 0 ? (
@@ -140,13 +97,8 @@ function StockAlertCard({ title, items, type = "low" }) {
       ) : (
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {items.slice(0, 5).map((item) => (
-            <div
-              key={item._id}
-              className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100"
-            >
-              <span className="text-sm text-gray-800 truncate flex-1">
-                {item.name || "Unnamed"}
-              </span>
+            <div key={item._id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+              <span className="text-sm text-gray-800 truncate flex-1">{item.name || "Unnamed"}</span>
               <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.badgeBg} ${style.textColor} ml-2`}>
                 {type === "out" ? "OOS" : `${item.stock} left`}
               </span>
@@ -179,12 +131,19 @@ export default function AdminKpi() {
     loyaltyHistory: [],
   });
 
-  const [orders, setOrders] = useState([]);
   const [salesByCategory, setSalesByCategory] = useState([]);
   const [err, setErr] = useState("");
   const [lowStockItems, setLowStockItems] = useState([]);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
-  const [revenueWoW, setRevenueWoW] = useState(0); // ▲▼ revenue % vs last week
+
+  // NEW: deliveries + toggle state
+  const [deliveries, setDeliveries] = useState([]);
+  const [deliveryPeriod, setDeliveryPeriod] = useState("week"); // 'week' | 'month'
+  const [deliveryCount, setDeliveryCount] = useState(0);
+  const [deliveryLabel, setDeliveryLabel] = useState("Last 7 days");
+
+  // NEW: new customers (this month)
+  const [newCustomersMonth, setNewCustomersMonth] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("pos-token");
@@ -199,30 +158,33 @@ export default function AdminKpi() {
       }
     };
 
-    const fetchLoyalty = async () => {
+    const fetchUsersNewThisMonth = async () => {
       try {
-        const { data } = await axios.get(`${API}/loyalty`, { headers });
-        setStats((prev) => ({
-          ...prev,
-          loyaltyPoints: data?.loyaltyPoints ?? 0,
-          loyaltyTier: data?.loyaltyTier ?? "Sprout",
-          loyaltyHistory: Array.isArray(data?.loyaltyHistory)
-            ? data.loyaltyHistory
-            : prev.loyaltyHistory,
-        }));
-      } catch {
-        /* non-blocking */
+        // Prefer admin list if available; fall back to /users
+        let list = [];
+        try {
+          const { data } = await axios.get(`${API}/admin/users`, { headers });
+          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+        } catch {
+          const { data } = await axios.get(`${API}/users`, { headers });
+          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+        }
+        const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0);
+        const startMs = startOfMonth.getTime();
+        const endMs = Date.now();
+        const count = list.reduce((n, u) => {
+          const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
+          return t >= startMs && t < endMs ? n + 1 : n;
+        }, 0);
+        setNewCustomersMonth(count);
+      } catch (e) {
+        console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
       }
     };
 
     const fetchOrders = async () => {
       try {
-        // Pull orders to compute weekly revenue trend locally
         const { data } = await axios.get(`${API}/orders`, { headers });
-        const list = Array.isArray(data?.orders) ? data.orders : [];
-        setOrders(list);
-
-        // If backend also returns summary, keep your existing KPIs in state (even if not shown)
         if (data?.summary) {
           setStats((prev) => ({
             ...prev,
@@ -233,18 +195,19 @@ export default function AdminKpi() {
           }));
           setSalesByCategory(data.summary.salesByCategory ?? []);
         }
-
-        // Compute week-over-week revenue % from list
-        const now = Date.now();
-        const DAY = 24 * 60 * 60 * 1000;
-        const startThisWeek = now - 7 * DAY;
-        const startLastWeek = now - 14 * DAY;
-
-        const revThisWeek = sumRevenueByRange(list, startThisWeek, now);
-        const revLastWeek = sumRevenueByRange(list, startLastWeek, startThisWeek);
-        setRevenueWoW(pct(revThisWeek, revLastWeek));
       } catch (e) {
         setErr((p) => p || e?.response?.data?.message || e?.message || "Failed to load orders.");
+      }
+    };
+
+    const fetchDeliveries = async () => {
+      try {
+        const { data } = await axios.get(`${API}/delivery`, { headers });
+        const list =
+          Array.isArray(data?.deliveries) ? data.deliveries : Array.isArray(data) ? data : [];
+        setDeliveries(list);
+      } catch (e) {
+        console.warn("Deliveries fetch error:", e?.response?.data?.message || e?.message);
       }
     };
 
@@ -252,16 +215,13 @@ export default function AdminKpi() {
       try {
         const { data } = await axios.get(`${API}/products?page=1&limit=1000`, { headers });
         const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-
         const getStock = (p) => Number(p?.stock ?? 0) || 0;
         const getMin = (p) => {
           const n = Number(p?.minStock ?? 0);
           return Number.isFinite(n) && n > 0 ? n : 10;
         };
 
-        const out = items
-          .filter((p) => getStock(p) <= 0)
-          .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+        const out = items.filter((p) => getStock(p) <= 0).sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
         const outIds = new Set(out.map((p) => String(p._id)));
 
         const low = items
@@ -282,10 +242,18 @@ export default function AdminKpi() {
     };
 
     fetchStats();
-    fetchLoyalty();
+    fetchUsersNewThisMonth();   // <-- new customers
     fetchOrders();
+    fetchDeliveries();          // <-- deliveries
     fetchProducts();
   }, []);
+
+  // Recompute Total Delivery when deliveries or period changes
+  useEffect(() => {
+    const { start, end, label } = deliveryRangeFor(deliveryPeriod);
+    setDeliveryLabel(label);
+    setDeliveryCount(countDeliveredInRange(deliveries, start, end));
+  }, [deliveries, deliveryPeriod]);
 
   /* ---------- Category Donut Helpers ---------- */
   const totalCatRevenue = useMemo(
@@ -297,11 +265,7 @@ export default function AdminKpi() {
     const total = totalCatRevenue || 0;
     const base = (salesByCategory || []).map((d) => {
       const value = Number(d?.revenue || 0);
-      return {
-        label: d?.category || "Uncategorized",
-        value,
-        percent: total ? value / total : 0,
-      };
+      return { label: d?.category || "Uncategorized", value, percent: total ? value / total : 0 };
     });
     return base.sort((a, b) => b.value - a.value);
   }, [salesByCategory, totalCatRevenue]);
@@ -322,11 +286,7 @@ export default function AdminKpi() {
         <div className="lg:col-span-1 space-y-6">
           {/* Business Overview */}
           <div className="space-y-4">
-            <SectionHeader
-              icon={<TrendingUp />}
-              title="Business Overview"
-              subtitle="Key performance metrics"
-            />
+            <SectionHeader icon={<FaTruck />} title="Business Overview" subtitle="Key performance metrics" />
 
             {err && (
               <div className="rounded-xl border-l-4 border-red-500 bg-red-50 p-4 shadow-sm">
@@ -337,8 +297,32 @@ export default function AdminKpi() {
               </div>
             )}
 
+            {/* Toggle for Total Delivery */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDeliveryPeriod("week")}
+                className={`text-xs px-2 py-1 rounded border ${
+                  deliveryPeriod === "week"
+                    ? "bg-emerald-600 text-white border-emerald-600"
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => setDeliveryPeriod("month")}
+                className={`text-xs px-2 py-1 rounded border ${
+                  deliveryPeriod === "month"
+                    ? "bg-emerald-600 text-white border-emerald-600"
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                Month
+              </button>
+            </div>
+
             <div className="space-y-3">
-              {/* Keep Total Users */}
+              {/* Total Users */}
               <EnhancedKpiCard
                 title="Total Users"
                 value={stats.totalUsers.toLocaleString()}
@@ -347,14 +331,22 @@ export default function AdminKpi() {
                 subtitle="Registered customers"
               />
 
-              {/* New: Revenue Trend (WoW) */}
+              {/* Total Delivery */}
               <EnhancedKpiCard
-                title="Revenue Trend (WoW)"
-                value={`${Math.abs(revenueWoW)}%`}
-                icon={<TrendingUp className="text-white" />}
-                gradient="from-emerald-500 to-green-600"
-                subtitle="vs previous 7 days"
-                trend={revenueWoW}
+                title={`Total Delivery (${deliveryPeriod === "week" ? "Week" : "Month"})`}
+                value={deliveryCount.toLocaleString()}
+                icon={<FaTruck />}
+                gradient="from-teal-500 to-emerald-600"
+                subtitle={deliveryLabel}
+              />
+
+              {/* New Customers (this month) */}
+              <EnhancedKpiCard
+                title="New Customers"
+                value={newCustomersMonth.toLocaleString()}
+                icon={<FaUsers />}
+                gradient="from-violet-500 to-purple-600"
+                subtitle="This month"
               />
             </div>
           </div>
@@ -382,11 +374,7 @@ export default function AdminKpi() {
 
           {/* Stock Alerts */}
           <div className="space-y-4">
-            <SectionHeader
-              icon={<FaExclamationTriangle />}
-              title="Stock Alerts"
-              subtitle="Inventory warnings"
-            />
+            <SectionHeader icon={<FaExclamationTriangle />} title="Stock Alerts" subtitle="Inventory warnings" />
             <StockAlertCard title="Low Stock" items={lowStockItems} type="low" />
             <StockAlertCard title="Out of Stock" items={outOfStockItems} type="out" />
           </div>
@@ -397,9 +385,7 @@ export default function AdminKpi() {
           {/* Sales Chart */}
           <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Sales Trends (Revenue &amp; Units Sold)
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900">Sales Trends (Revenue &amp; Units Sold)</h3>
             </div>
             <div className="rounded-xl border border-gray-100 p-2">
               <SalesChart />
@@ -432,9 +418,7 @@ export default function AdminKpi() {
                         strokeOpacity={0.08}
                         labelLine={false}
                         label={({ percent }) =>
-                          sortedCategories.length > 1 && percent >= 0.07
-                            ? `${(percent * 100).toFixed(0)}%`
-                            : null
+                          sortedCategories.length > 1 && percent >= 0.07 ? `${(percent * 100).toFixed(0)}%` : null
                         }
                       >
                         {sortedCategories.map((_, i) => (
@@ -462,9 +446,7 @@ export default function AdminKpi() {
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
                       <div className="text-xs text-gray-500">Total</div>
-                      <div className="text-2xl font-bold text-gray-800">
-                        {peso(totalCatRevenue)}
-                      </div>
+                      <div className="text-2xl font-bold text-gray-800">{peso(totalCatRevenue)}</div>
                     </div>
                   </div>
                 </div>
@@ -475,11 +457,7 @@ export default function AdminKpi() {
                     {sortedCategories.map((it, i) => (
                       <li key={`legend-${i}`} className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className="inline-block h-3 w-3 rounded"
-                            style={{ background: shades[i] }}
-                            aria-hidden
-                          />
+                          <span className="inline-block h-3 w-3 rounded" style={{ background: shades[i] }} aria-hidden />
                           <span className="truncate text-sm text-gray-800">{it.label}</span>
                         </div>
                         <div className="shrink-0 text-sm tabular-nums text-gray-700">
@@ -499,25 +477,18 @@ export default function AdminKpi() {
               <h2 className="text-xl font-bold text-gray-900">Loyalty History</h2>
               <div className="text-sm text-gray-500">
                 Tier: <span className="font-semibold text-gray-800">{stats.loyaltyTier}</span> •{" "}
-                Points:{" "}
-                <span className="font-semibold text-gray-800">
-                  {Number(stats.loyaltyPoints || 0).toLocaleString()}
-                </span>
+                Points: <span className="font-semibold text-gray-800">{Number(stats.loyaltyPoints || 0).toLocaleString()}</span>
               </div>
             </div>
             {stats.loyaltyHistory?.length ? (
               <ul className="divide-y divide-gray-100">
                 {stats.loyaltyHistory.map((entry, i) => (
                   <li key={i} className="py-3 flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-800">
-                      {String(entry.action || "").toUpperCase()}
-                    </span>
+                    <span className="font-medium text-gray-800">{String(entry.action || "").toUpperCase()}</span>
                     <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs ring-1 ring-emerald-200">
                       {entry.points} pts
                     </span>
-                    <span className="text-gray-500">
-                      {entry.date ? new Date(entry.date).toLocaleDateString() : "—"}
-                    </span>
+                    <span className="text-gray-500">{entry.date ? new Date(entry.date).toLocaleDateString() : "—"}</span>
                   </li>
                 ))}
               </ul>
