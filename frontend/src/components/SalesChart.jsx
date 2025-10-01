@@ -29,6 +29,20 @@ const COLORS = {
   background: "#ffffff",
 };
 
+const peso = (n) =>
+  `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const toIdString = (v) => {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (v.$oid) return v.$oid;
+  if (v._id) return toIdString(v._id);
+  return String(v);
+};
+
 export default function EnhancedSalesChart() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +52,7 @@ export default function EnhancedSalesChart() {
   const [showUnits, setShowUnits] = useState(true);
   const [chartType, setChartType] = useState("line"); // line | area | bar
 
-  // 🔎 index of products for name/category lookups: id -> { name, category }
+  // for product name lookups
   const [productIndex, setProductIndex] = useState(new Map());
 
   useEffect(() => {
@@ -70,7 +84,7 @@ export default function EnhancedSalesChart() {
         const items = Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
         const map = new Map();
         for (const p of items) {
-          const id = String(p?._id || p?.id || "").trim();
+          const id = toIdString(p?._id || p?.id);
           if (!id) continue;
           const name =
             p?.name ||
@@ -86,7 +100,7 @@ export default function EnhancedSalesChart() {
         }
         setProductIndex(map);
       } catch {
-        // ignore product fetch failures (we can still show chart)
+        /* non-fatal */
       }
     };
 
@@ -98,36 +112,24 @@ export default function EnhancedSalesChart() {
     (isoDate) => {
       const date = new Date(isoDate);
       if (isNaN(date.getTime())) return null;
-      if (groupBy === "day") {
-        return date.toISOString().split("T")[0];
-      } else {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, "0");
-        return `${y}-${m}`;
-      }
+      if (groupBy === "day") return date.toISOString().split("T")[0];
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      return `${y}-${m}`;
     },
     [groupBy]
   );
 
-  // ---------- helpers to normalize item fields ----------
-
+  /* ---------- item/line helpers ---------- */
   const getItemsArray = (o) => {
-  const candidates = [o?.products, o?.items, o?.orderItems, o?.cart?.items];
-
-  // 1) Prefer the first non-empty array
-  for (const c of candidates) {
-    if (Array.isArray(c) && c.length > 0) return c;
-  }
-  // 2) If none are non-empty, return the first array we can find (even if empty)
-  for (const c of candidates) {
-    if (Array.isArray(c)) return c;
-  }
-  return [];
-};
+    const candidates = [o?.products, o?.items, o?.orderItems, o?.cart?.items];
+    for (const c of candidates) if (Array.isArray(c) && c.length) return c; // prefer non-empty
+    for (const c of candidates) if (Array.isArray(c)) return c;
+    return [];
+  };
 
   const getProductId = (it) =>
-    String(it?.productId || it?.product?._id || it?._id || it?.id || "")
-      .trim();
+    toIdString(it?.productId || it?.productid || it?.product?._id || it?._id || it?.id);
 
   const getProductName = (it) => {
     const id = getProductId(it);
@@ -137,18 +139,6 @@ export default function EnhancedSalesChart() {
       productIndex.get(id)?.name ||
       (id ? `Product ${id.slice(-6)}` : "Unknown Product")
     );
-  };
-
-  const getCategoryName = (it) => {
-    const inline =
-      it?.category?.name ||
-      it?.product?.category?.name ||
-      it?.categoryName ||
-      it?.product?.category;
-    if (inline) return inline;
-
-    const id = getProductId(it);
-    return productIndex.get(id)?.category || "Uncategorized";
   };
 
   const getQty = (it) => {
@@ -167,8 +157,7 @@ export default function EnhancedSalesChart() {
       const n = Number(c);
       if (Number.isFinite(n) && n > 0) return n;
     }
-    // looks like a valid line but missing explicit qty → assume 1
-    if (it?.product || it?.productId || it?.name || it?._id) return 1;
+    if (it?.product || it?.productId || it?.productid || it?.name || it?._id) return 1;
     return 0;
   };
 
@@ -178,64 +167,48 @@ export default function EnhancedSalesChart() {
       const n = Number(c);
       if (Number.isFinite(n)) return n;
     }
-    // some payloads use "amount" in centavos
     if (Number.isFinite(Number(it?.amount))) {
       const a = Number(it.amount);
-      return a > 1000 ? a / 100 : a; // heuristic
+      return a > 1000 ? a / 100 : a; // centavos heuristic
     }
     return 0;
   };
 
-  // ---------- aggregate for chart ----------
- const processedData = useMemo(() => {
-  const grouped = orders.reduce((acc, order) => {
-    const key = getDateKey(order?.createdAt);
-    if (!key) return acc;
+  /* ---------- series data for chart ---------- */
+  const processedData = useMemo(() => {
+    const grouped = orders.reduce((acc, order) => {
+      const key = getDateKey(order?.createdAt);
+      if (!key) return acc;
 
-    if (!acc[key]) {
-      acc[key] = { date: key, revenue: 0, units: 0, orderCount: 0, avgOrderValue: 0 };
-    }
+      if (!acc[key]) {
+        acc[key] = { date: key, revenue: 0, units: 0, orderCount: 0, avgOrderValue: 0 };
+      }
 
-    // ✅ pick items properly
-    const items = getItemsArray(order);
+      const items = getItemsArray(order);
 
-    // 🔍 debug: see when nothing is picked
-    if (items.length === 0) {
-      console.log("No items picked for order", {
-        createdAt: order?.createdAt,
-        productsLen: Array.isArray(order?.products) ? order.products.length : null,
-        itemsLen: Array.isArray(order?.items) ? order.items.length : null,
-        orderItemsLen: Array.isArray(order?.orderItems) ? order.orderItems.length : null,
-        cartItemsLen: Array.isArray(order?.cart?.items) ? order.cart.items.length : null,
-      });
-    }
+      // revenue
+      let orderRevenue = Number(order?.total ?? order?.totalAmount);
+      if (!Number.isFinite(orderRevenue)) {
+        orderRevenue = items.reduce((s, it) => s + getUnitPrice(it) * getQty(it), 0);
+      }
+      acc[key].revenue += orderRevenue;
+      acc[key].orderCount += 1;
 
-    // revenue
-    let orderRevenue = Number(order?.total ?? order?.totalAmount);
-    if (!Number.isFinite(orderRevenue)) {
-      orderRevenue = items.reduce((s, it) => s + getUnitPrice(it) * getQty(it), 0);
-    }
+      // units
+      for (const it of items) acc[key].units += getQty(it);
 
-    acc[key].revenue += orderRevenue;
-    acc[key].orderCount += 1;
+      return acc;
+    }, {});
 
-    // units
-    for (const it of items) {
-      acc[key].units += getQty(it);
-    }
+    return Object.values(grouped)
+      .map((row) => ({
+        ...row,
+        avgOrderValue: row.orderCount ? row.revenue / row.orderCount : 0,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [orders, getDateKey]);
 
-    return acc;
-  }, {});
-
-  return Object.values(grouped)
-    .map((row) => ({
-      ...row,
-      avgOrderValue: row.orderCount ? row.revenue / row.orderCount : 0,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-}, [orders, getDateKey]);
-
-  // ---------- KPI metrics ----------
+  /* ---------- KPIs ---------- */
   const metrics = useMemo(() => {
     const totalRevenue = processedData.reduce((s, d) => s + d.revenue, 0);
     const totalUnits = processedData.reduce((s, d) => s + d.units, 0);
@@ -244,10 +217,9 @@ export default function EnhancedSalesChart() {
     return { totalRevenue, totalUnits, totalOrders, avgOrderValue };
   }, [processedData]);
 
-  // ---------- chart axes max ----------
+  /* ---------- axis max ---------- */
   const { maxRevenue, maxUnits } = useMemo(() => {
-    let mr = 0,
-      mu = 0;
+    let mr = 0, mu = 0;
     for (const d of processedData) {
       if (d.revenue > mr) mr = d.revenue;
       if (d.units > mu) mu = d.units;
@@ -255,14 +227,12 @@ export default function EnhancedSalesChart() {
     return { maxRevenue: Math.ceil(mr * 1.1), maxUnits: Math.ceil(mu * 1.1) };
   }, [processedData]);
 
-  // ---------- Top 5 Products (by units) ----------
+  /* ---------- Top 5 Products (by units) ---------- */
   const topProductsByUnits = useMemo(() => {
     const stats = new Map(); // key -> { id, name, totalUnits, totalRevenue, orderCount }
 
     for (const order of orders) {
-      const raw =
-        order.products ?? order.items ?? order.orderItems ?? order.cart?.items ?? [];
-      const items = Array.isArray(raw) ? raw : [];
+      const items = getItemsArray(order);
       for (const it of items) {
         const id = getProductId(it) || getProductName(it); // fallback to name
         const name = getProductName(it);
@@ -280,99 +250,48 @@ export default function EnhancedSalesChart() {
     return [...stats.values()].sort((a, b) => b.totalUnits - a.totalUnits).slice(0, 5);
   }, [orders, productIndex]);
 
-  // ---------- Top 5 Categories (by revenue & by units) ----------
-  const topCategories = useMemo(() => {
-    const stats = new Map(); // name -> { name, totalRevenue, totalUnits, orderCount }
+  /* ---------- formatters & small UI bits ---------- */
+  const formatCurrency = useCallback((value) => peso(value), []);
 
-    for (const order of orders) {
-      const raw =
-        order.products ?? order.items ?? order.orderItems ?? order.cart?.items ?? [];
-      const items = Array.isArray(raw) ? raw : [];
-      for (const it of items) {
-        const cat = getCategoryName(it);
-        const qty = getQty(it);
-        const price = getUnitPrice(it);
-        const rev = qty * price;
-
-        if (!stats.has(cat)) stats.set(cat, { name: cat, totalRevenue: 0, totalUnits: 0, orderCount: 0 });
-        const row = stats.get(cat);
-        row.totalRevenue += rev;
-        row.totalUnits += qty;
-        row.orderCount += 1;
-      }
-    }
-
-    const all = [...stats.values()];
-    return {
-      byRevenue: [...all].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 5),
-      byUnits: [...all].sort((a, b) => b.totalUnits - a.totalUnits).slice(0, 5),
-    };
-  }, [orders, productIndex]);
-
-  // ---------- formatting helpers ----------
-  const formatCurrency = useCallback((value) => {
-    return `${CURRENCY}${Number(value ?? 0).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+  const formatDateLabel = useCallback((key) => {
+    const date = key.length === 10 ? new Date(key) : new Date(`${key}-01`);
+    return date.toLocaleDateString(undefined, key.length === 10 ? { month: "short", day: "numeric" } : { month: "short", year: "numeric" });
   }, []);
-
-  const formatDateLabel = useCallback(
-    (key) => {
-      if (groupBy === "day") {
-        const date = new Date(key);
-        return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      } else {
-        const date = new Date(`${key}-01`);
-        return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-      }
-    },
-    [groupBy]
-  );
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     const revenueData = payload.find((p) => p.dataKey === "revenue");
     const unitsData = payload.find((p) => p.dataKey === "units");
-    const orderData = processedData.find((d) => d.date === label);
+    const row = processedData.find((d) => d.date === label);
 
     return (
       <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl p-4 min-w-[280px]">
         <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-blue-500 rounded-full" />
           <span className="text-sm font-medium text-gray-900">{formatDateLabel(label)}</span>
         </div>
-
         <div className="space-y-2">
-          {showRevenue && revenueData && (
+          {revenueData && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Revenue</span>
-              <span className="font-semibold text-indigo-600">
-                {formatCurrency(revenueData.value)}
-              </span>
+              <span className="font-semibold text-indigo-600">{formatCurrency(revenueData.value)}</span>
             </div>
           )}
-
-          {showUnits && unitsData && (
+          {unitsData && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Units Sold</span>
-              <span className="font-semibold text-emerald-600">
-                {Number(unitsData.value).toLocaleString()}
-              </span>
+              <span className="font-semibold text-emerald-600">{Number(unitsData.value).toLocaleString()}</span>
             </div>
           )}
-
-          {orderData && (
+          {row && (
             <>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Orders</span>
-                <span className="font-medium text-gray-800">{orderData.orderCount}</span>
+                <span className="font-medium text-gray-800">{row.orderCount}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Avg Order Value</span>
-                <span className="font-medium text-gray-800">
-                  {formatCurrency(orderData.avgOrderValue)}
-                </span>
+                <span className="font-medium text-gray-800">{formatCurrency(row.avgOrderValue)}</span>
               </div>
             </>
           )}
@@ -381,13 +300,12 @@ export default function EnhancedSalesChart() {
     );
   };
 
-  const MetricCard = ({ title, value, icon, color, trend }) => (
+  const MetricCard = ({ title, value, icon, color }) => (
     <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-600 mb-1">{title}</p>
           <p className={`text-2xl font-bold ${color}`}>{value}</p>
-          {trend && <p className="text-xs text-gray-500 mt-1">{trend}</p>}
         </div>
         <div className={`p-3 rounded-lg ${color.replace("text-", "bg-").replace("600", "100")}`}>
           <div className={`text-2xl ${color}`}>{icon}</div>
@@ -396,103 +314,48 @@ export default function EnhancedSalesChart() {
     </div>
   );
 
-  const RankCard = ({ title, subtitle, colorBadgeBg, icon, rows, type }) => {
-    const maxValue =
-      type === "revenue" ? rows?.[0]?.totalRevenue || 1 : rows?.[0]?.totalUnits || 1;
-
-    const gradient = type === "revenue"
-      ? "bg-gradient-to-r from-indigo-500 to-indigo-600"
-      : "bg-gradient-to-r from-emerald-500 to-emerald-600";
-
-    const valueText = (r) =>
-      type === "revenue" ? formatCurrency(r.totalRevenue) : `${r.totalUnits.toLocaleString()} u`;
-
+  const ProductRankCard = ({ product, rank }) => {
+    const maxUnits = topProductsByUnits[0]?.totalUnits || 1;
+    const pct = (product.totalUnits / maxUnits) * 100;
+    const rankColors = {
+      1: "from-yellow-400 to-yellow-500",
+      2: "from-gray-300 to-gray-400",
+      3: "from-orange-400 to-orange-500",
+    };
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className={`w-10 h-10 rounded-lg ${colorBadgeBg} flex items-center justify-center`}>
-            <span className="text-xl">{icon}</span>
+      <div className="group hover:bg-gray-50 rounded-lg p-4 transition-all border border-transparent hover:border-gray-200">
+        <div className="flex items-start gap-3">
+          <div className={`flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br ${rankColors[rank] || "from-gray-200 to-gray-300"} flex items-center justify-center shadow-sm`}>
+            <span className="text-white font-bold text-sm">{rank}</span>
           </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-600">{subtitle}</p>
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          {rows?.length ? (
-            rows.map((r, idx) => {
-              const value = type === "revenue" ? r.totalRevenue : r.totalUnits;
-              const pct = (value / maxValue) * 100;
-              const rankColors = {
-                1: "from-yellow-400 to-yellow-500",
-                2: "from-gray-300 to-gray-400",
-                3: "from-orange-400 to-orange-500",
-              };
-              return (
-                <div
-                  key={`${r.name}-${idx}`}
-                  className="group hover:bg-gray-50 rounded-lg p-4 transition-all border border-transparent hover:border-gray-200"
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br ${
-                        rankColors[idx + 1] || "from-gray-200 to-gray-300"
-                      } flex items-center justify-center shadow-sm`}
-                    >
-                      <span className="text-white font-bold text-sm">{idx + 1}</span>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h4 className="font-medium text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
-                          {r.name}
-                        </h4>
-                        <span
-                          className={`font-bold text-sm whitespace-nowrap ${
-                            type === "revenue" ? "text-indigo-600" : "text-emerald-600"
-                          }`}
-                        >
-                          {valueText(r)}
-                        </span>
-                      </div>
-
-                      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
-                        <div
-                          className={`absolute top-0 left-0 h-full rounded-full ${gradient}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-gray-500">
-                        {"orderCount" in r && <span>🧾 {r.orderCount} orders</span>}
-                        {"totalUnits" in r && type === "revenue" && (
-                          <span>📦 {r.totalUnits.toLocaleString()} u</span>
-                        )}
-                        {"totalRevenue" in r && type === "units" && (
-                          <span>💰 {formatCurrency(r.totalRevenue)}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <div className="text-4xl mb-2">📦</div>
-              <p>No data available</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h4 className="font-medium text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
+                {product.name}
+              </h4>
+              <span className="font-bold text-sm whitespace-nowrap text-emerald-600">
+                {product.totalUnits.toLocaleString()} u
+              </span>
             </div>
-          )}
+            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+              <div className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span>🧾 {product.orderCount} orders</span>
+              <span>💰 {peso(product.totalRevenue)}</span>
+            </div>
+          </div>
         </div>
       </div>
     );
   };
 
+  /* ---------- states ---------- */
   if (loading) return <SkeletonChart />;
   if (error) return <ErrorState message={error} />;
   if (processedData.length === 0) return <EmptyState />;
 
+  /* ---------- UI ---------- */
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
@@ -535,9 +398,7 @@ export default function EnhancedSalesChart() {
           <div className="flex items-center gap-2">
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                showRevenue
-                  ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                showRevenue ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
               onClick={() => setShowRevenue(!showRevenue)}
             >
@@ -545,9 +406,7 @@ export default function EnhancedSalesChart() {
             </button>
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                showUnits
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                showUnits ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
               onClick={() => setShowUnits(!showUnits)}
             >
@@ -587,11 +446,9 @@ export default function EnhancedSalesChart() {
                 domain={[0, maxUnits]}
                 tickFormatter={(n) => Number(n).toLocaleString()}
               />
-
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ paddingTop: 20 }} iconType="circle" />
               <ReferenceLine y={0} yAxisId="left" stroke={COLORS.grid} />
-
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={COLORS.revenue} stopOpacity={0.3} />
@@ -651,49 +508,37 @@ export default function EnhancedSalesChart() {
                 </>
               )}
 
-              <Brush
-                height={30}
-                travellerWidth={10}
-                stroke={COLORS.border}
-                fill="#f8fafc"
-                dataKey="date"
-                tickFormatter={formatDateLabel}
-              />
+              <Brush height={30} travellerWidth={10} stroke={COLORS.border} fill="#f8fafc" dataKey="date" tickFormatter={formatDateLabel} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Top 5 Products & Top 5 Categories */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RankCard
-          title="Top 5 Products Sold"
-          subtitle="Most units sold"
-          colorBadgeBg="bg-emerald-100"
-          icon="🏆"
-          rows={topProductsByUnits}
-          type="units"
-        />
-
-        <RankCard
-          title="Top 5 Categories by Revenue"
-          subtitle="Best performing categories (₱)"
-          colorBadgeBg="bg-indigo-100"
-          icon="🏷️"
-          rows={topCategories.byRevenue}
-          type="revenue"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RankCard
-          title="Top 5 Categories by Units"
-          subtitle="Most frequently sold categories"
-          colorBadgeBg="bg-emerald-100"
-          icon="📦"
-          rows={topCategories.byUnits}
-          type="units"
-        />
+      {/* Top 5 Products only */}
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <span className="text-xl">🏆</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Top 5 Products Sold</h3>
+              <p className="text-sm text-gray-600">Most units sold</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            {topProductsByUnits.length ? (
+              topProductsByUnits.map((p, idx) => (
+                <ProductRankCard key={p.id || p.name} product={p} rank={idx + 1} />
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">📦</div>
+                <p>No product data available</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -716,20 +561,6 @@ function SkeletonChart() {
           </div>
         ))}
       </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-4">
-            <div className="h-10 w-32 bg-gray-200 rounded"></div>
-            <div className="h-10 w-32 bg-gray-200 rounded"></div>
-          </div>
-          <div className="flex gap-2">
-            <div className="h-10 w-24 bg-gray-200 rounded"></div>
-            <div className="h-10 w-24 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
-
       <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
         <div className="h-[500px] bg-gray-100 rounded-lg"></div>
       </div>
