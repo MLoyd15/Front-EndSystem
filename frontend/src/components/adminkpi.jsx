@@ -159,28 +159,36 @@ export default function AdminKpi() {
     };
 
     const fetchUsersNewThisMonth = async () => {
+    try {
+      const token = localStorage.getItem("pos-token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      let list = [];
       try {
-        // Prefer admin list if available; fall back to /users
-        let list = [];
-        try {
-          const { data } = await axios.get(`${API}/admin/users`, { headers });
-          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-        } catch {
-          const { data } = await axios.get(`${API}/users`, { headers });
-          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-        }
-        const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0);
-        const startMs = startOfMonth.getTime();
-        const endMs = Date.now();
-        const count = list.reduce((n, u) => {
-          const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
-          return t >= startMs && t < endMs ? n + 1 : n;
-        }, 0);
-        setNewCustomersMonth(count);
-      } catch (e) {
-        console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
+        const { data } = await axios.get(`${API}/admin/users`, { headers });
+        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+      } catch {
+        const { data } = await axios.get(`${API}/users`, { headers });
+        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
       }
-    };
+
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const startMs = startOfMonth.getTime();
+      const endMs = Date.now();
+
+      // Filter users with 'user' role and created in the current month
+      const count = list.filter(user => user.role === 'user').reduce((n, u) => {
+        const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
+        return t >= startMs && t <= endMs ? n + 1 : n;
+      }, 0);
+
+      setNewCustomersMonth(count);
+    } catch (e) {
+      console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
+    }
+  };
 
     const fetchOrders = async () => {
       try {
@@ -201,15 +209,19 @@ export default function AdminKpi() {
     };
 
     const fetchDeliveries = async () => {
-      try {
-        const { data } = await axios.get(`${API}/delivery`, { headers });
-        const list =
-          Array.isArray(data?.deliveries) ? data.deliveries : Array.isArray(data) ? data : [];
-        setDeliveries(list);
-      } catch (e) {
-        console.warn("Deliveries fetch error:", e?.response?.data?.message || e?.message);
-      }
-    };
+    try {
+      const { start, end, label } = deliveryRangeFor("month"); // Use "month" to get this month's data
+      const { data } = await axios.get(`${API}/delivery`, { headers });
+      const list = Array.isArray(data?.deliveries) ? data.deliveries : Array.isArray(data) ? data : [];
+      const filteredDeliveries = list.filter((delivery) => {
+        const deliveryDate = new Date(delivery?.createdAt || delivery?.updatedAt);
+        return deliveryDate >= start && deliveryDate <= end;
+      });
+      setDeliveries(filteredDeliveries);
+    } catch (e) {
+      console.warn("Deliveries fetch error:", e?.response?.data?.message || e?.message);
+    }
+  };
 
     const fetchProducts = async () => {
       try {
