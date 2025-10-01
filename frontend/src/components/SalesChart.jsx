@@ -21,10 +21,8 @@ const CURRENCY = "₱";
 const COLORS = {
   revenue: "#6366f1",
   units: "#10b981",
-  orders: "#f59e0b",
   revenueGradient: "rgba(99, 102, 241, 0.1)",
   unitsGradient: "rgba(16, 185, 129, 0.1)",
-  ordersGradient: "rgba(245, 158, 11, 0.1)",
   grid: "#f1f5f9",
   text: "#64748b",
   border: "#e2e8f0",
@@ -52,9 +50,9 @@ export default function EnhancedSalesChart() {
   const [groupBy, setGroupBy] = useState("day");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
-  const [showOrders, setShowOrders] = useState(true);
-  const [chartType, setChartType] = useState("line");
+  const [chartType, setChartType] = useState("line"); // line | area | bar
 
+  // for product name lookups
   const [productIndex, setProductIndex] = useState(new Map());
 
   useEffect(() => {
@@ -92,7 +90,13 @@ export default function EnhancedSalesChart() {
             p?.name ||
             p?.productName ||
             (id ? `Product ${id.slice(-6)}` : "Unknown Product");
-          map.set(id, { name });
+          const category =
+            p?.category?.name ||
+            p?.category?.categoryName ||
+            p?.categoryName ||
+            p?.category ||
+            "Uncategorized";
+          map.set(id, { name, category });
         }
         setProductIndex(map);
       } catch {
@@ -116,9 +120,10 @@ export default function EnhancedSalesChart() {
     [groupBy]
   );
 
+  /* ---------- item/line helpers ---------- */
   const getItemsArray = (o) => {
     const candidates = [o?.products, o?.items, o?.orderItems, o?.cart?.items];
-    for (const c of candidates) if (Array.isArray(c) && c.length) return c;
+    for (const c of candidates) if (Array.isArray(c) && c.length) return c; // prefer non-empty
     for (const c of candidates) if (Array.isArray(c)) return c;
     return [];
   };
@@ -164,11 +169,12 @@ export default function EnhancedSalesChart() {
     }
     if (Number.isFinite(Number(it?.amount))) {
       const a = Number(it.amount);
-      return a > 1000 ? a / 100 : a;
+      return a > 1000 ? a / 100 : a; // centavos heuristic
     }
     return 0;
   };
 
+  /* ---------- series data for chart ---------- */
   const processedData = useMemo(() => {
     const grouped = orders.reduce((acc, order) => {
       const key = getDateKey(order?.createdAt);
@@ -180,6 +186,7 @@ export default function EnhancedSalesChart() {
 
       const items = getItemsArray(order);
 
+      // revenue
       let orderRevenue = Number(order?.total ?? order?.totalAmount);
       if (!Number.isFinite(orderRevenue)) {
         orderRevenue = items.reduce((s, it) => s + getUnitPrice(it) * getQty(it), 0);
@@ -187,6 +194,7 @@ export default function EnhancedSalesChart() {
       acc[key].revenue += orderRevenue;
       acc[key].orderCount += 1;
 
+      // units
       for (const it of items) acc[key].units += getQty(it);
 
       return acc;
@@ -200,6 +208,7 @@ export default function EnhancedSalesChart() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [orders, getDateKey]);
 
+  /* ---------- KPIs ---------- */
   const metrics = useMemo(() => {
     const totalRevenue = processedData.reduce((s, d) => s + d.revenue, 0);
     const totalUnits = processedData.reduce((s, d) => s + d.units, 0);
@@ -208,27 +217,24 @@ export default function EnhancedSalesChart() {
     return { totalRevenue, totalUnits, totalOrders, avgOrderValue };
   }, [processedData]);
 
-  const { maxRevenue, maxUnits, maxOrders } = useMemo(() => {
-    let mr = 0, mu = 0, mo = 0;
+  /* ---------- axis max ---------- */
+  const { maxRevenue, maxUnits } = useMemo(() => {
+    let mr = 0, mu = 0;
     for (const d of processedData) {
       if (d.revenue > mr) mr = d.revenue;
       if (d.units > mu) mu = d.units;
-      if (d.orderCount > mo) mo = d.orderCount;
     }
-    return { 
-      maxRevenue: Math.ceil(mr * 1.1), 
-      maxUnits: Math.ceil(mu * 1.1),
-      maxOrders: Math.ceil(mo * 1.1)
-    };
+    return { maxRevenue: Math.ceil(mr * 1.1), maxUnits: Math.ceil(mu * 1.1) };
   }, [processedData]);
 
+  /* ---------- Top 5 Products (by units) ---------- */
   const topProductsByUnits = useMemo(() => {
-    const stats = new Map();
+    const stats = new Map(); // key -> { id, name, totalUnits, totalRevenue, orderCount }
 
     for (const order of orders) {
       const items = getItemsArray(order);
       for (const it of items) {
-        const id = getProductId(it) || getProductName(it);
+        const id = getProductId(it) || getProductName(it); // fallback to name
         const name = getProductName(it);
         const qty = getQty(it);
         const price = getUnitPrice(it);
@@ -244,6 +250,7 @@ export default function EnhancedSalesChart() {
     return [...stats.values()].sort((a, b) => b.totalUnits - a.totalUnits).slice(0, 5);
   }, [orders, productIndex]);
 
+  /* ---------- formatters & small UI bits ---------- */
   const formatCurrency = useCallback((value) => peso(value), []);
 
   const formatDateLabel = useCallback((key) => {
@@ -255,7 +262,6 @@ export default function EnhancedSalesChart() {
     if (!active || !payload?.length) return null;
     const revenueData = payload.find((p) => p.dataKey === "revenue");
     const unitsData = payload.find((p) => p.dataKey === "units");
-    const ordersData = payload.find((p) => p.dataKey === "orderCount");
     const row = processedData.find((d) => d.date === label);
 
     return (
@@ -277,17 +283,17 @@ export default function EnhancedSalesChart() {
               <span className="font-semibold text-emerald-600">{Number(unitsData.value).toLocaleString()}</span>
             </div>
           )}
-          {ordersData && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Order Volume</span>
-              <span className="font-semibold text-amber-600">{Number(ordersData.value).toLocaleString()}</span>
-            </div>
-          )}
           {row && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Avg Order Value</span>
-              <span className="font-medium text-gray-800">{formatCurrency(row.avgOrderValue)}</span>
-            </div>
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Orders</span>
+                <span className="font-medium text-gray-800">{row.orderCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Avg Order Value</span>
+                <span className="font-medium text-gray-800">{formatCurrency(row.avgOrderValue)}</span>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -344,12 +350,15 @@ export default function EnhancedSalesChart() {
     );
   };
 
+  /* ---------- states ---------- */
   if (loading) return <SkeletonChart />;
   if (error) return <ErrorState message={error} />;
   if (processedData.length === 0) return <EmptyState />;
 
+  /* ---------- UI ---------- */
   return (
     <div className="space-y-6">
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
         <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
@@ -357,6 +366,7 @@ export default function EnhancedSalesChart() {
         <MetricCard title="Avg Order Value" value={formatCurrency(metrics.avgOrderValue)} icon="📊" color="text-purple-600" />
       </div>
 
+      {/* Controls */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -402,18 +412,11 @@ export default function EnhancedSalesChart() {
             >
               {showUnits ? "Hide" : "Show"} Units
             </button>
-            <button
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                showOrders ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-              onClick={() => setShowOrders(!showOrders)}
-            >
-              {showOrders ? "Hide" : "Show"} Orders
-            </button>
           </div>
         </div>
       </div>
 
+      {/* Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="h-[500px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -440,7 +443,7 @@ export default function EnhancedSalesChart() {
                 orientation="right"
                 stroke={COLORS.units}
                 tick={{ fontSize: 12, fill: COLORS.text }}
-                domain={[0, Math.max(maxUnits, maxOrders)]}
+                domain={[0, maxUnits]}
                 tickFormatter={(n) => Number(n).toLocaleString()}
               />
               <Tooltip content={<CustomTooltip />} />
@@ -455,12 +458,9 @@ export default function EnhancedSalesChart() {
                   <stop offset="0%" stopColor={COLORS.units} stopOpacity={0.3} />
                   <stop offset="100%" stopColor={COLORS.units} stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.orders} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={COLORS.orders} stopOpacity={0} />
-                </linearGradient>
               </defs>
 
+              {/* Revenue */}
               {showRevenue && (
                 <>
                   {chartType === "area" && (
@@ -484,6 +484,7 @@ export default function EnhancedSalesChart() {
                 </>
               )}
 
+              {/* Units */}
               {showUnits && (
                 <>
                   {chartType === "area" && (
@@ -507,35 +508,13 @@ export default function EnhancedSalesChart() {
                 </>
               )}
 
-              {showOrders && (
-                <>
-                  {chartType === "area" && (
-                    <Area yAxisId="right" type="monotone" dataKey="orderCount" stroke="none" fill="url(#ordersGradient)" />
-                  )}
-                  {chartType === "bar" && (
-                    <Bar yAxisId="right" dataKey="orderCount" fill={COLORS.orders} radius={[4, 4, 0, 0]} opacity={0.8} />
-                  )}
-                  {(chartType === "line" || chartType === "area") && (
-                    <Line
-                      yAxisId="right"
-                      name="Order Volume"
-                      type="monotone"
-                      dataKey="orderCount"
-                      stroke={COLORS.orders}
-                      strokeWidth={3}
-                      dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.orders }}
-                      activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
-                    />
-                  )}
-                </>
-              )}
-
               <Brush height={30} travellerWidth={10} stroke={COLORS.border} fill="#f8fafc" dataKey="date" tickFormatter={formatDateLabel} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
+      {/* Top 5 Products only */}
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -565,6 +544,7 @@ export default function EnhancedSalesChart() {
   );
 }
 
+/* ---------- Helper UI states ---------- */
 function SkeletonChart() {
   return (
     <div className="space-y-6">
