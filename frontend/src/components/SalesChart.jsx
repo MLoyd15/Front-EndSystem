@@ -81,63 +81,60 @@ export default function EnhancedSalesChart() {
   }, [groupBy]);
 
     const processedData = useMemo(() => {
-    const grouped = orders.reduce((acc, order) => {
-      // Include all orders except "Pending" status
-      if (order?.status === "Pending") return acc;
+  const grouped = orders.reduce((acc, order) => {
+    // ✅ Include ALL orders now (Pending included)
+    const key = getDateKey(order?.createdAt);
+    if (!key) return acc;
 
-      const key = getDateKey(order?.createdAt);
-      if (!key) return acc;
+    if (!acc[key]) {
+      acc[key] = { 
+        date: key, 
+        revenue: 0, 
+        units: 0,
+        orderCount: 0,
+        avgOrderValue: 0,
+      };
+    }
+    
+    // Use total or totalAmount field
+    const orderTotal = Number(order.total || order.totalAmount || 0);
+    acc[key].revenue += orderTotal;
+    acc[key].orderCount += 1;
+    
+    // Handle both products and items arrays, and various quantity field names
+    const items = order.products || order.items || [];
 
-      if (!acc[key]) {
-        acc[key] = { 
-          date: key, 
-          revenue: 0, 
-          units: 0,
-          orderCount: 0,
-          avgOrderValue: 0,
-        };
-      }
-      
-      // Use total or totalAmount field
-      const orderTotal = Number(order.total || order.totalAmount || 0);
-      acc[key].revenue += orderTotal;
-      acc[key].orderCount += 1;
-      
-      // Handle both products and items arrays, and various quantity field names
-      const items = order.products || order.items || [];
-      
-      // Debug log for first order
-      if (acc[key].orderCount === 1) {
-        console.log('Sample order:', { 
-          status: order.status,
-          items: items,
-          isArray: Array.isArray(items),
-          itemCount: items?.length 
-        });
-      }
-      
-      if (Array.isArray(items)) {
-        for (const item of items) {
-          const qty = Number(item?.quantity || item?.qty || item?.amount || 0);
-          acc[key].units += qty;
-          
-          // Debug log for first item
-          if (acc[key].orderCount === 1) {
-            console.log('Sample item:', { item, qty });
-          }
+    if (acc[key].orderCount === 1) {
+      console.log('Sample order:', { 
+        status: order.status,
+        items: items,
+        isArray: Array.isArray(items),
+        itemCount: items?.length 
+      });
+    }
+    
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        const qty = Number(item?.quantity || item?.qty || item?.amount || 0);
+        acc[key].units += qty;
+
+        if (acc[key].orderCount === 1) {
+          console.log('Sample item:', { item, qty });
         }
       }
-      
-      return acc;
-    }, {});
+    }
+    
+    return acc;
+  }, {});
 
-    return Object.values(grouped)
-      .map(item => ({
-        ...item,
-        avgOrderValue: item.orderCount > 0 ? item.revenue / item.orderCount : 0
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [orders, getDateKey]);
+  return Object.values(grouped)
+    .map(item => ({
+      ...item,
+      avgOrderValue: item.orderCount > 0 ? item.revenue / item.orderCount : 0
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}, [orders, getDateKey]);
+
 
   const metrics = useMemo(() => {
     const totalRevenue = processedData.reduce((sum, item) => sum + item.revenue, 0);
