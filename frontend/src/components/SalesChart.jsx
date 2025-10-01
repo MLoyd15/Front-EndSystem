@@ -21,12 +21,8 @@ const CURRENCY = "₱";
 const COLORS = {
   revenue: "#6366f1",
   units: "#10b981",
-  orderVolume: "#f59e0b",
-  avgOrderValue: "#8b5cf6",
   revenueGradient: "rgba(99, 102, 241, 0.1)",
   unitsGradient: "rgba(16, 185, 129, 0.1)",
-  orderVolumeGradient: "rgba(245, 158, 11, 0.1)",
-  avgOrderValueGradient: "rgba(139, 92, 246, 0.1)",
   grid: "#f1f5f9",
   text: "#64748b",
   border: "#e2e8f0",
@@ -54,8 +50,6 @@ export default function EnhancedSalesChart() {
   const [groupBy, setGroupBy] = useState("day");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
-  const [showOrderVolume, setShowOrderVolume] = useState(false);
-  const [showAvgOrderValue, setShowAvgOrderValue] = useState(false);
   const [chartType, setChartType] = useState("line"); // line | area | bar
 
   // for product name lookups
@@ -224,20 +218,13 @@ export default function EnhancedSalesChart() {
   }, [processedData]);
 
   /* ---------- axis max ---------- */
-  const { maxRevenue, maxUnits, maxOrderCount, maxAvgOrderValue } = useMemo(() => {
-    let mr = 0, mu = 0, mo = 0, maov = 0;
+  const { maxRevenue, maxUnits } = useMemo(() => {
+    let mr = 0, mu = 0;
     for (const d of processedData) {
       if (d.revenue > mr) mr = d.revenue;
       if (d.units > mu) mu = d.units;
-      if (d.orderCount > mo) mo = d.orderCount;
-      if (d.avgOrderValue > maov) maov = d.avgOrderValue;
     }
-    return { 
-      maxRevenue: Math.ceil(mr * 1.1), 
-      maxUnits: Math.ceil(mu * 1.1),
-      maxOrderCount: Math.ceil(mo * 1.1),
-      maxAvgOrderValue: Math.ceil(maov * 1.1)
-    };
+    return { maxRevenue: Math.ceil(mr * 1.1), maxUnits: Math.ceil(mu * 1.1) };
   }, [processedData]);
 
   /* ---------- Top 5 Products (by units) ---------- */
@@ -265,6 +252,7 @@ export default function EnhancedSalesChart() {
 
   /* ---------- formatters & small UI bits ---------- */
   const formatCurrency = useCallback((value) => peso(value), []);
+
   const formatDateLabel = useCallback((key) => {
     const date = key.length === 10 ? new Date(key) : new Date(`${key}-01`);
     return date.toLocaleDateString(undefined, key.length === 10 ? { month: "short", day: "numeric" } : { month: "short", year: "numeric" });
@@ -274,8 +262,6 @@ export default function EnhancedSalesChart() {
     if (!active || !payload?.length) return null;
     const revenueData = payload.find((p) => p.dataKey === "revenue");
     const unitsData = payload.find((p) => p.dataKey === "units");
-    const orderVolumeData = payload.find((p) => p.dataKey === "orderCount");
-    const avgOrderData = payload.find((p) => p.dataKey === "avgOrderValue");
     const row = processedData.find((d) => d.date === label);
 
     return (
@@ -297,29 +283,17 @@ export default function EnhancedSalesChart() {
               <span className="font-semibold text-emerald-600">{Number(unitsData.value).toLocaleString()}</span>
             </div>
           )}
-          {orderVolumeData && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Order Volume</span>
-              <span className="font-semibold text-amber-600">{Number(orderVolumeData.value).toLocaleString()}</span>
-            </div>
-          )}
-          {avgOrderData && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Avg Order Value</span>
-              <span className="font-semibold text-purple-600">{formatCurrency(avgOrderData.value)}</span>
-            </div>
-          )}
-          {row && !orderVolumeData && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Orders</span>
-              <span className="font-medium text-gray-800">{row.orderCount}</span>
-            </div>
-          )}
-          {row && !avgOrderData && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Avg Order Value</span>
-              <span className="font-medium text-gray-800">{formatCurrency(row.avgOrderValue)}</span>
-            </div>
+          {row && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Orders</span>
+                <span className="font-medium text-gray-800">{row.orderCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Avg Order Value</span>
+                <span className="font-medium text-gray-800">{formatCurrency(row.avgOrderValue)}</span>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -340,12 +314,51 @@ export default function EnhancedSalesChart() {
     </div>
   );
 
+  const ProductRankCard = ({ product, rank }) => {
+    const maxUnits = topProductsByUnits[0]?.totalUnits || 1;
+    const pct = (product.totalUnits / maxUnits) * 100;
+    const rankColors = {
+      1: "from-yellow-400 to-yellow-500",
+      2: "from-gray-300 to-gray-400",
+      3: "from-orange-400 to-orange-500",
+    };
+    return (
+      <div className="group hover:bg-gray-50 rounded-lg p-4 transition-all border border-transparent hover:border-gray-200">
+        <div className="flex items-start gap-3">
+          <div className={`flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br ${rankColors[rank] || "from-gray-200 to-gray-300"} flex items-center justify-center shadow-sm`}>
+            <span className="text-white font-bold text-sm">{rank}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h4 className="font-medium text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
+                {product.name}
+              </h4>
+              <span className="font-bold text-sm whitespace-nowrap text-emerald-600">
+                {product.totalUnits.toLocaleString()} u
+              </span>
+            </div>
+            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+              <div className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span>🧾 {product.orderCount} orders</span>
+              <span>💰 {peso(product.totalRevenue)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ---------- states ---------- */
   if (loading) return <SkeletonChart />;
   if (error) return <ErrorState message={error} />;
   if (processedData.length === 0) return <EmptyState />;
 
+  /* ---------- UI ---------- */
   return (
     <div className="space-y-6">
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
         <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
@@ -353,6 +366,7 @@ export default function EnhancedSalesChart() {
         <MetricCard title="Avg Order Value" value={formatCurrency(metrics.avgOrderValue)} icon="📊" color="text-purple-600" />
       </div>
 
+      {/* Controls */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -381,47 +395,29 @@ export default function EnhancedSalesChart() {
               </select>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                 showRevenue ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
               onClick={() => setShowRevenue(!showRevenue)}
-              >
-                {showRevenue ? "Hide" : "Show"} Revenue
-              </button>
-              <button
-                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  showUnits ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-                onClick={() => setShowUnits(!showUnits)}
-              >
-                {showUnits ? "Hide" : "Show"} Units
-              </button>
-
-              <button
-                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  showOrderVolume ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-                onClick={() => setShowOrderVolume(!showOrderVolume)}
-              >
-                {showOrderVolume ? "Hide" : "Show"} Order Volume
-              </button>
+            >
+              {showRevenue ? "Hide" : "Show"} Revenue
+            </button>
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                showAvgOrderValue ? "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                showUnits ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
-              onClick={() => setShowAvgOrderValue(!showAvgOrderValue)}
+              onClick={() => setShowUnits(!showUnits)}
             >
-              {showAvgOrderValue ? "Hide" : "Show"} Avg Order Value
+              {showUnits ? "Hide" : "Show"} Units
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Chart - Revenue and Units */}
+      {/* Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue & Units Trend</h3>
         <div className="h-[500px]">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={processedData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
@@ -518,116 +514,29 @@ export default function EnhancedSalesChart() {
         </div>
       </div>
 
-      {/* Two Charts Side by Side - Order Volume and Avg Order Value */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Order Volume Chart */}
+      {/* Top 5 Products only */}
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Volume</h3>
-          <div className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={processedData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
-                <XAxis
-                  dataKey="date"
-                  stroke={COLORS.text}
-                  tick={{ fontSize: 12, fill: COLORS.text }}
-                  tickFormatter={formatDateLabel}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis stroke={COLORS.orderVolume} tick={{ fontSize: 12, fill: COLORS.text }} domain={[0, maxOrderCount]} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ paddingTop: 20 }} iconType="circle" />
-                <defs>
-                  <linearGradient id="orderVolumeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.orderVolume} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={COLORS.orderVolume} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-
-                {showOrderVolume && (
-                  <>
-                    {chartType === "area" && (
-                      <Area type="monotone" dataKey="orderCount" stroke="none" fill="url(#orderVolumeGradient)" />
-                    )}
-                    {chartType === "bar" && (
-                      <Bar dataKey="orderCount" fill={COLORS.orderVolume} radius={[4, 4, 0, 0]} opacity={0.8} />
-                    )}
-                    {(chartType === "line" || chartType === "area") && (
-                      <Line
-                        name="Order Volume"
-                        type="monotone"
-                        dataKey="orderCount"
-                        stroke={COLORS.orderVolume}
-                        strokeWidth={3}
-                        dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.orderVolume }}
-                        activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
-                      />
-                    )}
-                  </>
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <span className="text-xl">🏆</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Top 5 Products Sold</h3>
+              <p className="text-sm text-gray-600">Most units sold</p>
+            </div>
           </div>
-        </div>
-
-        {/* Average Order Value Chart */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Average Order Value</h3>
-          <div className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={processedData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
-                <XAxis
-                  dataKey="date"
-                  stroke={COLORS.text}
-                  tick={{ fontSize: 12, fill: COLORS.text }}
-                  tickFormatter={formatDateLabel}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis
-                  stroke={COLORS.avgOrderValue}
-                  tick={{ fontSize: 12, fill: COLORS.text }}
-                  domain={[0, maxAvgOrderValue]}
-                  tickFormatter={formatCurrency}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ paddingTop: 20 }} iconType="circle" />
-                <ReferenceLine y={0} stroke={COLORS.grid} />
-                <defs>
-                  <linearGradient id="avgOrderValueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.avgOrderValue} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={COLORS.avgOrderValue} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-
-                {showAvgOrderValue && (
-                  <>
-                    {chartType === "area" && (
-                      <Area yAxisId="right" type="monotone" dataKey="avgOrderValue" stroke="none" fill="url(#avgOrderValueGradient)" />
-                    )}
-                    {chartType === "bar" && (
-                      <Bar yAxisId="right" dataKey="avgOrderValue" fill={COLORS.avgOrderValue} radius={[4, 4, 0, 0]} opacity={0.8} />
-                    )}
-                    {(chartType === "line" || chartType === "area") && (
-                      <Line
-                        yAxisId="right"
-                        name="Avg Order Value"
-                        type="monotone"
-                        dataKey="avgOrderValue"
-                        stroke={COLORS.avgOrderValue}
-                        strokeWidth={3}
-                        dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.avgOrderValue }}
-                        activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
-                      />
-                    )}
-                  </>
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
+          <div className="space-y-1">
+            {topProductsByUnits.length ? (
+              topProductsByUnits.map((p, idx) => (
+                <ProductRankCard key={p.id || p.name} product={p} rank={idx + 1} />
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">📦</div>
+                <p>No product data available</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -635,3 +544,58 @@ export default function EnhancedSalesChart() {
   );
 }
 
+/* ---------- Helper UI states ---------- */
+function SkeletonChart() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
+              </div>
+              <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+        <div className="h-[500px] bg-gray-100 rounded-lg"></div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-12">
+      <div className="text-center">
+        <div className="text-6xl mb-4">📊</div>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">No sales data yet</h3>
+        <p className="text-gray-600 max-w-md mx-auto">
+          Start making sales to see your revenue and units sold trends over time.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ message }) {
+  return (
+    <div className="bg-white rounded-xl border border-red-200 p-12">
+      <div className="text-center">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h3 className="text-xl font-semibold text-red-900 mb-2">Unable to load sales data</h3>
+        <p className="text-red-600 mb-4">{message}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+  );
+}
