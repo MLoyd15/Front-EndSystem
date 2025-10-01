@@ -3,8 +3,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   FaUsers,
-  FaDollarSign,
-  FaShoppingCart,
   FaBoxes,
   FaExclamationTriangle,
 } from "react-icons/fa";
@@ -20,6 +18,22 @@ const peso = (n) =>
   `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, {
     maximumFractionDigits: 2,
   })}`;
+
+// % change helper
+const pct = (curr, prev) =>
+  Math.round(((Number(curr || 0) - Number(prev || 0)) / Math.max(Number(prev || 0), 1)) * 100);
+
+// sum revenue in a time range
+const sumRevenueByRange = (orders, startMs, endMs) =>
+  orders.reduce((s, o) => {
+    if (!o || o.status === "Pending") return s;
+    const t = new Date(o.createdAt || o.date || o.updatedAt || Date.now()).getTime();
+    if (t >= startMs && t < endMs) {
+      const val = Number(o.total ?? o.totalAmount ?? 0);
+      return s + (Number.isFinite(val) ? val : 0);
+    }
+    return s;
+  }, 0);
 
 /* ---------- Enhanced KPI Card ---------- */
 function EnhancedKpiCard({
@@ -157,18 +171,20 @@ export default function AdminKpi() {
     totalSales: 0,
     totalRevenue: 0,
     totalCategories: 0,
-    lowStock: 0,
     orderVolume: 0,
     avgOrderValue: 0,
+    lowStock: 0,
     loyaltyPoints: 0,
     loyaltyTier: "Sprout",
     loyaltyHistory: [],
   });
 
+  const [orders, setOrders] = useState([]);
   const [salesByCategory, setSalesByCategory] = useState([]);
   const [err, setErr] = useState("");
   const [lowStockItems, setLowStockItems] = useState([]);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
+  const [revenueWoW, setRevenueWoW] = useState(0); // ▲▼ revenue % vs last week
 
   useEffect(() => {
     const token = localStorage.getItem("pos-token");
@@ -194,15 +210,19 @@ export default function AdminKpi() {
             ? data.loyaltyHistory
             : prev.loyaltyHistory,
         }));
-      } catch (e) {
-        // non-blocking
-        console.warn("Loyalty fetch error:", e?.message);
+      } catch {
+        /* non-blocking */
       }
     };
 
     const fetchOrders = async () => {
       try {
+        // Pull orders to compute weekly revenue trend locally
         const { data } = await axios.get(`${API}/orders`, { headers });
+        const list = Array.isArray(data?.orders) ? data.orders : [];
+        setOrders(list);
+
+        // If backend also returns summary, keep your existing KPIs in state (even if not shown)
         if (data?.summary) {
           setStats((prev) => ({
             ...prev,
@@ -213,6 +233,16 @@ export default function AdminKpi() {
           }));
           setSalesByCategory(data.summary.salesByCategory ?? []);
         }
+
+        // Compute week-over-week revenue % from list
+        const now = Date.now();
+        const DAY = 24 * 60 * 60 * 1000;
+        const startThisWeek = now - 7 * DAY;
+        const startLastWeek = now - 14 * DAY;
+
+        const revThisWeek = sumRevenueByRange(list, startThisWeek, now);
+        const revLastWeek = sumRevenueByRange(list, startLastWeek, startThisWeek);
+        setRevenueWoW(pct(revThisWeek, revLastWeek));
       } catch (e) {
         setErr((p) => p || e?.response?.data?.message || e?.message || "Failed to load orders.");
       }
@@ -293,7 +323,7 @@ export default function AdminKpi() {
           {/* Business Overview */}
           <div className="space-y-4">
             <SectionHeader
-              icon={<FaShoppingCart />}
+              icon={<TrendingUp />}
               title="Business Overview"
               subtitle="Key performance metrics"
             />
@@ -308,6 +338,7 @@ export default function AdminKpi() {
             )}
 
             <div className="space-y-3">
+              {/* Keep Total Users */}
               <EnhancedKpiCard
                 title="Total Users"
                 value={stats.totalUsers.toLocaleString()}
@@ -315,26 +346,15 @@ export default function AdminKpi() {
                 gradient="from-blue-500 to-cyan-600"
                 subtitle="Registered customers"
               />
+
+              {/* New: Revenue Trend (WoW) */}
               <EnhancedKpiCard
-                title="Total Revenue"
-                value={peso(stats.totalRevenue)}
-                icon={<FaDollarSign />}
+                title="Revenue Trend (WoW)"
+                value={`${Math.abs(revenueWoW)}%`}
+                icon={<TrendingUp className="text-white" />}
                 gradient="from-emerald-500 to-green-600"
-                subtitle="All-time earnings"
-              />
-              <EnhancedKpiCard
-                title="Total Orders"
-                value={stats.totalSales.toLocaleString()}
-                icon={<FaShoppingCart />}
-                gradient="from-violet-500 to-purple-600"
-                subtitle={`${stats.orderVolume} completed`}
-              />
-              <EnhancedKpiCard
-                title="Avg Order Value"
-                value={peso(stats.avgOrderValue)}
-                icon={<TrendingUp className="w-5 h-5 text-white" />} // purely decorative
-                gradient="from-amber-500 to-orange-600"
-                subtitle="Per transaction"
+                subtitle="vs previous 7 days"
+                trend={revenueWoW}
               />
             </div>
           </div>
@@ -368,7 +388,7 @@ export default function AdminKpi() {
               subtitle="Inventory warnings"
             />
             <StockAlertCard title="Low Stock" items={lowStockItems} type="low" />
-            <StockAlertCard title={`Out of Stock`} items={outOfStockItems} type="out" />
+            <StockAlertCard title="Out of Stock" items={outOfStockItems} type="out" />
           </div>
         </div>
 
