@@ -110,6 +110,21 @@ export default function EnhancedSalesChart() {
   );
 
   // ---------- helpers to normalize item fields ----------
+
+  const getItemsArray = (o) => {
+  const candidates = [o?.products, o?.items, o?.orderItems, o?.cart?.items];
+
+  // 1) Prefer the first non-empty array
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length > 0) return c;
+  }
+  // 2) If none are non-empty, return the first array we can find (even if empty)
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c;
+  }
+  return [];
+};
+
   const getProductId = (it) =>
     String(it?.productId || it?.product?._id || it?._id || it?.id || "")
       .trim();
@@ -172,46 +187,53 @@ export default function EnhancedSalesChart() {
   };
 
   // ---------- aggregate for chart ----------
-  const processedData = useMemo(() => {
-    const grouped = orders.reduce((acc, order) => {
-      const key = getDateKey(order?.createdAt);
-      if (!key) return acc;
+ const processedData = useMemo(() => {
+  const grouped = orders.reduce((acc, order) => {
+    const key = getDateKey(order?.createdAt);
+    if (!key) return acc;
 
-      if (!acc[key]) {
-        acc[key] = { date: key, revenue: 0, units: 0, orderCount: 0, avgOrderValue: 0 };
-      }
+    if (!acc[key]) {
+      acc[key] = { date: key, revenue: 0, units: 0, orderCount: 0, avgOrderValue: 0 };
+    }
 
-      const raw =
-        order.products ??
-        order.items ??
-        order.orderItems ??
-        order.cart?.items ??
-        [];
-      const items = Array.isArray(raw) ? raw : [];
+    // ✅ pick items properly
+    const items = getItemsArray(order);
 
-      // prefer order total; else sum items
-      let orderRevenue = Number(order?.total ?? order?.totalAmount);
-      if (!Number.isFinite(orderRevenue)) {
-        orderRevenue = items.reduce((s, it) => s + getUnitPrice(it) * getQty(it), 0);
-      }
+    // 🔍 debug: see when nothing is picked
+    if (items.length === 0) {
+      console.log("No items picked for order", {
+        createdAt: order?.createdAt,
+        productsLen: Array.isArray(order?.products) ? order.products.length : null,
+        itemsLen: Array.isArray(order?.items) ? order.items.length : null,
+        orderItemsLen: Array.isArray(order?.orderItems) ? order.orderItems.length : null,
+        cartItemsLen: Array.isArray(order?.cart?.items) ? order.cart.items.length : null,
+      });
+    }
 
-      acc[key].revenue += orderRevenue;
-      acc[key].orderCount += 1;
+    // revenue
+    let orderRevenue = Number(order?.total ?? order?.totalAmount);
+    if (!Number.isFinite(orderRevenue)) {
+      orderRevenue = items.reduce((s, it) => s + getUnitPrice(it) * getQty(it), 0);
+    }
 
-      for (const it of items) {
-        acc[key].units += getQty(it);
-      }
+    acc[key].revenue += orderRevenue;
+    acc[key].orderCount += 1;
 
-      return acc;
-    }, {});
+    // units
+    for (const it of items) {
+      acc[key].units += getQty(it);
+    }
 
-    return Object.values(grouped)
-      .map((row) => ({
-        ...row,
-        avgOrderValue: row.orderCount ? row.revenue / row.orderCount : 0,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [orders, getDateKey, productIndex]); // productIndex not required for chart, but harmless
+    return acc;
+  }, {});
+
+  return Object.values(grouped)
+    .map((row) => ({
+      ...row,
+      avgOrderValue: row.orderCount ? row.revenue / row.orderCount : 0,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}, [orders, getDateKey]);
 
   // ---------- KPI metrics ----------
   const metrics = useMemo(() => {
