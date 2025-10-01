@@ -1,4 +1,4 @@
-// src/pages/AdminKpi.jsx (or your existing path)
+// src/components/AdminKpi.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
@@ -6,15 +6,15 @@ import {
   FaDollarSign,
   FaShoppingCart,
   FaBoxes,
-  FaTrendUp,
-  FaTrendDown,
   FaExclamationTriangle,
 } from "react-icons/fa";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import SalesChart from "./SalesChart";
 import { ResponsiveContainer, PieChart, Pie, Tooltip, Cell } from "recharts";
 import { VITE_API_BASE } from "../config";
 
-const API = VITE_API_BASE; // use your env base
+/* ---------- Utils ---------- */
+const API = VITE_API_BASE;
 const CURRENCY = "₱";
 const peso = (n) =>
   `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, {
@@ -27,20 +27,15 @@ function EnhancedKpiCard({
   value,
   icon,
   gradient = "from-indigo-500 to-purple-600",
-  trend,
+  trend, // number (positive/negative/zero) optional
   subtitle,
 }) {
   return (
     <div className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-      {/* Gradient accent bar */}
       <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient}`} />
-
-      {/* Content */}
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
-          <div
-            className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}
-          >
+          <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
             <div className="text-white text-xl">{icon}</div>
           </div>
           {typeof trend === "number" && (
@@ -53,22 +48,22 @@ function EnhancedKpiCard({
                   : "bg-gray-50 text-gray-700"
               }`}
             >
-              {trend > 0 ? <FaTrendUp /> : trend < 0 ? <FaTrendDown /> : null}
+              {trend > 0 ? (
+                <TrendingUp className="w-3 h-3" />
+              ) : trend < 0 ? (
+                <TrendingDown className="w-3 h-3" />
+              ) : null}
               {Math.abs(trend)}%
             </div>
           )}
         </div>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
-            {title}
-          </p>
-          <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
-        </div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
+          {title}
+        </p>
+        <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
+        {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
       </div>
-
-      {/* Hover effect overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
     </div>
   );
@@ -96,7 +91,6 @@ function StockAlertCard({ title, items, type = "low" }) {
       icon: <FaExclamationTriangle />,
       bgColor: "bg-amber-50",
       textColor: "text-amber-700",
-      borderColor: "border-amber-200",
       badgeBg: "bg-amber-100",
       emptyIcon: "📦",
     },
@@ -104,12 +98,10 @@ function StockAlertCard({ title, items, type = "low" }) {
       icon: <FaExclamationTriangle />,
       bgColor: "bg-red-50",
       textColor: "text-red-700",
-      borderColor: "border-red-200",
       badgeBg: "bg-red-100",
       emptyIcon: "🚫",
     },
   };
-
   const style = config[type];
 
   return (
@@ -121,9 +113,7 @@ function StockAlertCard({ title, items, type = "low" }) {
           </div>
           <h4 className="text-sm font-bold text-gray-900">{title}</h4>
         </div>
-        <span
-          className={`text-xs font-semibold px-2 py-1 rounded-full ${style.bgColor} ${style.textColor}`}
-        >
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.bgColor} ${style.textColor}`}>
           {items.length}
         </span>
       </div>
@@ -143,9 +133,7 @@ function StockAlertCard({ title, items, type = "low" }) {
               <span className="text-sm text-gray-800 truncate flex-1">
                 {item.name || "Unnamed"}
               </span>
-              <span
-                className={`text-xs font-semibold px-2 py-1 rounded-full ${style.badgeBg} ${style.textColor} ml-2`}
-              >
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.badgeBg} ${style.textColor} ml-2`}>
                 {type === "out" ? "OOS" : `${item.stock} left`}
               </span>
             </div>
@@ -169,9 +157,7 @@ export default function AdminKpi() {
     totalSales: 0,
     totalRevenue: 0,
     totalCategories: 0,
-    inventorySales: 0,
     lowStock: 0,
-    inventoryStock: 0,
     orderVolume: 0,
     avgOrderValue: 0,
     loyaltyPoints: 0,
@@ -228,9 +214,7 @@ export default function AdminKpi() {
           setSalesByCategory(data.summary.salesByCategory ?? []);
         }
       } catch (e) {
-        setErr(
-          (p) => p || e?.response?.data?.message || e?.message || "Failed to load orders."
-        );
+        setErr((p) => p || e?.response?.data?.message || e?.message || "Failed to load orders.");
       }
     };
 
@@ -239,10 +223,7 @@ export default function AdminKpi() {
         const { data } = await axios.get(`${API}/products?page=1&limit=1000`, { headers });
         const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
 
-        const getStock = (p) => {
-          const n = Number(p?.stock ?? 0);
-          return Number.isFinite(n) ? n : 0;
-        };
+        const getStock = (p) => Number(p?.stock ?? 0) || 0;
         const getMin = (p) => {
           const n = Number(p?.minStock ?? 0);
           return Number.isFinite(n) && n > 0 ? n : 10;
@@ -251,8 +232,8 @@ export default function AdminKpi() {
         const out = items
           .filter((p) => getStock(p) <= 0)
           .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
-
         const outIds = new Set(out.map((p) => String(p._id)));
+
         const low = items
           .filter((p) => {
             const s = getStock(p);
@@ -266,9 +247,7 @@ export default function AdminKpi() {
         setOutOfStockItems(out);
         setStats((prev) => ({ ...prev, lowStock: low.length }));
       } catch (e) {
-        setErr(
-          (p) => p || e?.response?.data?.message || e?.message || "Failed to load products."
-        );
+        setErr((p) => p || e?.response?.data?.message || e?.message || "Failed to load products.");
       }
     };
 
@@ -278,20 +257,12 @@ export default function AdminKpi() {
     fetchProducts();
   }, []);
 
-  // Helpers for category chart
+  /* ---------- Category Donut Helpers ---------- */
   const totalCatRevenue = useMemo(
     () => (salesByCategory || []).reduce((s, x) => s + Number(x?.revenue || 0), 0),
     [salesByCategory]
   );
 
-  const makeShades = (count, { h = 120, s = 60, lMin = 35, lMax = 70 } = {}) => {
-    if (count <= 0) return [];
-    if (count === 1) return [`hsl(${h} ${s}% ${(lMin + lMax) / 2}%)`];
-    const step = (lMax - lMin) / Math.max(1, count - 1);
-    return Array.from({ length: count }, (_, i) => `hsl(${h} ${s}% ${lMax - i * step}%)`);
-  };
-
-  // Sort once so colors/legend match exactly
   const sortedCategories = useMemo(() => {
     const total = totalCatRevenue || 0;
     const base = (salesByCategory || []).map((d) => {
@@ -305,14 +276,21 @@ export default function AdminKpi() {
     return base.sort((a, b) => b.value - a.value);
   }, [salesByCategory, totalCatRevenue]);
 
+  const makeShades = (count, { h = 120, s = 60, lMin = 35, lMax = 70 } = {}) => {
+    if (count <= 0) return [];
+    if (count === 1) return [`hsl(${h} ${s}% ${(lMin + lMax) / 2}%)`];
+    const step = (lMax - lMin) / Math.max(1, count - 1);
+    return Array.from({ length: count }, (_, i) => `hsl(${h} ${s}% ${lMax - i * step}%)`);
+  };
   const shades = makeShades(sortedCategories.length, { h: 120, s: 60, lMin: 35, lMax: 70 });
 
+  /* ---------- Render ---------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* LEFT COLUMN: Enhanced KPIs */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Business Metrics Section */}
+          {/* Business Overview */}
           <div className="space-y-4">
             <SectionHeader
               icon={<FaShoppingCart />}
@@ -337,7 +315,6 @@ export default function AdminKpi() {
                 gradient="from-blue-500 to-cyan-600"
                 subtitle="Registered customers"
               />
-
               <EnhancedKpiCard
                 title="Total Revenue"
                 value={peso(stats.totalRevenue)}
@@ -345,7 +322,6 @@ export default function AdminKpi() {
                 gradient="from-emerald-500 to-green-600"
                 subtitle="All-time earnings"
               />
-
               <EnhancedKpiCard
                 title="Total Orders"
                 value={stats.totalSales.toLocaleString()}
@@ -353,21 +329,19 @@ export default function AdminKpi() {
                 gradient="from-violet-500 to-purple-600"
                 subtitle={`${stats.orderVolume} completed`}
               />
-
               <EnhancedKpiCard
                 title="Avg Order Value"
                 value={peso(stats.avgOrderValue)}
-                icon={<FaTrendUp />}
+                icon={<TrendingUp className="w-5 h-5 text-white" />} // purely decorative
                 gradient="from-amber-500 to-orange-600"
                 subtitle="Per transaction"
               />
             </div>
           </div>
 
-          {/* Inventory Metrics Section */}
+          {/* Inventory Status */}
           <div className="space-y-4">
             <SectionHeader icon={<FaBoxes />} title="Inventory Status" subtitle="Stock management" />
-
             <div className="space-y-3">
               <EnhancedKpiCard
                 title="Categories"
@@ -376,7 +350,6 @@ export default function AdminKpi() {
                 gradient="from-indigo-500 to-blue-600"
                 subtitle="Product categories"
               />
-
               <EnhancedKpiCard
                 title="Low Stock Items"
                 value={stats.lowStock}
@@ -394,11 +367,8 @@ export default function AdminKpi() {
               title="Stock Alerts"
               subtitle="Inventory warnings"
             />
-
             <StockAlertCard title="Low Stock" items={lowStockItems} type="low" />
-
-            {/* Dynamic count now matches items */}
-            <StockAlertCard title="Out of Stock" items={outOfStockItems} type="out" />
+            <StockAlertCard title={`Out of Stock`} items={outOfStockItems} type="out" />
           </div>
         </div>
 
@@ -426,14 +396,12 @@ export default function AdminKpi() {
               </div>
             ) : (
               <div className="relative grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* Donut */}
                 <div className="lg:col-span-3 h-[22rem] relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={sortedCategories.map((d, i) => ({
-                          ...d,
-                          color: shades[i],
-                        }))}
+                        data={sortedCategories.map((d, i) => ({ ...d, color: shades[i] }))}
                         dataKey="value"
                         nameKey="label"
                         innerRadius={100}
@@ -470,6 +438,7 @@ export default function AdminKpi() {
                     </PieChart>
                   </ResponsiveContainer>
 
+                  {/* Center total */}
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
                       <div className="text-xs text-gray-500">Total</div>
@@ -480,13 +449,11 @@ export default function AdminKpi() {
                   </div>
                 </div>
 
+                {/* Legend */}
                 <div className="lg:col-span-2 self-center">
                   <ul className="space-y-3">
                     {sortedCategories.map((it, i) => (
-                      <li
-                        key={`legend-${i}`}
-                        className="flex items-center justify-between gap-3"
-                      >
+                      <li key={`legend-${i}`} className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <span
                             className="inline-block h-3 w-3 rounded"
