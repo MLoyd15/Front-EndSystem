@@ -140,6 +140,8 @@ export default function DriverDeliveries() {
         console.log("Match result:", { assignedId, myIdStr, isMatch });
         return isMatch;
       });
+      setRows(myDeliveries);
+
     } catch (err) {
       console.error("Error fetching deliveries:", err);
       setError(err.response?.data?.message || err.message || "Failed to fetch deliveries");
