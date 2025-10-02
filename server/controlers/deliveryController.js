@@ -31,16 +31,16 @@ export async function listDeliveries(req, res) {
 
     const deliveries = await Delivery.find(query)
       .populate({
-        path: "order",
-        select: "status totalAmount createdAt products",
-        populate: [
-          { path: "products.product", select: "name price" },
-          { path: "user", select: "name email phone address" } // ← ADD THIS
-        ]
-      })
-      .populate("assignedDriver", "name phone")
-      .populate("assignedVehicle", "plate capacityKg")
-      .lean();
+      path: "order",
+      select: "status totalAmount createdAt products",
+      populate: [  // ← Change to array
+        { path: "products.product", select: "name price" },
+        { path: "user", select: "name email phone address" } // ← ADD THIS
+      ],
+    })
+    .populate("assignedDriver", "name phone")
+    .populate("assignedVehicle", "plate capacityKg")
+    .lean();
 
     res.json({ success: true, deliveries });
   } catch (err) {
