@@ -253,7 +253,6 @@ export default function AdminKpi() {
                 value={stats.totalUsers.toLocaleString()}
                 icon={<FaUsers />}
                 gradient="from-blue-500 to-cyan-600"
-                subtitle="Registered customers"
               />
 
               {/* Total Delivery */}
