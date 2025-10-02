@@ -370,12 +370,11 @@ export default function EnhancedSalesChart() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
         <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
-        <MetricCard title="Total Orders" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-blue-600" />
+        <MetricCard title="Order Volume" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-blue-600" />
         {/* ⭐ Avg Order Value with Order Volume shown BESIDE it */}
         <MetricCard
           title="Avg Order Value"
           value={formatCurrency(metrics.avgOrderValue)}
-          aside={`${metrics.totalOrders.toLocaleString()} order volume`}
           icon="📊"
           color="text-purple-600"
         />
