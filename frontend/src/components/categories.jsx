@@ -19,9 +19,6 @@ const Categories = () => {
     try {
       const token = localStorage.getItem("pos-token");
       
-      console.log("🔍 DEBUG - API Base:", API);
-      console.log("🔍 DEBUG - Full URL:", `${API}/category`);
-      
       if (!token) {
         throw new Error("No authentication token found");
       }
@@ -33,13 +30,8 @@ const Categories = () => {
         },
       });
       
-      console.log("✅ Categories response:", response.data);
       setCategories(response.data.categories || []);
     } catch (error) {
-      console.error("❌ Error fetching categories:", error);
-      console.error("❌ Error response:", error.response);
-      console.error("❌ Error URL:", error.config?.url);
-      
       const errorMsg = error.response?.data?.message || error.message || "Error fetching categories";
       setError(errorMsg);
       
@@ -75,7 +67,7 @@ const Categories = () => {
 
       if (editCategory) {
         const response = await axios.put(
-          `${API}/api/category/${editCategory}`,
+          `${API}/category/${editCategory}`,
           { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
           {
             headers: {
@@ -96,7 +88,7 @@ const Categories = () => {
         }
       } else {
         const response = await axios.post(
-          `${API}/api/category/add`,
+          `${API}/category/add`,
           { categoryName: categoryName.trim(), categoryDescription: categoryDescription.trim() },
           {
             headers: {
@@ -116,7 +108,6 @@ const Categories = () => {
         }
       }
     } catch (error) {
-      console.error("Error submitting category:", error);
       const errorMsg = error.response?.data?.message || error.message || "An error occurred";
       alert(`Error: ${errorMsg}`);
       
@@ -152,7 +143,7 @@ const Categories = () => {
       }
 
       const response = await axios.delete(
-        `${API}/api/category/${id}`,
+        `${API}/category/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -168,7 +159,6 @@ const Categories = () => {
         alert(response.data.message || "Error deleting category. Please try again.");
       }
     } catch (error) {
-      console.error("Error deleting category:", error);
       const errorMsg = error.response?.data?.message || error.message || "An error occurred";
       alert(`Error deleting category: ${errorMsg}`);
       
