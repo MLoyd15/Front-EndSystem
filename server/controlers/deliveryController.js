@@ -33,7 +33,10 @@ export async function listDeliveries(req, res) {
       .populate({
         path: "order",
         select: "status totalAmount createdAt products",
-        populate: { path: "products.product", select: "name price" },
+        populate: [
+          { path: "products.product", select: "name price" },
+          { path: "user", select: "name email phone address" } // ← ADD THIS
+        ]
       })
       .populate("assignedDriver", "name phone")
       .populate("assignedVehicle", "plate capacityKg")
