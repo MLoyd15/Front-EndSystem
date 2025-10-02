@@ -161,8 +161,8 @@ const DetailSheet = ({ open, job, onClose }) => {
   const tone = STATUS_COLORS[job?.status] || STATUS_COLORS.gray;
   const address = job?.deliveryAddress || job?.dropoff?.address || job?.pickupLocation || "—";
   const name =
-    job?.customer?.name ||
-    job?.order?.customerName ||
+    job?.order?.user?.name ||
+    job?.order?.name ||
     job?.assignedDriver?.name ||
     "Customer";
   const items = job?.order?.products || job?.order?.items || job?.items || [];

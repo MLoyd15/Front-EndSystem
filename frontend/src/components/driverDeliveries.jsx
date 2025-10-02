@@ -56,7 +56,6 @@ export default function DriverDeliveries() {
       console.log("Driver from localStorage:", driver);
       console.log("User from localStorage:", user);
       
-      return currentDriver;
     } catch { 
       console.log("Failed to parse driver/user from localStorage");
       return {}; 
@@ -104,8 +103,6 @@ export default function DriverDeliveries() {
           deliveryId: d._id,
           assignedDriver: assigned,
           assignedDriverType: typeof assigned,
-          currentDriverId: me?._id,
-          currentDriverType: typeof me?._id
         });
 
         // Handle different assignedDriver formats
@@ -118,10 +115,7 @@ export default function DriverDeliveries() {
           assignedId = null;
         }
 
-        const isMatch = String(assignedId || "") === String(me?._id || "");
-        console.log("Match result:", { assignedId, currentDriverId: me?._id, isMatch });
-        
-        return isMatch;
+       
       });
 
       console.log("Filtered deliveries for driver:", myDeliveries);
