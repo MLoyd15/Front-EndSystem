@@ -65,7 +65,6 @@ export async function updateDelivery(req, res) {
   }
 }
 
-
 // -------------------- Drivers + Vehicles --------------------
 export async function getResources(req, res) {
   try {
