@@ -96,6 +96,8 @@ export default function DriverDeliveries() {
       }
 
       // Filter deliveries for this driver with enhanced logging
+     
+      // Filter deliveries for this driver with enhanced logging
       const myDeliveries = allDeliveries.filter((d) => {
         const assigned = d?.assignedDriver;
         
@@ -103,24 +105,41 @@ export default function DriverDeliveries() {
           deliveryId: d._id,
           assignedDriver: assigned,
           assignedDriverType: typeof assigned,
+          myId: me?._id,
         });
+
+        // If no driver ID available, show all deliveries
+        if (!me?._id) {
+          console.log("⚠️ No driver ID found - showing all deliveries");
+          return true;
+        }
 
         // Handle different assignedDriver formats
         let assignedId;
         if (typeof assigned === "string") {
           assignedId = assigned;
         } else if (typeof assigned === "object" && assigned) {
-          assignedId = assigned._id || assigned.id;
-        } else {
-          assignedId = null;
+          // Handle both _id and $oid formats
+          if (assigned._id) {
+            assignedId = typeof assigned._id === "string" ? assigned._id : assigned._id.$oid;
+          } else if (assigned.$oid) {
+            assignedId = assigned.$oid;
+          }
         }
 
-       
+        // If no assigned driver, don't show this delivery
+        if (!assignedId) {
+          console.log("❌ No assignedDriver ID found for this delivery");
+          return false;
+        }
+
+        // Compare IDs (handle both string and object formats for me._id)
+        const myIdStr = typeof me._id === "string" ? me._id : me._id?.$oid;
+        const isMatch = assignedId === myIdStr;
+        
+        console.log("Match result:", { assignedId, myIdStr, isMatch });
+        return isMatch;
       });
-
-      console.log("Filtered deliveries for driver:", myDeliveries);
-      setRows(myDeliveries);
-
     } catch (err) {
       console.error("Error fetching deliveries:", err);
       setError(err.response?.data?.message || err.message || "Failed to fetch deliveries");
