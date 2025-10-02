@@ -12,66 +12,48 @@ const Modal = ({ isOpen, onClose, title, message, type = "info" }) => {
   const getIcon = () => {
     switch (type) {
       case "success":
-        return (
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
-            <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        );
+        return "✓";
       case "error":
-        return (
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </div>
-        );
+        return "✕";
       case "warning":
-        return (
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-            <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
-          </div>
-        );
+        return "⚠";
       default:
-        return (
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-            <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-            </svg>
-          </div>
-        );
+        return "ℹ";
+    }
+  };
+
+  const getColors = () => {
+    switch (type) {
+      case "success":
+        return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+      case "error":
+        return "bg-red-100 text-red-700 ring-red-200";
+      case "warning":
+        return "bg-amber-100 text-amber-700 ring-amber-200";
+      default:
+        return "bg-blue-100 text-blue-700 ring-blue-200";
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-30 transition-opacity" onClick={onClose}></div>
-        
-        <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 transform transition-all">
-          {getIcon()}
-          
-          <div className="mt-3 text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {title}
-            </h3>
-            <p className="text-sm text-gray-600">
-              {message}
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-4">
+          <div className={`w-10 h-10 rounded-full ${getColors()} ring-2 flex items-center justify-center flex-shrink-0 text-xl font-bold`}>
+            {getIcon()}
           </div>
-
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2.5 transition"
-            >
-              OK
-            </button>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-sm text-gray-600">{message}</p>
           </div>
+        </div>
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            OK
+          </button>
         </div>
       </div>
     </div>
@@ -83,42 +65,33 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-30 transition-opacity" onClick={onClose}></div>
-        
-        <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 transform transition-all">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 ring-2 ring-red-200 flex items-center justify-center flex-shrink-0 text-xl font-bold">
+            ⚠
           </div>
-          
-          <div className="mt-3 text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {title}
-            </h3>
-            <p className="text-sm text-gray-600">
-              {message}
-            </p>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-sm text-gray-600">{message}</p>
           </div>
-
-          <div className="mt-6 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2.5 ring-1 ring-gray-300 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={onConfirm}
-              className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2.5 transition"
-            >
-              Delete
-            </button>
-          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </div>
@@ -163,7 +136,7 @@ const Categories = () => {
       });
       
       setCategories(response.data.categories || []);
-    } catch (error) {
+    } catch (error ) {
       const errorMsg = error.response?.data?.message || error.message || "Error fetching categories";
       setError(errorMsg);
       
@@ -337,14 +310,14 @@ const Categories = () => {
 
   return (
     <>
-      <Modal 
+      <Modal
         isOpen={modal.isOpen}
         onClose={closeModal}
         title={modal.title}
         message={modal.message}
         type={modal.type}
       />
-
+      
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal({ isOpen: false, categoryId: null })}
