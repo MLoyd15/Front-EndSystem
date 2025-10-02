@@ -537,7 +537,7 @@ export default function EnhancedSalesChart() {
             </div>
             <div>
               <h3 className="text-lg font-bold text-gray-900">Top 5 Products Sold</h3>
-              <p className="text-sm text-gray-600">Most units sold</p>
+              <p className="text-sm text-gray-600">Most product sold</p>
             </div>
           </div>
           <div className="space-y-1">
