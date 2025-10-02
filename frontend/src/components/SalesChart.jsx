@@ -50,9 +50,7 @@ export default function EnhancedSalesChart() {
   const [groupBy, setGroupBy] = useState("day");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
-  const [chartType, setChartType] = useState("line"); // line | area | bar
-
-  // for product name lookups
+  const [chartType, setChartType] = useState("line");
   const [productIndex, setProductIndex] = useState(new Map());
 
   useEffect(() => {
@@ -120,10 +118,9 @@ export default function EnhancedSalesChart() {
     [groupBy]
   );
 
-  /* ---------- item/line helpers ---------- */
   const getItemsArray = (o) => {
     const candidates = [o?.products, o?.items, o?.orderItems, o?.cart?.items];
-    for (const c of candidates) if (Array.isArray(c) && c.length) return c; // prefer non-empty
+    for (const c of candidates) if (Array.isArray(c) && c.length) return c;
     for (const c of candidates) if (Array.isArray(c)) return c;
     return [];
   };
@@ -169,14 +166,21 @@ export default function EnhancedSalesChart() {
     }
     if (Number.isFinite(Number(it?.amount))) {
       const a = Number(it.amount);
-      return a > 1000 ? a / 100 : a; // centavos heuristic
+      return a > 1000 ? a / 100 : a;
     }
     return 0;
   };
 
-  /* ---------- series data for chart ---------- */
   const processedData = useMemo(() => {
     const grouped = orders.reduce((acc, order) => {
+      // Filter logic: E-Payment always counts, others only if completed
+      const paymentMethod = order?.paymentMethod || "";
+      const status = (order?.status || "").toLowerCase();
+      const isEPayment = paymentMethod.toLowerCase().includes("e-payment");
+      const isCompleted = status === "completed" || status === "confirmed";
+      
+      if (!isEPayment && !isCompleted) return acc;
+
       const key = getDateKey(order?.createdAt);
       if (!key) return acc;
 
@@ -186,7 +190,6 @@ export default function EnhancedSalesChart() {
 
       const items = getItemsArray(order);
 
-      // revenue
       let orderRevenue = Number(order?.total ?? order?.totalAmount);
       if (!Number.isFinite(orderRevenue)) {
         orderRevenue = items.reduce((s, it) => s + getUnitPrice(it) * getQty(it), 0);
@@ -194,7 +197,6 @@ export default function EnhancedSalesChart() {
       acc[key].revenue += orderRevenue;
       acc[key].orderCount += 1;
 
-      // units
       for (const it of items) acc[key].units += getQty(it);
 
       return acc;
@@ -208,7 +210,6 @@ export default function EnhancedSalesChart() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [orders, getDateKey]);
 
-  /* ---------- KPIs ---------- */
   const metrics = useMemo(() => {
     const totalRevenue = processedData.reduce((s, d) => s + d.revenue, 0);
     const totalUnits = processedData.reduce((s, d) => s + d.units, 0);
@@ -217,7 +218,6 @@ export default function EnhancedSalesChart() {
     return { totalRevenue, totalUnits, totalOrders, avgOrderValue };
   }, [processedData]);
 
-  /* ---------- axis max ---------- */
   const { maxRevenue, maxUnits } = useMemo(() => {
     let mr = 0, mu = 0;
     for (const d of processedData) {
@@ -227,14 +227,21 @@ export default function EnhancedSalesChart() {
     return { maxRevenue: Math.ceil(mr * 1.1), maxUnits: Math.ceil(mu * 1.1) };
   }, [processedData]);
 
-  /* ---------- Top 5 Products (by units) ---------- */
   const topProductsByUnits = useMemo(() => {
-    const stats = new Map(); // key -> { id, name, totalUnits, totalRevenue, orderCount }
+    const stats = new Map();
 
     for (const order of orders) {
+      // Apply same filter: E-Payment always counts, others only if completed
+      const paymentMethod = order?.paymentMethod || "";
+      const status = (order?.status || "").toLowerCase();
+      const isEPayment = paymentMethod.toLowerCase().includes("e-payment");
+      const isCompleted = status === "completed" || status === "confirmed";
+      
+      if (!isEPayment && !isCompleted) continue;
+
       const items = getItemsArray(order);
       for (const it of items) {
-        const id = getProductId(it) || getProductName(it); // fallback to name
+        const id = getProductId(it) || getProductName(it);
         const name = getProductName(it);
         const qty = getQty(it);
         const price = getUnitPrice(it);
@@ -250,7 +257,6 @@ export default function EnhancedSalesChart() {
     return [...stats.values()].sort((a, b) => b.totalUnits - a.totalUnits).slice(0, 5);
   }, [orders, productIndex]);
 
-  /* ---------- formatters & small UI bits ---------- */
   const formatCurrency = useCallback((value) => peso(value), []);
 
   const formatDateLabel = useCallback((key) => {
@@ -300,7 +306,6 @@ export default function EnhancedSalesChart() {
     );
   };
 
-  // ⭐ Updated MetricCard: can show a small inline "aside" badge next to the main value (used for Order Volume beside AOV)
   const MetricCard = ({ title, value, icon, color, aside }) => (
     <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
@@ -358,29 +363,25 @@ export default function EnhancedSalesChart() {
     );
   };
 
-  /* ---------- states ---------- */
   if (loading) return <SkeletonChart />;
   if (error) return <ErrorState message={error} />;
   if (processedData.length === 0) return <EmptyState />;
 
-  /* ---------- UI ---------- */
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
         <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
         <MetricCard title="Order Volume" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-blue-600" />
-        {/* ⭐ Avg Order Value with Order Volume shown BESIDE it */}
         <MetricCard
           title="Avg Order Value"
           value={formatCurrency(metrics.avgOrderValue)}
+          aside={`${metrics.totalOrders.toLocaleString()} order volume`}
           icon="📊"
           color="text-purple-600"
         />
       </div>
 
-      {/* Controls */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -430,7 +431,6 @@ export default function EnhancedSalesChart() {
         </div>
       </div>
 
-      {/* Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="h-[500px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -474,7 +474,6 @@ export default function EnhancedSalesChart() {
                 </linearGradient>
               </defs>
 
-              {/* Revenue */}
               {showRevenue && (
                 <>
                   {chartType === "area" && (
@@ -498,7 +497,6 @@ export default function EnhancedSalesChart() {
                 </>
               )}
 
-              {/* Units */}
               {showUnits && (
                 <>
                   {chartType === "area" && (
@@ -528,7 +526,6 @@ export default function EnhancedSalesChart() {
         </div>
       </div>
 
-      {/* Top 5 Products only */}
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -558,7 +555,6 @@ export default function EnhancedSalesChart() {
   );
 }
 
-/* ---------- Helper UI states ---------- */
 function SkeletonChart() {
   return (
     <div className="space-y-6">
