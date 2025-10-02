@@ -24,16 +24,13 @@ const countDeliveredInRange = (deliveries, startMs, endMs) =>
     return t >= startMs && t < endMs && isDelivered ? count + 1 : count;
   }, 0);
 
-// Helpers for delivery toggle ranges
-function deliveryRangeFor(period /* 'week' | 'month' */) {
+// Helper for monthly delivery range
+function getMonthlyDeliveryRange() {
   const now = Date.now();
-  if (period === "month") {
-    const startThis = new Date();
-    startThis.setDate(1);
-    startThis.setHours(0, 0, 0, 0);
-    return { start: startThis.getTime(), end: now, label: "This month" };
-  }
-  return { start: now - 7 * ONE_DAY, end: now, label: "Last 7 days" };
+  const startThis = new Date();
+  startThis.setDate(1);
+  startThis.setHours(0, 0, 0, 0);
+  return { start: startThis.getTime(), end: now, label: "This month" };
 }
 
 /* ---------- Enhanced KPI Card ---------- */
@@ -119,7 +116,6 @@ function StockAlertCard({ title, items, type = "low" }) {
 
 export default function AdminKpi() {
   const [stats, setStats] = useState({
-    totalUsers: 0,
     totalSales: 0,
     totalRevenue: 0,
     totalCategories: 0,
@@ -136,13 +132,11 @@ export default function AdminKpi() {
   const [lowStockItems, setLowStockItems] = useState([]);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
 
-  // NEW: deliveries + toggle state
+  // Deliveries - monthly only
   const [deliveries, setDeliveries] = useState([]);
-  const [deliveryPeriod, setDeliveryPeriod] = useState("week"); // 'week' | 'month'
   const [deliveryCount, setDeliveryCount] = useState(0);
-  const [deliveryLabel, setDeliveryLabel] = useState("Last 7 days");
 
-  // NEW: new customers (this month)
+  // New customers (this month)
   const [newCustomersMonth, setNewCustomersMonth] = useState(0);
 
   useEffect(() => {
@@ -152,43 +146,45 @@ export default function AdminKpi() {
     const fetchStats = async () => {
       try {
         const { data } = await axios.get(`${API}/admin/stats`, { headers });
-        setStats((prev) => ({ ...prev, ...data }));
+        // Exclude totalUsers from stats
+        const { totalUsers, ...otherStats } = data;
+        setStats((prev) => ({ ...prev, ...otherStats }));
       } catch (e) {
         setErr(e?.response?.data?.message || e?.message || "Failed to load stats.");
       }
     };
 
     const fetchUsersNewThisMonth = async () => {
-    try {
-      const token = localStorage.getItem("pos-token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-      let list = [];
       try {
-        const { data } = await axios.get(`${API}/admin/users`, { headers });
-        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-      } catch {
-        const { data } = await axios.get(`${API}/users`, { headers });
-        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+        const token = localStorage.getItem("pos-token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        let list = [];
+        try {
+          const { data } = await axios.get(`${API}/admin/users`, { headers });
+          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+        } catch {
+          const { data } = await axios.get(`${API}/users`, { headers });
+          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+        }
+
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const startMs = startOfMonth.getTime();
+        const endMs = Date.now();
+
+        // Filter users with 'user' role and created in the current month
+        const count = list.filter(user => user.role === 'user').reduce((n, u) => {
+          const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
+          return t >= startMs && t <= endMs ? n + 1 : n;
+        }, 0);
+
+        setNewCustomersMonth(count);
+      } catch (e) {
+        console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
       }
-
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const startMs = startOfMonth.getTime();
-      const endMs = Date.now();
-
-      // Filter users with 'user' role and created in the current month
-      const count = list.filter(user => user.role === 'user').reduce((n, u) => {
-        const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
-        return t >= startMs && t <= endMs ? n + 1 : n;
-      }, 0);
-
-      setNewCustomersMonth(count);
-    } catch (e) {
-      console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
-    }
-  };
+    };
 
     const fetchOrders = async () => {
       try {
@@ -209,19 +205,23 @@ export default function AdminKpi() {
     };
 
     const fetchDeliveries = async () => {
-    try {
-      const { start, end, label } = deliveryRangeFor("month"); // Use "month" to get this month's data
-      const { data } = await axios.get(`${API}/delivery`, { headers });
-      const list = Array.isArray(data?.deliveries) ? data.deliveries : Array.isArray(data) ? data : [];
-      const filteredDeliveries = list.filter((delivery) => {
-        const deliveryDate = new Date(delivery?.createdAt || delivery?.updatedAt);
-        return deliveryDate >= start && deliveryDate <= end;
-      });
-      setDeliveries(filteredDeliveries);
-    } catch (e) {
-      console.warn("Deliveries fetch error:", e?.response?.data?.message || e?.message);
-    }
-  };
+      try {
+        const { start, end } = getMonthlyDeliveryRange();
+        const { data } = await axios.get(`${API}/delivery`, { headers });
+        const list = Array.isArray(data?.deliveries) ? data.deliveries : Array.isArray(data) ? data : [];
+        const filteredDeliveries = list.filter((delivery) => {
+          const deliveryDate = new Date(delivery?.createdAt || delivery?.updatedAt);
+          return deliveryDate >= start && deliveryDate <= end;
+        });
+        setDeliveries(filteredDeliveries);
+        
+        // Calculate delivery count for this month
+        const count = countDeliveredInRange(filteredDeliveries, start, end);
+        setDeliveryCount(count);
+      } catch (e) {
+        console.warn("Deliveries fetch error:", e?.response?.data?.message || e?.message);
+      }
+    };
 
     const fetchProducts = async () => {
       try {
@@ -254,18 +254,11 @@ export default function AdminKpi() {
     };
 
     fetchStats();
-    fetchUsersNewThisMonth();   // <-- new customers
+    fetchUsersNewThisMonth();
     fetchOrders();
-    fetchDeliveries();          // <-- deliveries
+    fetchDeliveries();
     fetchProducts();
   }, []);
-
-  // Recompute Total Delivery when deliveries or period changes
-  useEffect(() => {
-    const { start, end, label } = deliveryRangeFor(deliveryPeriod);
-    setDeliveryLabel(label);
-    setDeliveryCount(countDeliveredInRange(deliveries, start, end));
-  }, [deliveries, deliveryPeriod]);
 
   /* ---------- Category Donut Helpers ---------- */
   const totalCatRevenue = useMemo(
@@ -309,47 +302,14 @@ export default function AdminKpi() {
               </div>
             )}
 
-            {/* Toggle for Total Delivery */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setDeliveryPeriod("week")}
-                className={`text-xs px-2 py-1 rounded border ${
-                  deliveryPeriod === "week"
-                    ? "bg-emerald-600 text-white border-emerald-600"
-                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setDeliveryPeriod("month")}
-                className={`text-xs px-2 py-1 rounded border ${
-                  deliveryPeriod === "month"
-                    ? "bg-emerald-600 text-white border-emerald-600"
-                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                Month
-              </button>
-            </div>
-
             <div className="space-y-3">
-              {/* Total Users */}
+              {/* Monthly Deliveries */}
               <EnhancedKpiCard
-                title="Total Users"
-                value={stats.totalUsers.toLocaleString()}
-                icon={<FaUsers />}
-                gradient="from-blue-500 to-cyan-600"
-                subtitle="Registered customers"
-              />
-
-              {/* Total Delivery */}
-              <EnhancedKpiCard
-                title={`Total Delivery (${deliveryPeriod === "week" ? "Week" : "Month"})`}
+                title="Monthly Deliveries"
                 value={deliveryCount.toLocaleString()}
                 icon={<FaTruck />}
                 gradient="from-teal-500 to-emerald-600"
-                subtitle={deliveryLabel}
+                subtitle="This month"
               />
 
               {/* New Customers (this month) */}

@@ -375,7 +375,7 @@ export default function EnhancedSalesChart() {
         <MetricCard
           title="Avg Order Value"
           value={formatCurrency(metrics.avgOrderValue)}
-          aside={`${metrics.totalOrders.toLocaleString()} orders`}
+          aside={`${metrics.totalOrders.toLocaleString()} order volume`}
           icon="📊"
           color="text-purple-600"
         />
