@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Delivery from "../models/Delivery.js";
 import Driver from "../models/Driver.js";
 import Vehicle from "../models/Vehicle.js";
+import Order from "../models/Order.js";
 
 // -------------------- List deliveries --------------------
 export async function listDeliveries(req, res) {
@@ -57,8 +58,15 @@ export async function updateDelivery(req, res) {
       req.params.id,
       updates,
       { new: true, runValidators: true }
-    );
+    ).populate("order");
+
     if (!updated) return res.status(404).json({ success: false, message: "Not found" });
+
+    // If delivery is completed, update the associated order status to completed
+    if (updated.status === "completed" && updated.order) {
+      await Order.findByIdAndUpdate(updated.order._id, { status: "completed" });
+    }
+
     res.json({ success: true, delivery: updated });
   } catch (e) {
     res.status(400).json({ success: false, message: "Update failed", error: e.message });
