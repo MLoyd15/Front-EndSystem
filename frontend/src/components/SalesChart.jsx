@@ -300,12 +300,20 @@ export default function EnhancedSalesChart() {
     );
   };
 
-  const MetricCard = ({ title, value, icon, color }) => (
+  // ⭐ Updated MetricCard: can show a small inline "aside" badge next to the main value (used for Order Volume beside AOV)
+  const MetricCard = ({ title, value, icon, color, aside }) => (
     <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className={`text-2xl font-bold ${color}`}>{value}</p>
+          <p className={`text-2xl font-bold ${color} flex items-baseline gap-2`}>
+            <span>{value}</span>
+            {aside && (
+              <span className="text-xs font-medium text-gray-700 bg-gray-100 ring-1 ring-gray-200 px-2 py-0.5 rounded-full">
+                {aside}
+              </span>
+            )}
+          </p>
         </div>
         <div className={`p-3 rounded-lg ${color.replace("text-", "bg-").replace("600", "100")}`}>
           <div className={`text-2xl ${color}`}>{icon}</div>
@@ -363,7 +371,14 @@ export default function EnhancedSalesChart() {
         <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
         <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
         <MetricCard title="Total Orders" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-blue-600" />
-        <MetricCard title="Avg Order Value" value={formatCurrency(metrics.avgOrderValue)} icon="📊" color="text-purple-600" />
+        {/* ⭐ Avg Order Value with Order Volume shown BESIDE it */}
+        <MetricCard
+          title="Avg Order Value"
+          value={formatCurrency(metrics.avgOrderValue)}
+          aside={`${metrics.totalOrders.toLocaleString()} orders`}
+          icon="📊"
+          color="text-purple-600"
+        />
       </div>
 
       {/* Controls */}
