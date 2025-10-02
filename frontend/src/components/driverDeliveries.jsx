@@ -3,7 +3,7 @@ import axios from "axios";
 import { Search, MapPin, Clock, User, MessageSquare, Phone, RefreshCw } from "lucide-react";
 import ChatModal from "./chatmodal";       // <- use the ChatModal we created earlier
 import ChatPanel from "./chat";       // <- real Socket.IO chat panel
-import { VITE_API_BASE} from "../config"
+import { VITE_API_BASE, VITE_SOCKET_URL} from "../config"
 
 const API = `${VITE_API_BASE}/delivery`
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
@@ -12,10 +12,10 @@ const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-
 const toneByStatus = (s = "") => {
   const k = String(s).toLowerCase();
   if (k === "in-transit") return { pill: "bg-sky-100 text-sky-700 ring-sky-200", dot: "bg-sky-500" };
-  if (k === "assigned")   return { pill: "bg-emerald-100 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" };
-  if (k === "completed")  return { pill: "bg-indigo-100 text-indigo-700 ring-indigo-200", dot: "bg-indigo-500" };
-  if (k === "pending")    return { pill: "bg-amber-100 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
-  if (k === "cancelled")  return { pill: "bg-slate-100 text-slate-700 ring-slate-200", dot: "bg-slate-400" };
+  if (k === "assigned") return { pill: "bg-emerald-100 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" };
+  if (k === "completed") return { pill: "bg-indigo-100 text-indigo-700 ring-indigo-200", dot: "bg-indigo-500" };
+  if (k === "pending") return { pill: "bg-amber-100 text-amber-700 ring-amber-200", dot: "bg-amber-500" };
+  if (k === "cancelled") return { pill: "bg-slate-100 text-slate-700 ring-slate-200", dot: "bg-slate-400" };
   return { pill: "bg-slate-100 text-slate-700 ring-slate-200", dot: "bg-slate-400" };
 };
 
@@ -33,8 +33,8 @@ const fmt = (d) => (d ? new Date(d).toLocaleString() : "—");
 const last6 = (id = "") => `#${String(id).slice(-6)}`;
 
 export default function DriverDeliveries() {
-  const [rows, setRows] = useState([]);
-  const [allRows, setAllRows] = useState([]); // Store all data for debugging
+  const [allDeliveries, setAllDeliveries] = useState([]); // Store ALL deliveries for counts
+  const [rows, setRows] = useState([]); // Currently displayed deliveries
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [q, setQ] = useState("");
@@ -43,21 +43,12 @@ export default function DriverDeliveries() {
   const [chatOrderId, setChatOrderId] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
 
-  // Get current driver info from localStorage (should be driver data, not user data)
   const me = (() => { 
     try { 
-      // Try to get driver info first, fallback to user if needed
       const driver = JSON.parse(localStorage.getItem("driver") || "{}");
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      
-      // Prefer driver data if available, otherwise use user data
-      const currentDriver = Object.keys(driver).length > 0 ? driver : user;
-      console.log("Current driver info:", currentDriver);
-      console.log("Driver from localStorage:", driver);
-      console.log("User from localStorage:", user);
-      
+      return Object.keys(driver).length > 0 ? driver : user;
     } catch { 
-      console.log("Failed to parse driver/user from localStorage");
       return {}; 
     } 
   })();
@@ -69,12 +60,11 @@ export default function DriverDeliveries() {
     try {
       console.log("Fetching deliveries...");
       
+      // Don't filter by status in the API call - get ALL deliveries
       const params = {};
-      if (tab !== "all") params.status = tab;
-      if (q.trim()) params.q = q.trim();
-
-      // Add this line
       if (me?._id) params.driverId = me._id;
+      // Remove status filter from API call
+      // if (tab !== "all") params.status = tab;
 
       const response = await axios.get(`${API}`, {
         params,
@@ -83,43 +73,29 @@ export default function DriverDeliveries() {
 
       console.log("API Response:", response.data);
 
-      // Normalize response shape
-      const allDeliveries = Array.isArray(response.data) ? response.data : (response.data?.deliveries || []);
-      console.log("All deliveries:", allDeliveries);
-      
-      setAllRows(allDeliveries); // Store all data for debugging
+      const allData = Array.isArray(response.data) ? response.data : (response.data?.deliveries || []);
+      console.log("All deliveries:", allData);
 
-      if (allDeliveries.length === 0) {
+      if (allData.length === 0) {
         console.log("No deliveries found in API response");
+        setAllDeliveries([]);
         setRows([]);
         return;
       }
 
-      // Filter deliveries for this driver with enhanced logging
-     
-      // Filter deliveries for this driver with enhanced logging
-      const myDeliveries = allDeliveries.filter((d) => {
+      // Filter deliveries for this driver
+      const myDeliveries = allData.filter((d) => {
         const assigned = d?.assignedDriver;
         
-        console.log("Checking delivery:", {
-          deliveryId: d._id,
-          assignedDriver: assigned,
-          assignedDriverType: typeof assigned,
-          myId: me?._id,
-        });
-
-        // If no driver ID available, show all deliveries
         if (!me?._id) {
           console.log("⚠️ No driver ID found - showing all deliveries");
           return true;
         }
 
-        // Handle different assignedDriver formats
         let assignedId;
         if (typeof assigned === "string") {
           assignedId = assigned;
         } else if (typeof assigned === "object" && assigned) {
-          // Handle both _id and $oid formats
           if (assigned._id) {
             assignedId = typeof assigned._id === "string" ? assigned._id : assigned._id.$oid;
           } else if (assigned.$oid) {
@@ -127,24 +103,28 @@ export default function DriverDeliveries() {
           }
         }
 
-        // If no assigned driver, don't show this delivery
         if (!assignedId) {
-          console.log("❌ No assignedDriver ID found for this delivery");
           return false;
         }
 
-        // Compare IDs (handle both string and object formats for me._id)
         const myIdStr = typeof me._id === "string" ? me._id : me._id?.$oid;
-        const isMatch = assignedId === myIdStr;
-        
-        console.log("Match result:", { assignedId, myIdStr, isMatch });
-        return isMatch;
+        return assignedId === myIdStr;
       });
-      setRows(myDeliveries);
+
+      // Store all deliveries for tab counts
+      setAllDeliveries(myDeliveries);
+      
+      // Filter for current tab
+      if (tab === "all") {
+        setRows(myDeliveries);
+      } else {
+        setRows(myDeliveries.filter(d => d?.status === tab));
+      }
 
     } catch (err) {
       console.error("Error fetching deliveries:", err);
       setError(err.response?.data?.message || err.message || "Failed to fetch deliveries");
+      setAllDeliveries([]);
       setRows([]);
     } finally {
       setLoading(false);
@@ -153,7 +133,24 @@ export default function DriverDeliveries() {
 
   useEffect(() => {
     fetchDeliveries();
-  }, [tab, q, me?._id]);
+  }, [me?._id]); // Only refetch when driver changes
+
+  // Filter rows when tab changes (no API call needed)
+  useEffect(() => {
+    if (tab === "all") {
+      setRows(allDeliveries);
+    } else {
+      setRows(allDeliveries.filter(d => d?.status === tab));
+    }
+  }, [tab, allDeliveries]);
+
+  // Calculate counts from ALL deliveries
+  const counts = useMemo(() => ({
+    all: allDeliveries.length,
+    assigned: allDeliveries.filter(d => d?.status === "assigned").length,
+    "in-transit": allDeliveries.filter(d => d?.status === "in-transit").length,
+    completed: allDeliveries.filter(d => d?.status === "completed").length,
+  }), [allDeliveries]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
@@ -235,49 +232,23 @@ export default function DriverDeliveries() {
 
       {/* Debug Info */}
       {debugMode && (
-        <div className="mb-4 p-3 bg-slate-50 border rounded-lg text-xs">
-          <div><strong>Driver localStorage key:</strong> {localStorage.getItem("driver") ? "Found" : "Not found"}</div>
-          <div><strong>User localStorage key:</strong> {localStorage.getItem("user") ? "Found" : "Not found"}</div>
-          <div><strong>Current Driver ID:</strong> {me?._id || "Not found"}</div>
-          <div><strong>Current Driver Name:</strong> {me?.name || "Not found"}</div>
-          <div><strong>Driver Role/Type:</strong> {me?.role || me?.type || "Not specified"}</div>
-          <div><strong>Total Deliveries from API:</strong> {allRows.length}</div>
-          <div><strong>My Deliveries:</strong> {rows.length}</div>
-          <div><strong>Filtered Deliveries:</strong> {filtered.length}</div>
-          
-          {allRows.length > 0 && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-slate-600">Show All Deliveries Data</summary>
-              <pre className="mt-2 text-[10px] overflow-auto max-h-40 bg-white p-2 rounded border">
-                {JSON.stringify(allRows.map(d => ({
-                  id: d._id,
-                  assignedDriver: d.assignedDriver,
-                  assignedDriverType: typeof d.assignedDriver,
-                  status: d.status,
-                  pickupLocation: d.pickupLocation
-                })), null, 2)}
-              </pre>
-            </details>
-          )}
-          
-          {me?._id && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-slate-600">Show Current Driver Data</summary>
-              <pre className="mt-2 text-[10px] overflow-auto max-h-40 bg-white p-2 rounded border">
-                {JSON.stringify(me, null, 2)}
-              </pre>
-            </details>
-          )}
-        </div>
+       <div className="mb-4 p-3 bg-slate-50 border rounded-lg text-xs">
+  <div><strong>Driver ID:</strong> {me?._id || "Not found"}</div>
+  <div><strong>Driver Name:</strong> {me?.name || "Not found"}</div>
+  <div><strong>Total My Deliveries:</strong> {allDeliveries.length}</div>
+  <div><strong>Currently Displayed:</strong> {rows.length}</div>
+  <div><strong>After Search Filter:</strong> {filtered.length}</div>
+  <div><strong>Counts:</strong> All: {counts.all}, Assigned: {counts.assigned}, In-Transit: {counts["in-transit"]}, Completed: {counts.completed}</div>
+</div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs - Now using counts from allDeliveries */}
       <div className="flex gap-2 mb-4">
         {[
-          { k: "all", label: `All (${rows.filter(d => tab === "all" || d?.status === tab).length})` },
-          { k: "assigned", label: `Assigned (${rows.filter(d => d?.status === "assigned").length})` },
-          { k: "in-transit", label: `In-Transit (${rows.filter(d => d?.status === "in-transit").length})` },
-          { k: "completed", label: `Completed (${rows.filter(d => d?.status === "completed").length})` },
+          { k: "all", label: `All (${counts.all})` },
+          { k: "assigned", label: `Assigned (${counts.assigned})` },
+          { k: "in-transit", label: `In-Transit (${counts["in-transit"]})` },
+          { k: "completed", label: `Completed (${counts.completed})` },
         ].map((t) => (
           <button
             key={t.k}
@@ -321,14 +292,14 @@ export default function DriverDeliveries() {
                   <div className="flex flex-col items-center gap-2">
                     <div className="text-lg">📦</div>
                     <div>
-                      {rows.length === 0 
+                      {allDeliveries.length === 0 
                         ? "No deliveries assigned to you yet" 
                         : q.trim() 
                           ? `No deliveries match "${q}"` 
-                          : "No deliveries in this category"
+                          : `No ${tab} deliveries`
                       }
                     </div>
-                    {rows.length === 0 && (
+                    {allDeliveries.length === 0 && (
                       <button
                         onClick={fetchDeliveries}
                         className="mt-2 text-emerald-600 hover:text-emerald-700 text-sm"
@@ -401,7 +372,7 @@ export default function DriverDeliveries() {
       {/* Summary */}
       {!loading && filtered.length > 0 && (
         <div className="mt-3 text-sm text-slate-500 text-center">
-          Showing {filtered.length} of {rows.length} deliveries assigned to you
+          Showing {filtered.length} of {rows.length} {tab !== "all" ? tab : ""} deliveries
         </div>
       )}
 

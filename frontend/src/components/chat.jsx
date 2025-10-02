@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import dayjs from "dayjs";
 import axios from "axios";
-import { VITE_API_BASE} from "../config"
+import { VITE_API_BASE, VITE_SOCKET_URL} from "../config"
 
-const API = VITE_API_BASE
+const API = VITE_SOCKET_URL
 
 export default function ChatPanel({ orderId, role = "driver", onClose }) {
   const token = localStorage.getItem("pos-token") || "";
