@@ -141,9 +141,6 @@ export default function AdminKpi() {
   const [deliveryCount, setDeliveryCount] = useState(0);
   const [deliveryLabel, setDeliveryLabel] = useState("This month");
 
-  // NEW: new customers (this month)
-  const [newCustomersMonth, setNewCustomersMonth] = useState(0);
-
   useEffect(() => {
     const token = localStorage.getItem("pos-token");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -157,37 +154,7 @@ export default function AdminKpi() {
       }
     };
 
-    const fetchUsersNewThisMonth = async () => {
-    try {
-      const token = localStorage.getItem("pos-token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      let list = [];
-      try {
-        const { data } = await axios.get(`${API}/admin/users`, { headers });
-        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-      } catch {
-        const { data } = await axios.get(`${API}/users`, { headers });
-        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-      }
-
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const startMs = startOfMonth.getTime();
-      const endMs = Date.now();
-
-      // Filter users with 'user' role and created in the current month
-      const count = list.filter(user => user.role === 'user').reduce((n, u) => {
-        const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
-        return t >= startMs && t <= endMs ? n + 1 : n;
-      }, 0);
-
-      setNewCustomersMonth(count);
-    } catch (e) {
-      console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
-    }
-  };
 
     const fetchOrders = async () => {
       try {
@@ -253,7 +220,6 @@ export default function AdminKpi() {
     };
 
     fetchStats();
-    fetchUsersNewThisMonth();   // <-- new customers
     fetchOrders();
     fetchDeliveries();          // <-- deliveries
     fetchProducts();
@@ -309,6 +275,15 @@ export default function AdminKpi() {
             )}
 
             <div className="space-y-3">
+              {/* Total Users */}
+              <EnhancedKpiCard
+                title="Total Users"
+                value={stats.totalUsers.toLocaleString()}
+                icon={<FaUsers />}
+                gradient="from-blue-500 to-cyan-600"
+                subtitle="Registered customers"
+              />
+
               {/* Total Delivery */}
               <EnhancedKpiCard
                 title="Total Delivery (Month)"
@@ -316,15 +291,6 @@ export default function AdminKpi() {
                 icon={<FaTruck />}
                 gradient="from-teal-500 to-emerald-600"
                 subtitle={deliveryLabel}
-              />
-
-              {/* New Customers (this month) */}
-              <EnhancedKpiCard
-                title="New Customers"
-                value={newCustomersMonth.toLocaleString()}
-                icon={<FaUsers />}
-                gradient="from-violet-500 to-purple-600"
-                subtitle="This month"
               />
             </div>
           </div>
