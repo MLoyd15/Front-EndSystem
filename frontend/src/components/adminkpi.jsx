@@ -24,13 +24,16 @@ const countDeliveredInRange = (deliveries, startMs, endMs) =>
     return t >= startMs && t < endMs && isDelivered ? count + 1 : count;
   }, 0);
 
-// Helper for monthly delivery range
-function getMonthlyDeliveryRange() {
+// Helpers for delivery toggle ranges
+function deliveryRangeFor(period /* 'week' | 'month' */) {
   const now = Date.now();
-  const startThis = new Date();
-  startThis.setDate(1);
-  startThis.setHours(0, 0, 0, 0);
-  return { start: startThis.getTime(), end: now, label: "This month" };
+  if (period === "month") {
+    const startThis = new Date();
+    startThis.setDate(1);
+    startThis.setHours(0, 0, 0, 0);
+    return { start: startThis.getTime(), end: now, label: "This month" };
+  }
+  return { start: now - 7 * ONE_DAY, end: now, label: "Last 7 days" };
 }
 
 /* ---------- Enhanced KPI Card ---------- */
@@ -116,6 +119,7 @@ function StockAlertCard({ title, items, type = "low" }) {
 
 export default function AdminKpi() {
   const [stats, setStats] = useState({
+    totalUsers: 0,
     totalSales: 0,
     totalRevenue: 0,
     totalCategories: 0,
@@ -132,11 +136,12 @@ export default function AdminKpi() {
   const [lowStockItems, setLowStockItems] = useState([]);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
 
-  // Deliveries - monthly only
+  // NEW: deliveries + toggle state
   const [deliveries, setDeliveries] = useState([]);
   const [deliveryCount, setDeliveryCount] = useState(0);
+  const [deliveryLabel, setDeliveryLabel] = useState("This month");
 
-  // New customers (this month)
+  // NEW: new customers (this month)
   const [newCustomersMonth, setNewCustomersMonth] = useState(0);
 
   useEffect(() => {
@@ -146,45 +151,43 @@ export default function AdminKpi() {
     const fetchStats = async () => {
       try {
         const { data } = await axios.get(`${API}/admin/stats`, { headers });
-        // Exclude totalUsers from stats
-        const { totalUsers, ...otherStats } = data;
-        setStats((prev) => ({ ...prev, ...otherStats }));
+        setStats((prev) => ({ ...prev, ...data }));
       } catch (e) {
         setErr(e?.response?.data?.message || e?.message || "Failed to load stats.");
       }
     };
 
     const fetchUsersNewThisMonth = async () => {
+    try {
+      const token = localStorage.getItem("pos-token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      let list = [];
       try {
-        const token = localStorage.getItem("pos-token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-        let list = [];
-        try {
-          const { data } = await axios.get(`${API}/admin/users`, { headers });
-          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-        } catch {
-          const { data } = await axios.get(`${API}/users`, { headers });
-          list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-        }
-
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
-        const startMs = startOfMonth.getTime();
-        const endMs = Date.now();
-
-        // Filter users with 'user' role and created in the current month
-        const count = list.filter(user => user.role === 'user').reduce((n, u) => {
-          const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
-          return t >= startMs && t <= endMs ? n + 1 : n;
-        }, 0);
-
-        setNewCustomersMonth(count);
-      } catch (e) {
-        console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
+        const { data } = await axios.get(`${API}/admin/users`, { headers });
+        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+      } catch {
+        const { data } = await axios.get(`${API}/users`, { headers });
+        list = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
       }
-    };
+
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const startMs = startOfMonth.getTime();
+      const endMs = Date.now();
+
+      // Filter users with 'user' role and created in the current month
+      const count = list.filter(user => user.role === 'user').reduce((n, u) => {
+        const t = new Date(u?.createdAt || u?.date || u?.updatedAt || 0).getTime();
+        return t >= startMs && t <= endMs ? n + 1 : n;
+      }, 0);
+
+      setNewCustomersMonth(count);
+    } catch (e) {
+      console.warn("Users fetch error:", e?.response?.data?.message || e?.message);
+    }
+  };
 
     const fetchOrders = async () => {
       try {
@@ -205,23 +208,19 @@ export default function AdminKpi() {
     };
 
     const fetchDeliveries = async () => {
-      try {
-        const { start, end } = getMonthlyDeliveryRange();
-        const { data } = await axios.get(`${API}/delivery`, { headers });
-        const list = Array.isArray(data?.deliveries) ? data.deliveries : Array.isArray(data) ? data : [];
-        const filteredDeliveries = list.filter((delivery) => {
-          const deliveryDate = new Date(delivery?.createdAt || delivery?.updatedAt);
-          return deliveryDate >= start && deliveryDate <= end;
-        });
-        setDeliveries(filteredDeliveries);
-        
-        // Calculate delivery count for this month
-        const count = countDeliveredInRange(filteredDeliveries, start, end);
-        setDeliveryCount(count);
-      } catch (e) {
-        console.warn("Deliveries fetch error:", e?.response?.data?.message || e?.message);
-      }
-    };
+    try {
+      const { start, end, label } = deliveryRangeFor("month"); // Use "month" to get this month's data
+      const { data } = await axios.get(`${API}/delivery`, { headers });
+      const list = Array.isArray(data?.deliveries) ? data.deliveries : Array.isArray(data) ? data : [];
+      const filteredDeliveries = list.filter((delivery) => {
+        const deliveryDate = new Date(delivery?.createdAt || delivery?.updatedAt);
+        return deliveryDate >= start && deliveryDate <= end;
+      });
+      setDeliveries(filteredDeliveries);
+    } catch (e) {
+      console.warn("Deliveries fetch error:", e?.response?.data?.message || e?.message);
+    }
+  };
 
     const fetchProducts = async () => {
       try {
@@ -254,11 +253,18 @@ export default function AdminKpi() {
     };
 
     fetchStats();
-    fetchUsersNewThisMonth();
+    fetchUsersNewThisMonth();   // <-- new customers
     fetchOrders();
-    fetchDeliveries();
+    fetchDeliveries();          // <-- deliveries
     fetchProducts();
   }, []);
+
+  // Recompute Total Delivery when deliveries change
+  useEffect(() => {
+    const { start, end, label } = deliveryRangeFor("month");
+    setDeliveryLabel(label);
+    setDeliveryCount(countDeliveredInRange(deliveries, start, end));
+  }, [deliveries]);
 
   /* ---------- Category Donut Helpers ---------- */
   const totalCatRevenue = useMemo(
@@ -303,13 +309,13 @@ export default function AdminKpi() {
             )}
 
             <div className="space-y-3">
-              {/* Monthly Deliveries */}
+              {/* Total Delivery */}
               <EnhancedKpiCard
-                title="Monthly Deliveries"
+                title="Total Delivery (Month)"
                 value={deliveryCount.toLocaleString()}
                 icon={<FaTruck />}
                 gradient="from-teal-500 to-emerald-600"
-                subtitle="This month"
+                subtitle={deliveryLabel}
               />
 
               {/* New Customers (this month) */}
