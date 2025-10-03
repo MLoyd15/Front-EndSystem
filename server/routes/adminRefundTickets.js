@@ -1,6 +1,6 @@
 // routes/adminRefundTickets.js
 import express from "express";
-import { listTickets, getTicket, updateTicket, bulkUpdate } from "../controllers/refundTicketController.js";
+import { listTickets, getTicket, updateTicket, bulkUpdate } from "../controlers/refundTicketController.js";
 import { isAuth, isAdmin } from "../middleware/auth.js"; // adapt to your middleware
 
 const router = express.Router();
