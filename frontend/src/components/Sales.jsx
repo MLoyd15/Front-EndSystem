@@ -10,6 +10,8 @@ import {
   X,
   Truck,
   CheckCircle2,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
 
@@ -37,24 +39,49 @@ const formatDate = (dateString) => {
   return `${month} ${day}, ${year} at ${h12}:${minutes} ${ampm}`;
 };
 
-// --- STATUS CONFIG + SAFE ACCESSOR ---
-const statusConfig = {
-  pending: { label: "Pending", className: "text-orange-900", bg: "bg-orange-100" },
-  confirmed: { label: "Confirmed", className: "text-blue-900", bg: "bg-blue-100" },
-  preparing: { label: "Preparing", className: "text-purple-900", bg: "bg-purple-100" },
-  "out-for-delivery": { label: "Out for Delivery", className: "text-indigo-900", bg: "bg-indigo-100" },
-  delivered: { label: "Delivered", className: "text-green-900", bg: "bg-green-100" },
-  cancelled: { label: "Cancelled", className: "text-red-900", bg: "bg-red-100" },
+// --- DELIVERY STATUS CONFIG ---
+const deliveryStatusConfig = {
+  pending: { 
+    label: "Pending Assignment", 
+    className: "text-gray-900", 
+    bg: "bg-gray-100",
+    icon: <AlertCircle className="h-3 w-3" />
+  },
+  assigned: { 
+    label: "Assigned to Driver", 
+    className: "text-blue-900", 
+    bg: "bg-blue-100",
+    icon: <Truck className="h-3 w-3" />
+  },
+  "in-transit": { 
+    label: "Out for Delivery", 
+    className: "text-indigo-900", 
+    bg: "bg-indigo-100",
+    icon: <Truck className="h-3 w-3" />
+  },
+  completed: { 
+    label: "Delivered", 
+    className: "text-green-900", 
+    bg: "bg-green-100",
+    icon: <CheckCircle2 className="h-3 w-3" />
+  },
+  cancelled: { 
+    label: "Cancelled", 
+    className: "text-red-900", 
+    bg: "bg-red-100",
+    icon: <X className="h-3 w-3" />
+  },
 };
 
-const getStatusConfig = (status) =>
-  statusConfig[status] || {
-    label:
-      (status && String(status).replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())) ||
-      "Unknown",
+const getDeliveryStatusConfig = (status) => {
+  const normalizedStatus = String(status ?? "pending").toLowerCase();
+  return deliveryStatusConfig[normalizedStatus] || {
+    label: "Unknown Status",
     className: "text-gray-700",
     bg: "bg-gray-100",
+    icon: <AlertCircle className="h-3 w-3" />
   };
+};
 
 // --- SMALL UI COMPONENTS ---
 const Card = ({ className = "", children, onClick }) => (
@@ -71,8 +98,9 @@ const CardContent = ({ className = "", children }) => (
   <div className={cn("p-6 pt-0", className)}>{children}</div>
 );
 
-const Badge = ({ className = "", children }) => (
-  <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold", className)}>
+const Badge = ({ className = "", children, icon }) => (
+  <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold", className)}>
+    {icon}
     {children}
   </span>
 );
@@ -108,9 +136,9 @@ const Button = ({ className = "", variant = "default", size = "default", childre
 
 const Separator = ({ className = "" }) => <div className={cn("h-px bg-gray-200", className)} />;
 
-const OrderStatusBadge = ({ status }) => {
-  const cfg = getStatusConfig(status);
-  return <Badge className={cn("font-medium", cfg.bg, cfg.className)}>{cfg.label}</Badge>;
+const DeliveryStatusBadge = ({ status }) => {
+  const cfg = getDeliveryStatusConfig(status);
+  return <Badge className={cn("font-medium", cfg.bg, cfg.className)} icon={cfg.icon}>{cfg.label}</Badge>;
 };
 
 // --- METRIC CARD ---
@@ -126,12 +154,14 @@ const MetricCard = ({ title, value, icon }) => (
   </div>
 );
 
-// --- ORDER CARD / DETAILS ---
+// --- ORDER CARD ---
 const OrderCard = ({ order, onClick }) => {
-  // normalize to avoid crashes
   const items = Array.isArray(order.items) ? order.items : order.products || [];
   const total = Number(order.total ?? order.totalAmount ?? 0);
   const idShort = String(order._id ?? order.id ?? "").slice(-8) || "unknown";
+  
+  // Get delivery status from the delivery object
+  const deliveryStatus = order.delivery?.status || order.deliveryStatus || "pending";
 
   return (
     <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.01]" onClick={onClick}>
@@ -141,7 +171,7 @@ const OrderCard = ({ order, onClick }) => {
             <p className="text-sm text-gray-500">Order ID</p>
             <p className="font-mono text-sm font-medium truncate">#{idShort}</p>
           </div>
-          <OrderStatusBadge status={order.status} />
+          <DeliveryStatusBadge status={deliveryStatus} />
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -152,18 +182,37 @@ const OrderCard = ({ order, onClick }) => {
           </span>
           <span className="ml-auto font-semibold text-lg">{peso(total)}</span>
         </div>
+        
+        {/* Show delivery type */}
+        {order.delivery?.type && (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Truck className="h-4 w-4" />
+            <span className="capitalize">{order.delivery.type.replace("-", " ")}</span>
+          </div>
+        )}
+        
+        {/* Show driver info if assigned */}
+        {order.delivery?.assignedDriver && (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>Driver: {order.delivery.assignedDriver.name || "Assigned"}</span>
+          </div>
+        )}
+        
         {order.address && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <MapPin className="h-4 w-4" />
             <span className="truncate">{order.address}</span>
           </div>
         )}
+        
         {(order.paymentMethod || order.payment) && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <CreditCard className="h-4 w-4" />
             <span>{order.paymentMethod ?? order.payment ?? "—"}</span>
           </div>
         )}
+        
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Calendar className="h-4 w-4" />
           <span>{formatDate(order.createdAt ?? order.created)}</span>
@@ -173,8 +222,10 @@ const OrderCard = ({ order, onClick }) => {
   );
 };
 
+// --- ORDER DETAILS MODAL ---
 const OrderDetailsModal = ({ order, onClose }) => {
   if (!order) return null;
+  
   const items = Array.isArray(order.items) ? order.items : order.products || [];
   const subtotal = Number(
     order.subtotal ??
@@ -182,10 +233,12 @@ const OrderDetailsModal = ({ order, onClose }) => {
   );
   const deliveryFee = Number(order.deliveryFee ?? order.shipping ?? 0);
   const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
-  const currentStatus = String(order.status ?? "").toLowerCase();
-
-  const statusSteps = ["pending", "confirmed", "preparing", "out-for-delivery", "delivered"];
-  const currentIndex = Math.max(0, statusSteps.indexOf(currentStatus));
+  
+  const deliveryStatus = order.delivery?.status || order.deliveryStatus || "pending";
+  
+  // Delivery status steps
+  const deliverySteps = ["pending", "assigned", "in-transit", "completed"];
+  const currentIndex = Math.max(0, deliverySteps.indexOf(deliveryStatus));
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -199,18 +252,22 @@ const OrderDetailsModal = ({ order, onClose }) => {
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Delivery Status Section */}
           <div>
-            <h4 className="font-semibold flex items-center gap-2">
-              <Package className="h-4 w-4" /> Order Status
+            <h4 className="font-semibold flex items-center gap-2 mb-3">
+              <Truck className="h-4 w-4" /> Delivery Status
             </h4>
-            <div className="mt-3">
-              <OrderStatusBadge status={order.status} />
+            <div className="mb-4">
+              <DeliveryStatusBadge status={deliveryStatus} />
             </div>
 
-            <div className="mt-4 space-y-3">
-              {statusSteps.map((step, idx) => {
+            {/* Delivery Progress */}
+            <div className="space-y-3">
+              {deliverySteps.map((step, idx) => {
                 const complete = idx <= currentIndex;
                 const current = idx === currentIndex;
+                const cfg = getDeliveryStatusConfig(step);
+                
                 return (
                   <div key={step} className="flex items-center gap-3">
                     <div
@@ -223,17 +280,53 @@ const OrderDetailsModal = ({ order, onClose }) => {
                     </div>
                     <div className="flex-1">
                       <p className={cn("text-sm font-medium", current && "text-blue-600")}>
-                        {step.split("-").map((s) => s[0].toUpperCase() + s.slice(1)).join(" ")}
+                        {cfg.label}
                       </p>
+                      {current && order.delivery?.assignedDriver && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Driver: {order.delivery.assignedDriver.name}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Delivery Details */}
+            {order.delivery && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                {order.delivery.type && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Delivery Type:</span>
+                    <span className="font-medium capitalize">{order.delivery.type.replace("-", " ")}</span>
+                  </div>
+                )}
+                {order.delivery.scheduledDate && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Scheduled:</span>
+                    <span className="font-medium">{formatDate(order.delivery.scheduledDate)}</span>
+                  </div>
+                )}
+                {order.delivery.deliveredAt && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Delivered At:</span>
+                    <span className="font-medium">{formatDate(order.delivery.deliveredAt)}</span>
+                  </div>
+                )}
+                {order.delivery.assignedVehicle && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Vehicle:</span>
+                    <span className="font-medium">{order.delivery.assignedVehicle.plate || "Assigned"}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <Separator />
 
+          {/* Items Section */}
           <div>
             <h4 className="font-semibold">Items Ordered</h4>
             <div className="space-y-2 mt-3">
@@ -256,18 +349,15 @@ const OrderDetailsModal = ({ order, onClose }) => {
 
           <Separator />
 
+          {/* Address & Payment Section */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <h4 className="font-semibold flex items-center gap-2">
                 <MapPin className="h-4 w-4" /> Delivery Address
               </h4>
-              <p className="text-sm text-gray-500 mt-2">{order.address ?? order.deliveryAddress ?? "No address provided"}</p>
-              {order.deliveryType && (
-                <div className="flex items-center gap-2 mt-2">
-                  <Truck className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm capitalize">{String(order.deliveryType).replace("-", " ")}</span>
-                </div>
-              )}
+              <p className="text-sm text-gray-500 mt-2">
+                {order.delivery?.deliveryAddress ?? order.address ?? order.deliveryAddress ?? "No address provided"}
+              </p>
             </div>
 
             <div>
@@ -296,6 +386,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
 
           <Separator />
 
+          {/* Timestamps */}
           <div className="space-y-2 text-sm text-gray-500">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -303,7 +394,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
             </div>
             {order.updatedAt && (
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
+                <Clock className="h-4 w-4" />
                 <span>Last updated {formatDate(order.updatedAt)}</span>
               </div>
             )}
@@ -314,7 +405,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
   );
 };
 
-// --- MAIN PAGE ---
+// --- MAIN COMPONENT ---
 export default function Sales() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -322,7 +413,7 @@ export default function Sales() {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("all");
 
   useEffect(() => {
     let mounted = true;
@@ -334,7 +425,6 @@ export default function Sales() {
         const token = localStorage.getItem("pos-token");
         if (token) headers.Authorization = `Bearer ${token}`;
 
-        // Expect backend to expose an /orders endpoint
         const res = await fetch(`${API}/orders`, { headers });
         if (!res.ok) {
           const text = await res.text().catch(() => "");
@@ -342,12 +432,9 @@ export default function Sales() {
         }
         const data = await res.json();
 
-        // normalize to array
         const list = Array.isArray(data) ? data : data?.orders ?? data?.items ?? [];
-        // safety map: ensure minimal fields exist
         const normalized = list.map((o) => ({
           _id: o._id ?? o.id ?? "unknown",
-          status: (o.status ?? "pending")?.toString().toLowerCase(),
           items: Array.isArray(o.items) ? o.items : Array.isArray(o.products) ? o.products : [],
           address: o.address ?? o.deliveryAddress ?? o.shippingAddress ?? "",
           paymentMethod: o.paymentMethod ?? o.payment ?? "",
@@ -356,15 +443,14 @@ export default function Sales() {
           total: o.total ?? o.totalAmount ?? null,
           createdAt: o.createdAt ?? o.created ?? o.created_at ?? null,
           updatedAt: o.updatedAt ?? o.updated ?? null,
-          // keep original for debugging
+          // Extract delivery information
+          delivery: o.delivery ?? null,
+          deliveryStatus: o.delivery?.status ?? o.deliveryStatus ?? "pending",
           __raw: o,
         }));
 
         if (mounted) {
           setOrders(normalized);
-          // log unexpected shapes to console for easy debugging
-          const bad = normalized.filter((x) => !x._id || !x.status);
-          if (bad.length > 0) console.warn("Sales page: found orders with missing _id/status:", bad.map((b) => b.__raw));
         }
       } catch (e) {
         console.error("Order fetch error:", e);
@@ -382,21 +468,25 @@ export default function Sales() {
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
-      const statusMatches = statusFilter === "all" || (o.status ?? "pending") === statusFilter;
+      const deliveryStatus = (o.deliveryStatus ?? "pending").toLowerCase();
+      const statusMatches = deliveryStatusFilter === "all" || deliveryStatus === deliveryStatusFilter;
+      
       const q = (searchQuery || "").trim().toLowerCase();
       if (!q) return statusMatches;
+      
       const idMatch = String(o._id ?? "").toLowerCase().includes(q);
       const addrMatch = (o.address ?? "").toLowerCase().includes(q);
       return statusMatches && (idMatch || addrMatch);
     });
-  }, [orders, statusFilter, searchQuery]);
+  }, [orders, deliveryStatusFilter, searchQuery]);
 
   const metrics = useMemo(() => {
     const totalRevenue = orders.reduce((s, o) => s + Number(o.total ?? 0), 0);
     const totalOrders = orders.length;
-    const delivered = orders.filter((o) => o.status === "delivered").length;
-    const pending = orders.filter((o) => o.status === "pending").length;
-    return { totalRevenue, totalOrders, delivered, pending };
+    const delivered = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "completed").length;
+    const inTransit = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "in-transit").length;
+    const pending = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "pending").length;
+    return { totalRevenue, totalOrders, delivered, inTransit, pending };
   }, [orders]);
 
   if (loading) {
@@ -446,16 +536,16 @@ export default function Sales() {
             <div className="p-2 bg-blue-600 rounded-lg">
               <Package className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-4xl font-bold">Sales & Orders</h1>
+            <h1 className="text-4xl font-bold">Sales & Deliveries</h1>
           </div>
-          <p className="text-gray-500 text-lg">Track and manage all your orders in one place</p>
+          <p className="text-gray-500 text-lg">Track orders and delivery status in one place</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <MetricCard title="Total Revenue" value={peso(metrics.totalRevenue)} icon={<CreditCard className="h-6 w-6" />} />
           <MetricCard title="Total Orders" value={metrics.totalOrders.toLocaleString()} icon={<Package className="h-6 w-6" />} />
           <MetricCard title="Delivered" value={metrics.delivered.toLocaleString()} icon={<CheckCircle2 className="h-6 w-6" />} />
-          <MetricCard title="Pending" value={metrics.pending.toLocaleString()} icon={<Calendar className="h-6 w-6" />} />
+          <MetricCard title="In Transit" value={metrics.inTransit.toLocaleString()} icon={<Truck className="h-6 w-6" />} />
         </div>
 
         <div className="bg-white rounded-xl border p-4 mb-6">
@@ -468,13 +558,13 @@ export default function Sales() {
               <Filter className="h-4 w-4 text-gray-500" />
               <select
                 className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={deliveryStatusFilter}
+                onChange={(e) => setDeliveryStatusFilter(e.target.value)}
               >
-                <option value="all">All Status</option>
-                {Object.keys(statusConfig).map((k) => (
+                <option value="all">All Delivery Status</option>
+                {Object.keys(deliveryStatusConfig).map((k) => (
                   <option key={k} value={k}>
-                    {statusConfig[k].label}
+                    {deliveryStatusConfig[k].label}
                   </option>
                 ))}
               </select>
@@ -486,7 +576,11 @@ export default function Sales() {
           <div className="text-center py-16 bg-white rounded-xl border">
             <Package className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h2 className="text-2xl font-semibold mb-2">No orders found</h2>
-            <p className="text-gray-500">{searchQuery || statusFilter !== "all" ? "Try adjusting your filters" : "Your order history will appear here once you make a purchase"}</p>
+            <p className="text-gray-500">
+              {searchQuery || deliveryStatusFilter !== "all" 
+                ? "Try adjusting your filters" 
+                : "Your order history will appear here once you make a purchase"}
+            </p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
