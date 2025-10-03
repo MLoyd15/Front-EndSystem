@@ -235,6 +235,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
   const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
   
   const deliveryStatus = order.delivery?.status || order.deliveryStatus || "pending";
+  const isEPayment = order.isEPayment || false;
   
   // Delivery status steps
   const deliverySteps = ["pending", "assigned", "in-transit", "completed"];
@@ -252,79 +253,83 @@ const OrderDetailsModal = ({ order, onClose }) => {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Delivery Status Section */}
-          <div>
-            <h4 className="font-semibold flex items-center gap-2 mb-3">
-              <Truck className="h-4 w-4" /> Delivery Status
-            </h4>
-            <div className="mb-4">
-              <DeliveryStatusBadge status={deliveryStatus} />
-            </div>
+          {/* Delivery Status Section - Hidden for E-Payment */}
+          {!isEPayment && (
+            <>
+              <div>
+                <h4 className="font-semibold flex items-center gap-2 mb-3">
+                  <Truck className="h-4 w-4" /> Delivery Status
+                </h4>
+                <div className="mb-4">
+                  <DeliveryStatusBadge status={deliveryStatus} />
+                </div>
 
-            {/* Delivery Progress */}
-            <div className="space-y-3">
-              {deliverySteps.map((step, idx) => {
-                const complete = idx <= currentIndex;
-                const current = idx === currentIndex;
-                const cfg = getDeliveryStatusConfig(step);
-                
-                return (
-                  <div key={step} className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full border-2",
-                        complete ? "border-blue-600 bg-blue-600 text-white" : "border-gray-300 bg-white"
-                      )}
-                    >
-                      {complete ? "✓" : idx + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className={cn("text-sm font-medium", current && "text-blue-600")}>
-                        {cfg.label}
-                      </p>
-                      {current && order.delivery?.assignedDriver && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Driver: {order.delivery.assignedDriver.name}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                {/* Delivery Progress */}
+                <div className="space-y-3">
+                  {deliverySteps.map((step, idx) => {
+                    const complete = idx <= currentIndex;
+                    const current = idx === currentIndex;
+                    const cfg = getDeliveryStatusConfig(step);
+                    
+                    return (
+                      <div key={step} className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-full border-2",
+                            complete ? "border-blue-600 bg-blue-600 text-white" : "border-gray-300 bg-white"
+                          )}
+                        >
+                          {complete ? "✓" : idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className={cn("text-sm font-medium", current && "text-blue-600")}>
+                            {cfg.label}
+                          </p>
+                          {current && order.delivery?.assignedDriver && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Driver: {order.delivery.assignedDriver.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            {/* Delivery Details */}
-            {order.delivery && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
-                {order.delivery.type && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Delivery Type:</span>
-                    <span className="font-medium capitalize">{order.delivery.type.replace("-", " ")}</span>
-                  </div>
-                )}
-                {order.delivery.scheduledDate && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Scheduled:</span>
-                    <span className="font-medium">{formatDate(order.delivery.scheduledDate)}</span>
-                  </div>
-                )}
-                {order.delivery.deliveredAt && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Delivered At:</span>
-                    <span className="font-medium">{formatDate(order.delivery.deliveredAt)}</span>
-                  </div>
-                )}
-                {order.delivery.assignedVehicle && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Vehicle:</span>
-                    <span className="font-medium">{order.delivery.assignedVehicle.plate || "Assigned"}</span>
+                {/* Delivery Details */}
+                {order.delivery && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                    {order.delivery.type && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Delivery Type:</span>
+                        <span className="font-medium capitalize">{order.delivery.type.replace("-", " ")}</span>
+                      </div>
+                    )}
+                    {order.delivery.scheduledDate && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Scheduled:</span>
+                        <span className="font-medium">{formatDate(order.delivery.scheduledDate)}</span>
+                      </div>
+                    )}
+                    {order.delivery.deliveredAt && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Delivered At:</span>
+                        <span className="font-medium">{formatDate(order.delivery.deliveredAt)}</span>
+                      </div>
+                    )}
+                    {order.delivery.assignedVehicle && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Vehicle:</span>
+                        <span className="font-medium">{order.delivery.assignedVehicle.plate || "Assigned"}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          <Separator />
+              <Separator />
+            </>
+          )}
 
           {/* Items Section */}
           <div>
@@ -414,6 +419,8 @@ export default function Sales() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
 
   useEffect(() => {
     let mounted = true;
@@ -512,6 +519,18 @@ export default function Sales() {
       return statusMatches && (idMatch || addrMatch);
     });
   }, [orders, deliveryStatusFilter, searchQuery]);
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, deliveryStatusFilter]);
 
   const metrics = useMemo(() => {
     const totalRevenue = orders.reduce((s, o) => s + Number(o.total ?? 0), 0);
@@ -616,11 +635,81 @@ export default function Sales() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((order) => (
-              <OrderCard key={String(order._id ?? Math.random())} order={order} onClick={() => setSelectedOrder(order)} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {paginatedOrders.map((order) => (
+                <OrderCard key={String(order._id ?? Math.random())} order={order} onClick={() => setSelectedOrder(order)} />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-between bg-white rounded-xl border p-4">
+                <div className="text-sm text-gray-600">
+                  Showing <span className="font-medium text-gray-900">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
+                  <span className="font-medium text-gray-900">{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of{" "}
+                  <span className="font-medium text-gray-900">{filtered.length}</span> orders
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="default"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="disabled:opacity-50"
+                  >
+                    Previous
+                  </Button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                      // Show first page, last page, current page, and pages around current
+                      const showPage = 
+                        pageNum === 1 ||
+                        pageNum === totalPages ||
+                        (pageNum >= currentPage - 1 && pageNum <= currentPage + 1);
+                      
+                      const showEllipsis =
+                        (pageNum === currentPage - 2 && currentPage > 3) ||
+                        (pageNum === currentPage + 2 && currentPage < totalPages - 2);
+
+                      if (showEllipsis) {
+                        return <span key={pageNum} className="px-2 text-gray-400">...</span>;
+                      }
+
+                      if (!showPage) return null;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={cn(
+                            "w-10 h-10 rounded-lg text-sm font-medium transition-colors",
+                            pageNum === currentPage
+                              ? "bg-blue-600 text-white"
+                              : "bg-white border hover:bg-gray-50 text-gray-700"
+                          )}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="default"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="disabled:opacity-50"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {selectedOrder && <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
