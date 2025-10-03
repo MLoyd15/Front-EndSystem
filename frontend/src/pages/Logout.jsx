@@ -18,7 +18,7 @@ export default function Logout() {
     sessionStorage.clear();
 
     // Redirect to login
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleCancel = () => {
