@@ -141,7 +141,7 @@ const GoAgriLanding = () => {
             <div className="hidden md:flex items-center space-x-8">
               <a href="#marketplace" className="text-gray-700 hover:text-green-600 font-medium transition">Marketplace</a>
               <a href="#reviews" className="text-gray-700 hover:text-green-600 font-medium transition">Reviews</a>
-              <a href="#contact" className="text-gray-700 hover:text-green-600 font-medium transition">Contact</a>
+              
               <a 
                 href="/login" 
                 className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
