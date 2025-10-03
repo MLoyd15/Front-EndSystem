@@ -41,7 +41,7 @@ function App() {
         <Route path="inventory" element={<h1>inventory</h1>} />
         <Route path="review" element={<Review/>} />
         <Route path="promo" element={<Promo/>}/>
-        <Route path="Sales" element={<Sales/>}/>
+        <Route path="Sales" element={<h1>sales</h1>}/>
         <Route path="logout" element={<Logout/>}/>
       </Route>
 
