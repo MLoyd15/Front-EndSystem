@@ -53,12 +53,6 @@ const deliveryStatusConfig = {
     bg: "bg-blue-100",
     icon: <Truck className="h-3 w-3" />
   },
-  "in-transit": { 
-    label: "Out for Delivery", 
-    className: "text-indigo-900", 
-    bg: "bg-indigo-100",
-    icon: <Truck className="h-3 w-3" />
-  },
   completed: { 
     label: "Delivered", 
     className: "text-green-900", 
@@ -159,8 +153,6 @@ const OrderCard = ({ order, onClick }) => {
   const items = Array.isArray(order.items) ? order.items : order.products || [];
   const total = Number(order.total ?? order.totalAmount ?? 0);
   const idShort = String(order._id ?? order.id ?? "").slice(-8) || "unknown";
-  
-  // Use deliveryStatus from normalized order (already handles e-payment)
   const deliveryStatus = order.deliveryStatus || "pending";
 
   return (
@@ -183,7 +175,6 @@ const OrderCard = ({ order, onClick }) => {
           <span className="ml-auto font-semibold text-lg">{peso(total)}</span>
         </div>
         
-        {/* Show delivery type */}
         {order.delivery?.type && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Truck className="h-4 w-4" />
@@ -191,7 +182,6 @@ const OrderCard = ({ order, onClick }) => {
           </div>
         )}
         
-        {/* Show driver info if assigned */}
         {order.delivery?.assignedDriver && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <CheckCircle2 className="h-4 w-4" />
@@ -237,8 +227,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
   const deliveryStatus = order.delivery?.status || order.deliveryStatus || "pending";
   const isEPayment = order.isEPayment || false;
   
-  // Delivery status steps
-  const deliverySteps = ["pending", "assigned", "in-transit", "completed"];
+  const deliverySteps = ["pending", "assigned", "completed"];
   const currentIndex = Math.max(0, deliverySteps.indexOf(deliveryStatus));
 
   return (
@@ -253,7 +242,6 @@ const OrderDetailsModal = ({ order, onClose }) => {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Delivery Status Section - Hidden for E-Payment */}
           {!isEPayment && (
             <>
               <div>
@@ -264,7 +252,6 @@ const OrderDetailsModal = ({ order, onClose }) => {
                   <DeliveryStatusBadge status={deliveryStatus} />
                 </div>
 
-                {/* Delivery Progress */}
                 <div className="space-y-3">
                   {deliverySteps.map((step, idx) => {
                     const complete = idx <= currentIndex;
@@ -296,7 +283,6 @@ const OrderDetailsModal = ({ order, onClose }) => {
                   })}
                 </div>
 
-                {/* Delivery Details */}
                 {order.delivery && (
                   <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
                     {order.delivery.type && (
@@ -326,12 +312,10 @@ const OrderDetailsModal = ({ order, onClose }) => {
                   </div>
                 )}
               </div>
-
               <Separator />
             </>
           )}
 
-          {/* Items Section */}
           <div>
             <h4 className="font-semibold">Items Ordered</h4>
             <div className="space-y-2 mt-3">
@@ -354,7 +338,6 @@ const OrderDetailsModal = ({ order, onClose }) => {
 
           <Separator />
 
-          {/* Address & Payment Section */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <h4 className="font-semibold flex items-center gap-2">
@@ -391,7 +374,6 @@ const OrderDetailsModal = ({ order, onClose }) => {
 
           <Separator />
 
-          {/* Timestamps */}
           <div className="space-y-2 text-sm text-gray-500">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -416,7 +398,6 @@ export default function Sales() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -432,7 +413,6 @@ export default function Sales() {
         const headers = { "Content-Type": "application/json" };
         if (token) headers.Authorization = `Bearer ${token}`;
 
-        // Fetch orders
         const ordersRes = await fetch(`${API}/orders`, { headers });
         if (!ordersRes.ok) {
           const text = await ordersRes.text().catch(() => "");
@@ -441,7 +421,6 @@ export default function Sales() {
         const ordersData = await ordersRes.json();
         const ordersList = Array.isArray(ordersData) ? ordersData : ordersData?.orders ?? ordersData?.items ?? [];
 
-        // Fetch deliveries to get status
         const deliveriesRes = await fetch(`${API}/delivery`, { headers });
         let deliveriesMap = new Map();
         
@@ -449,7 +428,6 @@ export default function Sales() {
           const deliveriesData = await deliveriesRes.json();
           const deliveriesList = Array.isArray(deliveriesData) ? deliveriesData : deliveriesData?.deliveries ?? [];
           
-          // Create map of orderId -> delivery
           deliveriesList.forEach(delivery => {
             const orderId = delivery.order?._id ?? delivery.order ?? delivery.orderId;
             if (orderId) {
@@ -463,23 +441,17 @@ export default function Sales() {
           const delivery = deliveriesMap.get(orderId);
           const paymentMethod = String(o.paymentMethod ?? o.payment ?? "").toLowerCase();
           
-          // Check if payment method is e-payment (digital/online payment)
           const isEPayment = paymentMethod.includes("e-payment") || 
                             paymentMethod.includes("epayment") ||
                             paymentMethod.includes("electronic");
           
-          // COD and other payment methods should use actual delivery status
           const isCOD = paymentMethod.includes("cod") || 
                        paymentMethod.includes("cash");
           
-          // Determine final delivery status:
-          // - E-payment (not COD): always "completed" 
-          // - COD/other: use actual delivery status from backend
           let finalDeliveryStatus;
           if (isEPayment && !isCOD) {
             finalDeliveryStatus = "completed";
           } else {
-            // For COD and other payments, use the actual delivery status
             finalDeliveryStatus = delivery?.status ?? "pending";
           }
           
@@ -493,15 +465,13 @@ export default function Sales() {
             total: o.total ?? o.totalAmount ?? null,
             createdAt: o.createdAt ?? o.created ?? o.created_at ?? null,
             updatedAt: o.updatedAt ?? o.updated ?? null,
-            // Use delivery from deliveries endpoint
             delivery: delivery ?? null,
             deliveryStatus: finalDeliveryStatus,
-            isEPayment: isEPayment && !isCOD, // Only true e-payment, not COD
+            isEPayment: isEPayment && !isCOD,
             __raw: o,
           };
         });
 
-        // Sort by createdAt descending (newest first)
         normalized.sort((a, b) => {
           const dateA = new Date(a.createdAt || 0);
           const dateB = new Date(b.createdAt || 0);
@@ -539,14 +509,12 @@ export default function Sales() {
     });
   }, [orders, deliveryStatusFilter, searchQuery]);
 
-  // Pagination
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedOrders = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage]);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, deliveryStatusFilter]);
@@ -555,9 +523,9 @@ export default function Sales() {
     const totalRevenue = orders.reduce((s, o) => s + Number(o.total ?? 0), 0);
     const totalOrders = orders.length;
     const delivered = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "completed").length;
-    const inTransit = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "in-transit").length;
+    const cancelled = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "cancelled").length;
     const pending = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "pending").length;
-    return { totalRevenue, totalOrders, delivered, inTransit, pending };
+    return { totalRevenue, totalOrders, delivered, cancelled, pending };
   }, [orders]);
 
   if (loading) {
@@ -616,7 +584,7 @@ export default function Sales() {
           <MetricCard title="Total Revenue" value={peso(metrics.totalRevenue)} icon={<CreditCard className="h-6 w-6" />} />
           <MetricCard title="Total Orders" value={metrics.totalOrders.toLocaleString()} icon={<Package className="h-6 w-6" />} />
           <MetricCard title="Delivered" value={metrics.delivered.toLocaleString()} icon={<CheckCircle2 className="h-6 w-6" />} />
-          <MetricCard title="In Transit" value={metrics.inTransit.toLocaleString()} icon={<Truck className="h-6 w-6" />} />
+          <MetricCard title="Cancelled" value={metrics.cancelled.toLocaleString()} icon={<X className="h-6 w-6" />} />
         </div>
 
         <div className="bg-white rounded-xl border p-4 mb-6">
@@ -661,7 +629,6 @@ export default function Sales() {
               ))}
             </div>
 
-            {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="mt-8 flex items-center justify-between bg-white rounded-xl border p-4">
                 <div className="text-sm text-gray-600">
@@ -683,7 +650,6 @@ export default function Sales() {
                   
                   <div className="flex items-center gap-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                      // Show first page, last page, current page, and pages around current
                       const showPage = 
                         pageNum === 1 ||
                         pageNum === totalPages ||
@@ -694,24 +660,21 @@ export default function Sales() {
                         (pageNum === currentPage + 2 && currentPage < totalPages - 2);
 
                       if (showEllipsis) {
-                        return <span key={pageNum} className="px-2 text-gray-400">...</span>;
+                        return <span key={pageNum} className="px-2 text-gray-500">...</span>;
                       }
 
                       if (!showPage) return null;
 
                       return (
-                        <button
+                        <Button
                           key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "ghost"}
+                          size="default"
                           onClick={() => setCurrentPage(pageNum)}
-                          className={cn(
-                            "w-10 h-10 rounded-lg text-sm font-medium transition-colors",
-                            pageNum === currentPage
-                              ? "bg-blue-600 text-white"
-                              : "bg-white border hover:bg-gray-50 text-gray-700"
-                          )}
+                          className="min-w-[2.5rem]"
                         >
                           {pageNum}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
@@ -730,9 +693,11 @@ export default function Sales() {
             )}
           </>
         )}
-
-        {selectedOrder && <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
       </div>
+
+      {selectedOrder && (
+        <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      )}
     </div>
   );
 }
