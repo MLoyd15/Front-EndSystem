@@ -461,22 +461,27 @@ export default function Sales() {
         const normalized = ordersList.map((o) => {
           const orderId = String(o._id ?? o.id ?? "unknown");
           const delivery = deliveriesMap.get(orderId);
-          const paymentMethod = (o.paymentMethod ?? o.payment ?? "").toLowerCase();
+          const paymentMethod = String(o.paymentMethod ?? o.payment ?? "").toLowerCase();
           
           // Check if payment method is e-payment (digital/online payment)
           const isEPayment = paymentMethod.includes("e-payment") || 
                             paymentMethod.includes("epayment") ||
-                            paymentMethod.includes("electronic") ||
-                            paymentMethod.includes("gcash") ||
-                            paymentMethod.includes("paymaya") ||
-                            paymentMethod.includes("online");
+                            paymentMethod.includes("electronic");
           
-          // COD should NOT be treated as e-payment - it needs delivery tracking
+          // COD and other payment methods should use actual delivery status
           const isCOD = paymentMethod.includes("cod") || 
-                       paymentMethod.includes("cash on delivery");
+                       paymentMethod.includes("cash");
           
-          // Only e-payment (NOT COD) gets auto-completed status
-          const finalDeliveryStatus = (isEPayment && !isCOD) ? "completed" : (delivery?.status ?? "pending");
+          // Determine final delivery status:
+          // - E-payment (not COD): always "completed" 
+          // - COD/other: use actual delivery status from backend
+          let finalDeliveryStatus;
+          if (isEPayment && !isCOD) {
+            finalDeliveryStatus = "completed";
+          } else {
+            // For COD and other payments, use the actual delivery status
+            finalDeliveryStatus = delivery?.status ?? "pending";
+          }
           
           return {
             _id: orderId,
