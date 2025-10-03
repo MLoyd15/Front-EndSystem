@@ -15,12 +15,14 @@ import ChatPanel from './components/chat'
 import DriverDeliveries from './components/driverDeliveries'
 import Promo from './components/promo'
 import Logout from "./pages/Logout";
+import GoAgriLanding from './pages/GoAgriLanding'; // Import the landing page
 
 function App() {
   return (
    <Router>
     <Routes>
-      <Route path="/" element={<Root />}/>
+      {/* Landing Page as Home */}
+      <Route path="/" element={<GoAgriLanding />}/>
 
       {/* For admin */}
       <Route 
