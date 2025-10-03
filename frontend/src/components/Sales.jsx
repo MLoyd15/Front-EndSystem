@@ -160,8 +160,8 @@ const OrderCard = ({ order, onClick }) => {
   const total = Number(order.total ?? order.totalAmount ?? 0);
   const idShort = String(order._id ?? order.id ?? "").slice(-8) || "unknown";
   
-  // Get delivery status from the delivery object
-  const deliveryStatus = order.delivery?.status || order.deliveryStatus || "pending";
+  // Use deliveryStatus from normalized order (already handles e-payment)
+  const deliveryStatus = order.deliveryStatus || "pending";
 
   return (
     <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.01]" onClick={onClick}>
@@ -487,6 +487,13 @@ export default function Sales() {
             isEPayment: isEPayment,
             __raw: o,
           };
+        });
+
+        // Sort by createdAt descending (newest first)
+        normalized.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateB - dateA;
         });
 
         if (mounted) {
