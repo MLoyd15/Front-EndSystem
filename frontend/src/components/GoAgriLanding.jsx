@@ -264,14 +264,7 @@ const GoAgriLanding = () => {
                     <p className="text-sm text-gray-500 mb-4">
                       Stock: {product.stock ?? 0} available
                     </p>
-                    <button 
-                      onClick={() => addToCart(product)}
-                      disabled={!product.stock || product.stock <= 0}
-                      className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                      <span>{product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}</span>
-                    </button>
+                 
                   </div>
                 </div>
               ))}
