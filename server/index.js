@@ -18,6 +18,8 @@ import Message from "./models/Message.js";
 import jwt from "jsonwebtoken";
 import { fileURLToPath } from "url";
 import path from "path";
+import adminRefundTicketsRouter from "./routes/adminRefundTickets.js";
+
 
 
 
@@ -62,6 +64,7 @@ app.use("/api/delivery", deliveryRoutes);
 app.use("/api/promo", promoRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/admin/refund-tickets", adminRefundTicketsRouter);
 
 // (Optional) simple health check
 app.get("/health", (_req, res) => res.json({ ok: true }));
