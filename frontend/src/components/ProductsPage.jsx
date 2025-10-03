@@ -646,14 +646,14 @@ export default function ProductsPage() {
                     max="10000"
                     step="0.001"
                     className={`w-full border rounded-lg px-3 py-2 ${
-                      weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 10000)
+                      weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 1000)
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                     value={weightKg}
                     onChange={(e) => setWeightKg(e.target.value)}
                   />
-                  {weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 10000) && (
+                  {weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 1000) && (
                     <p className="text-red-600 text-xs mt-1">
                       Weight must be between 0.001 and 10,000 kg
                     </p>
