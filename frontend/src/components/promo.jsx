@@ -56,6 +56,7 @@ const Field = ({
   min,
   max,
   step,
+  error = false,  // ADD THIS
 }) => (
   <input
     name={name}
@@ -67,7 +68,7 @@ const Field = ({
     min={min}
     max={max}
     step={step}
-    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-500"
+    className={`w-full rounded-lg border ${error ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-300'} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-500`}
   />
 );
 
@@ -122,6 +123,21 @@ const Promo = () => {
   });
   const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
+  // Modal states
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "info" });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: "", message: "", onConfirm: () => {} });
+
+  const showModal = (title, message, type = "info") => {
+    setModal({ isOpen: true, title, message, type });
+  };
+
+  const showConfirm = (title, message, onConfirm) => {
+    setConfirmModal({ isOpen: true, title, message, onConfirm });
+  };
+
+  // Check if maxDiscount has error
+  const maxDiscountError = form.maxDiscount && Number(form.maxDiscount) > 0 && Number(form.maxDiscount) < 50;
+
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsPromo, setDetailsPromo] = useState(null);
 
@@ -152,7 +168,7 @@ const Promo = () => {
       console.error("❌ Error response:", e.response?.data);
       setPromos([]);
       if (e.response?.status === 401) {
-        alert("Session expired. Please login again.");
+        showModal("Session Expired", "Please login again.", "error");
         localStorage.removeItem("pos-token");
         window.location.href = "/login";
       }
@@ -172,12 +188,12 @@ const Promo = () => {
     const limit = Number(form.limit || 0);
 
     // Validation
-    if (!form.code.trim()) return alert("Promo code is required");
-    if (!form.name.trim()) return alert("Internal label is required");
+    if (!form.code.trim()) return showModal("Validation Error", "Promo code is required", "error")
+    if (!form.name.trim()) return showModal("Validation Error", "Internal label is required", "error")
     
     if (form.type === "Percentage") {
-      if (val < 1) return alert("Percentage must be at least 1%");
-      if (val > 99) return alert("Percentage cannot exceed 99%");
+      if (val < 1) return showModal("Validation Error", "Percentage must be at least 1%", "error");
+      if (val > 99) return showModal("Validation Error", "Percentage cannot exceed 99%", "error");
     }
     if (form.type === "Fixed Amount") {
       if (val < 0) return alert("Amount cannot be negative");
@@ -185,7 +201,7 @@ const Promo = () => {
     }
     if (limit !== 0 && limit > 10000) return alert("Usage limit cannot exceed 10,000 (or set 0 for unlimited)");
     if (minSpend < 50) return alert("Minimum spend must be at least ₱50");
-    if (maxDiscount !== 0 && maxDiscount > 1000) return alert("Max discount cannot exceed ₱1,000");
+    if (maxDiscount !== 0 && maxDiscount < 50) return showModal("Validation Error", "Max discount must be at least ₱50 or 0 for no cap", "error");
 
     try {
       const payload = {
@@ -202,7 +218,7 @@ const Promo = () => {
       const response = await axios.post(API, payload, { headers: auth() });
       console.log("✅ Create response:", response.data);
       
-      alert("Promo created successfully!");
+      showModal("Success", "Promo created successfully!", "success")
       setForm({
         code: "",
         name: "",
@@ -222,47 +238,52 @@ const Promo = () => {
     }
   };
 
-  const duplicate = async (id) => {
-    try {
-      console.log("📋 Duplicating promo:", id);
-      const response = await axios.post(`${API}/${id}/duplicate`, {}, { headers: auth() });
-      console.log("✅ Duplicate response:", response.data);
-      alert("Promo duplicated successfully!");
-      load();
-    } catch (e) {
-      console.error("❌ Error duplicating promo:", e.response?.data || e);
-      alert(e?.response?.data?.message || "Error duplicating promo");
-    }
-  };
+ const duplicate = async (id) => {
+  try {
+    console.log("📋 Duplicating promo:", id);
+    const response = await axios.post(`${API}/${id}/duplicate`, {}, { headers: auth() });
+    console.log("✅ Duplicate response:", response.data);
+    showModal("Success", "Promo duplicated successfully!", "success");  // CHANGE THIS
+    load();
+  } catch (e) {
+    console.error("❌ Error duplicating promo:", e.response?.data || e);
+    showModal("Error", e?.response?.data?.message || "Error duplicating promo", "error");  // CHANGE THIS
+  }
+};
 
-  const togglePause = async (p) => {
-    try {
-      const status = computeDisplayStatus(p);
-      const body = status === "Scheduled" ? { forceActivate: true } : {};
-      console.log("⏯️ Toggling promo:", p._id, body);
-      
-      const response = await axios.patch(`${API}/${p._id}/toggle`, body, { headers: auth() });
-      console.log("✅ Toggle response:", response.data);
-      load();
-    } catch (e) {
-      console.error("❌ Error updating status:", e.response?.data || e);
-      alert(e?.response?.data?.message || "Error updating status");
-    }
-  };
+const togglePause = async (p) => {
+  try {
+    const status = computeDisplayStatus(p);
+    const body = status === "Scheduled" ? { forceActivate: true } : {};
+    console.log("⏯️ Toggling promo:", p._id, body);
+    
+    const response = await axios.patch(`${API}/${p._id}/toggle`, body, { headers: auth() });
+    console.log("✅ Toggle response:", response.data);
+    load();
+  } catch (e) {
+    console.error("❌ Error updating status:", e.response?.data || e);
+    showModal("Error", e?.response?.data?.message || "Error updating status", "error");  // CHANGE THIS
+  }
+};
 
   const remove = async (id) => {
-    if (!window.confirm("Delete this promo? This action cannot be undone.")) return;
-    try {
-      console.log("🗑️ Deleting promo:", id);
-      const response = await axios.delete(`${API}/${id}`, { headers: auth() });
-      console.log("✅ Delete response:", response.data);
-      alert("Promo deleted successfully!");
-      load();
-    } catch (e) {
-      console.error("❌ Error deleting promo:", e.response?.data || e);
-      alert(e?.response?.data?.message || "Error deleting promo");
+  showConfirm(
+    "Delete Promo",
+    "Delete this promo? This action cannot be undone.",
+    async () => {
+      try {
+        console.log("🗑️ Deleting promo:", id);
+        const response = await axios.delete(`${API}/${id}`, { headers: auth() });
+        console.log("✅ Delete response:", response.data);
+        showModal("Success", "Promo deleted successfully!", "success");
+        load();
+      } catch (e) {
+        console.error("❌ Error deleting promo:", e.response?.data || e);
+        showModal("Error", e?.response?.data?.message || "Error deleting promo", "error");
+      }
     }
-  };
+  );
+};
 
   const openReactivate = (p) => {
     setReactivateTarget(p);
@@ -278,8 +299,12 @@ const Promo = () => {
   const submitReactivate = async () => {
     const s = sched.startsAt ? new Date(sched.startsAt) : null;
     const e = sched.endsAt ? new Date(sched.endsAt) : null;
-    if (!s || !e) return alert("Please pick both Start and End.");
-    if (e <= s) return alert("End must be after Start.");
+    if (!s || !e) return showModal("Validation Error", "Please pick both Start and End.", "error");
+    if (e <= s) return showModal("Validation Error", "End must be after Start.", "error");
+  // success
+  showModal("Success", "Promo reactivated successfully!", "success");
+  // error
+  showModal("Error", err?.response?.data?.message || "Failed to reactivate promo", "error");
     
     try {
       setSavingReactivate(true);
@@ -372,9 +397,108 @@ const Promo = () => {
     return null;
   };
 
+  /* ---------------- Modal Components ---------------- */
+const Modal = ({ isOpen, onClose, title, message, type = "info" }) => {
+  if (!isOpen) return null;
+
+  const getIcon = () => {
+    switch (type) {
+      case "success": return "✓";
+      case "error": return "✕";
+      case "warning": return "⚠";
+      default: return "ℹ";
+    }
+  };
+
+  const getColors = () => {
+    switch (type) {
+      case "success": return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+      case "error": return "bg-red-100 text-red-700 ring-red-200";
+      case "warning": return "bg-amber-100 text-amber-700 ring-amber-200";
+      default: return "bg-blue-100 text-blue-700 ring-blue-200";
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-4">
+          <div className={`w-10 h-10 rounded-full ${getColors()} ring-2 flex items-center justify-center flex-shrink-0 text-xl font-bold`}>
+            {getIcon()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-sm text-gray-600">{message}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 ring-2 ring-red-200 flex items-center justify-center flex-shrink-0 text-xl font-bold">
+            ⚠
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-sm text-gray-600">{message}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   /* ---------------- UI ---------------- */
   return (
+     <>
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={() => setModal({ ...modal, isOpen: false })}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+      />
+      
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+      />
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       <div className="max-w-[1600px] mx-auto px-6 py-8">
         {/* Header */}
@@ -666,10 +790,13 @@ const Promo = () => {
                         value={form.maxDiscount}
                         onChange={onChange}
                         placeholder="0"
-                        max={1000}
+                        min={0}
                         step="1"
+                        error={maxDiscountError}  // ADD THIS
                       />
-                      <p className="mt-1 text-[10px] text-slate-500">Cap at ₱1,000 (0 = no cap)</p>
+                      <p className={`mt-1 text-[10px] ${maxDiscountError ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
+                        Min ₱50 or 0 for no cap
+                      </p>
                     </div>
                   </div>
 
@@ -872,14 +999,15 @@ const Promo = () => {
                 onClick={closeDetails}
                 className="px-5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-medium text-sm"
               >
-                Close
+                 Close
               </button>
             </div>
           </div>
         </div>
       )}
     </div>      
-  );
+  </>         
+  );            
 };
 
 export default Promo;
