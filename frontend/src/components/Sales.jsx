@@ -160,8 +160,8 @@ const OrderCard = ({ order, onClick }) => {
   const total = Number(order.total ?? order.totalAmount ?? 0);
   const idShort = String(order._id ?? order.id ?? "").slice(-8) || "unknown";
   
-  // Get delivery status from the delivery object
-  const deliveryStatus = order.delivery?.status || order.deliveryStatus || "pending";
+  // Use deliveryStatus from normalized order (already handles e-payment)
+  const deliveryStatus = order.deliveryStatus || "pending";
 
   return (
     <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.01]" onClick={onClick}>
@@ -463,13 +463,20 @@ export default function Sales() {
           const delivery = deliveriesMap.get(orderId);
           const paymentMethod = (o.paymentMethod ?? o.payment ?? "").toLowerCase();
           
-          // Check if payment method is e-payment
+          // Check if payment method is e-payment (digital/online payment)
           const isEPayment = paymentMethod.includes("e-payment") || 
                             paymentMethod.includes("epayment") ||
-                            paymentMethod.includes("electronic");
+                            paymentMethod.includes("electronic") ||
+                            paymentMethod.includes("gcash") ||
+                            paymentMethod.includes("paymaya") ||
+                            paymentMethod.includes("online");
           
-          // If e-payment, override delivery status to completed
-          const finalDeliveryStatus = isEPayment ? "completed" : (delivery?.status ?? "pending");
+          // COD should NOT be treated as e-payment - it needs delivery tracking
+          const isCOD = paymentMethod.includes("cod") || 
+                       paymentMethod.includes("cash on delivery");
+          
+          // Only e-payment (NOT COD) gets auto-completed status
+          const finalDeliveryStatus = (isEPayment && !isCOD) ? "completed" : (delivery?.status ?? "pending");
           
           return {
             _id: orderId,
@@ -484,9 +491,16 @@ export default function Sales() {
             // Use delivery from deliveries endpoint
             delivery: delivery ?? null,
             deliveryStatus: finalDeliveryStatus,
-            isEPayment: isEPayment,
+            isEPayment: isEPayment && !isCOD, // Only true e-payment, not COD
             __raw: o,
           };
+        });
+
+        // Sort by createdAt descending (newest first)
+        normalized.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateB - dateA;
         });
 
         if (mounted) {
