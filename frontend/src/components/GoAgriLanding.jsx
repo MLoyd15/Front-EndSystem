@@ -1,13 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Star, User, Menu, X, Phone, Mail, MapPin, Loader } from 'lucide-react';
 import axios from 'axios';
+import { VITE_API_BASE } from '../config';
 
-const API_BASE = "https://goat-agri-trading-backend.onrender.com/api";
+// ─── Config ────────────────────────────────────────────────────────────────────
+const API = VITE_API_BASE;
+
+// Helper function for star rating
+const StarRating = ({ rating = 0, size = "sm", showNumber = false }) => {
+  const sizeClasses = { sm: "w-4 h-4", md: "w-5 h-5", lg: "w-6 h-6" };
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`${sizeClasses[size]} ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+        />
+      ))}
+      {showNumber && <span className="ml-1 text-sm font-medium text-slate-600">({rating})</span>}
+    </div>
+  );
+};
+
+// Safely derive a reviewer display name
+const getReviewerName = (rev) => {
+  const u = rev.user || rev.userId || rev.reviewer || {};
+  if (typeof u === "string") return "Anonymous";
+  return u.name || u.fullName || u.username || u.displayName || u.email || "Anonymous";
+};
+
+// Helper: first image URL
+const firstImage = (p) => {
+  const x = p?.images?.[0];
+  return typeof x === "string" ? x : x?.url || null;
+};
 
 const GoAgriLanding = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cart, setCart] = useState([]);
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,13 +51,44 @@ const GoAgriLanding = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [productsRes, reviewsRes] = await Promise.all([
-        axios.get(`${API_BASE}/products`),
-        axios.get(`${API_BASE}/review`)
-      ]);
       
-      setProducts(productsRes.data?.products || productsRes.data || []);
-      setReviews(reviewsRes.data?.reviews || reviewsRes.data || []);
+      // Fetch products using the same endpoint as ProductsPage
+      const productsRes = await axios.get(`${API}/products`, {
+        params: {
+          catalog: 'true', // Only get catalog products for landing page
+          limit: 50 // Get more products for display
+        }
+      });
+      
+      const productsData = productsRes.data.items || productsRes.data.products || [];
+      
+      setProducts(productsData);
+      
+      // Fetch all products with reviews (using flat endpoint like Review component)
+      const allProductsRes = await axios.get(`${API}/products/flat`);
+      const allProductsData = Array.isArray(allProductsRes.data) ? allProductsRes.data : [];
+      
+      // Map products with their reviews
+      const mappedProducts = allProductsData.map((p) => ({
+        ...p,
+        images: p.images || [],
+        price: p.price ?? 0,
+        categoryLabel:
+          (typeof p.category === "string" ? p.category : p.category?.categoryName) || "—",
+        reviews: Array.isArray(p.reviews) ? p.reviews : [],
+      }));
+      
+      setAllProducts(mappedProducts);
+      
+      // Extract all reviews from products
+      const allReviews = mappedProducts.flatMap((p) => 
+        (p.reviews || []).map(review => ({
+          ...review,
+          productName: p.name
+        }))
+      );
+      
+      setReviews(allReviews);
       setError(null);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -37,21 +100,24 @@ const GoAgriLanding = () => {
 
   const addToCart = (product) => {
     setCart([...cart, product]);
-    alert(`${product.name || product.productName} added to cart!`);
+    alert(`${product.name} added to cart!`);
   };
 
   const getProductImage = (product) => {
-    return product.image || product.imageUrl || product.productImage || 
+    return firstImage(product) || 
            'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop';
   };
 
-  const getProductName = (product) => {
-    return product.name || product.productName || product.title || 'Product';
+  const formatPrice = (price) => {
+    return `₱${Number(price || 0).toLocaleString("en-PH")}`;
   };
 
-  const getProductPrice = (product) => {
-    const price = product.price || product.productPrice || 0;
-    return typeof price === 'number' ? `₱${price.toLocaleString()}` : price;
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric", 
+      month: "short", 
+      day: "numeric"
+    });
   };
 
   return (
@@ -162,50 +228,49 @@ const GoAgriLanding = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {products.map((product) => (
-                <div key={product._id || product.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
+                <div key={product._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
                   <img 
                     src={getProductImage(product)} 
-                    alt={getProductName(product)}
+                    alt={product.name}
                     className="w-full h-56 object-cover"
+                    onError={(e) => {
+                      e.target.src = 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop';
+                    }}
                   />
                   <div className="p-6">
                     {product.category && (
                       <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                        {product.category}
+                        {typeof product.category === 'string' 
+                          ? product.category 
+                          : product.category?.categoryName || 'General'}
                       </span>
                     )}
                     <h3 className="text-xl font-bold text-gray-900 mt-3 mb-2">
-                      {getProductName(product)}
+                      {product.name}
                     </h3>
-                    {product.description && (
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                        {product.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-4">
                       <span className="text-2xl font-bold text-green-600">
-                        {getProductPrice(product)}
+                        {formatPrice(product.price)}
                       </span>
-                      {(product.rating || product.averageRating) && (
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium">
-                            {product.rating || product.averageRating}
-                          </span>
-                        </div>
+                      {product.reviews && product.reviews.length > 0 && (
+                        <StarRating 
+                          rating={Math.round(
+                            product.reviews.reduce((s, r) => s + (r.rating || 0), 0) / product.reviews.length
+                          )} 
+                          size="sm"
+                        />
                       )}
                     </div>
-                    {(product.stock !== undefined || product.quantity !== undefined) && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        Stock: {product.stock || product.quantity || 0}
-                      </p>
-                    )}
+                    <p className="text-sm text-gray-500 mb-4">
+                      Stock: {product.stock ?? 0} available
+                    </p>
                     <button 
                       onClick={() => addToCart(product)}
-                      className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center space-x-2"
+                      disabled={!product.stock || product.stock <= 0}
+                      className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ShoppingCart className="w-4 h-4" />
-                      <span>Add to Cart</span>
+                      <span>{product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}</span>
                     </button>
                   </div>
                 </div>
@@ -230,34 +295,28 @@ const GoAgriLanding = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {reviews.map((review) => (
-                <div key={review._id || review.id} className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition">
+              {reviews.slice(0, 6).map((review) => (
+                <div key={review._id} className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition">
                   <div className="flex items-center space-x-4 mb-4">
                     <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
-                      {(review.name || review.userName || review.customerName || 'U').substring(0, 2).toUpperCase()}
+                      {getReviewerName(review).substring(0, 2).toUpperCase()}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h4 className="font-semibold text-gray-900">
-                        {review.name || review.userName || review.customerName || 'Anonymous'}
+                        {getReviewerName(review)}
                       </h4>
                       <p className="text-sm text-gray-500">
-                        {review.date || review.createdAt ? new Date(review.date || review.createdAt).toLocaleDateString() : ''}
+                        {review.createdAt ? formatDate(review.createdAt) : ''}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-1 mb-3">
-                    {[...Array(5)].map((_, i) => (
-                      <Star 
-                        key={i} 
-                        className={`w-4 h-4 ${
-                          i < (review.rating || 5) 
-                            ? 'fill-yellow-400 text-yellow-400' 
-                            : 'text-gray-300'
-                        }`} 
-                      />
-                    ))}
-                  </div>
-                  <p className="text-gray-700">
+                  <StarRating rating={review.rating || 5} size="sm" />
+                  {review.productName && (
+                    <p className="text-xs text-green-600 font-medium mt-2">
+                      Product: {review.productName}
+                    </p>
+                  )}
+                  <p className="text-gray-700 mt-3">
                     {review.comment || review.reviewText || review.feedback || 'Great product!'}
                   </p>
                 </div>
@@ -267,9 +326,7 @@ const GoAgriLanding = () => {
         </div>
       </section>
 
-      {/* Contact Section */}
-   
-
+     
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

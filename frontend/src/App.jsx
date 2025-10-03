@@ -40,7 +40,7 @@ function App() {
         <Route path="inventory" element={<h1>inventory</h1>} />
         <Route path="review" element={<Review/>} />
         <Route path="promo" element={<Promo/>}/>
-        <Route path="profile" element={<h1>profile</h1>} />
+        <Route path="Sales" element={<h1>profile</h1>} />
         <Route path="logout" element={<Logout/>}/>
       </Route>
 
