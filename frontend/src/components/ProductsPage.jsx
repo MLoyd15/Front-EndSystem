@@ -350,18 +350,12 @@ export default function ProductsPage() {
               className="border rounded-xl px-3 py-2 w-72"
               placeholder="Search item"
               value={search}
-              onChange={(e) => {
-                setPage(1);
-                setSearch(e.target.value);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
             />
             <select
               className="border rounded-xl px-3 py-2"
               value={category}
-              onChange={(e) => {
-                setPage(1);
-                setCategory(e.target.value);
-              }}
+              onChange={(e) => setCategory(e.target.value)}
             >
               <option value="">All categories</option>
               {categories.map((c) => (
@@ -373,17 +367,14 @@ export default function ProductsPage() {
             <select
               className="border rounded-xl px-3 py-2"
               value={catalogFilter}
-              onChange={(e) => {
-                setPage(1);
-                setCatalogFilter(e.target.value);
-              }}
+              onChange={(e) => setCatalogFilter(e.target.value)}
             >
               <option value="">Catalog: All</option>
               <option value="true">Yes</option>
               <option value="false">No</option>
             </select>
             <span className="text-sm text-gray-500">
-              {loading ? "Loading…" : `Showing ${items.length} of ${total}`}
+              Showing {items.length} of {total}
             </span>
           </div>
 
@@ -398,11 +389,11 @@ export default function ProductsPage() {
                   <th className="px-4 py-3">Weight (kg)</th>
                   <th className="px-4 py-3">Price</th>
                   <th className="px-4 py-3">Catalog</th>
-                  <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {!loading && items.length === 0 && (
+                {items.length === 0 && (
                   <tr>
                     <td className="px-4 py-10 text-center text-gray-500" colSpan="8">
                       No products found.
@@ -457,24 +448,26 @@ export default function ProductsPage() {
                       </label>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <button
-                        onClick={() => onEdit(p)}
-                        className="text-blue-600 hover:underline mr-3"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => onDelete(p._id)}
-                        className="text-red-600 hover:underline mr-3"
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => openStockModal(p)}
-                        className="text-green-600 hover:underline"
-                      >
-                        Add Stock
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onEdit(p)}
+                          className="px-3 py-1 text-sm rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => onDelete(p._id)}
+                          className="px-3 py-1 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => openStockModal(p)}
+                          className="px-3 py-1 text-sm rounded-lg bg-green-100 text-green-700 hover:bg-green-200"
+                        >
+                          Add Stock
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -583,7 +576,8 @@ export default function ProductsPage() {
                   <input
                     type="number"
                     required
-                    min="0"
+                    min="1"
+                    max="10000"
                     step="0.01"
                     className="w-full border rounded-lg px-3 py-2"
                     value={price}
@@ -595,7 +589,8 @@ export default function ProductsPage() {
                   <label className="block text-sm font-medium mb-1">Stock</label>
                   <input
                     type="number"
-                    min="0"
+                    min="1"
+                    max="10000"
                     className="w-full border rounded-lg px-3 py-2"
                     value={stock}
                     onChange={(e) => setStock(e.target.value)}
@@ -608,7 +603,8 @@ export default function ProductsPage() {
                   <label className="block text-sm font-medium mb-1">Min Stock</label>
                   <input
                     type="number"
-                    min="0"
+                    min="1"
+                    max="10000"
                     className="w-full border rounded-lg px-3 py-2"
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
@@ -619,7 +615,8 @@ export default function ProductsPage() {
                   <label className="block text-sm font-medium mb-1">Weight (kg)</label>
                   <input
                     type="number"
-                    min="0"
+                    min="0.001"
+                    max="10000"
                     step="0.001"
                     className="w-full border rounded-lg px-3 py-2"
                     value={weightKg}
@@ -754,7 +751,8 @@ export default function ProductsPage() {
                 </button>
                 <input
                   type="number"
-                  min="0"
+                  min="1"
+                  max="10000"
                   className="w-24 border rounded-lg px-3 py-2 text-center"
                   value={newStock}
                   onChange={(e) => setNewStock(e.target.value)}
