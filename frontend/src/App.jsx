@@ -16,6 +16,7 @@ import DriverDeliveries from './components/driverDeliveries'
 import Promo from './components/promo'
 import Logout from "./pages/Logout";
 import GoAgriLanding from './components/GoAgriLanding'; // Import the landing page
+import Sales from './components/Sales'
 
 function App() {
   return (
@@ -40,7 +41,7 @@ function App() {
         <Route path="inventory" element={<h1>inventory</h1>} />
         <Route path="review" element={<Review/>} />
         <Route path="promo" element={<Promo/>}/>
-        <Route path="Sales" element={<h1>profile</h1>} />
+        <Route path="Sales" element={<Sales/>}/>
         <Route path="logout" element={<Logout/>}/>
       </Route>
 
