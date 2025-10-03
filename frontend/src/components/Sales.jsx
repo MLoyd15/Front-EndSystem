@@ -454,6 +454,15 @@ export default function Sales() {
         const normalized = ordersList.map((o) => {
           const orderId = String(o._id ?? o.id ?? "unknown");
           const delivery = deliveriesMap.get(orderId);
+          const paymentMethod = (o.paymentMethod ?? o.payment ?? "").toLowerCase();
+          
+          // Check if payment method is e-payment
+          const isEPayment = paymentMethod.includes("e-payment") || 
+                            paymentMethod.includes("epayment") ||
+                            paymentMethod.includes("electronic");
+          
+          // If e-payment, override delivery status to completed
+          const finalDeliveryStatus = isEPayment ? "completed" : (delivery?.status ?? "pending");
           
           return {
             _id: orderId,
@@ -467,7 +476,8 @@ export default function Sales() {
             updatedAt: o.updatedAt ?? o.updated ?? null,
             // Use delivery from deliveries endpoint
             delivery: delivery ?? null,
-            deliveryStatus: delivery?.status ?? "pending",
+            deliveryStatus: finalDeliveryStatus,
+            isEPayment: isEPayment,
             __raw: o,
           };
         });
