@@ -579,10 +579,19 @@ export default function ProductsPage() {
                     min="1"
                     max="10000"
                     step="0.01"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className={`w-full border rounded-lg px-3 py-2 ${
+                      price && (Number(price) < 1 || Number(price) > 10000)
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
+                    }`}
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                   />
+                  {price && (Number(price) < 1 || Number(price) > 10000) && (
+                    <p className="text-red-600 text-xs mt-1">
+                      Price must be between 1 and 10,000
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -591,10 +600,19 @@ export default function ProductsPage() {
                     type="number"
                     min="1"
                     max="10000"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className={`w-full border rounded-lg px-3 py-2 ${
+                      stock && (Number(stock) < 1 || Number(stock) > 10000)
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
+                    }`}
                     value={stock}
                     onChange={(e) => setStock(e.target.value)}
                   />
+                  {stock && (Number(stock) < 1 || Number(stock) > 10000) && (
+                    <p className="text-red-600 text-xs mt-1">
+                      Stock must be between 1 and 10,000
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -605,10 +623,19 @@ export default function ProductsPage() {
                     type="number"
                     min="1"
                     max="10000"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className={`w-full border rounded-lg px-3 py-2 ${
+                      minStock && (Number(minStock) < 1 || Number(minStock) > 10000)
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
+                    }`}
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
                   />
+                  {minStock && (Number(minStock) < 1 || Number(minStock) > 10000) && (
+                    <p className="text-red-600 text-xs mt-1">
+                      Min Stock must be between 1 and 10,000
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -618,10 +645,19 @@ export default function ProductsPage() {
                     min="0.001"
                     max="10000"
                     step="0.001"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className={`w-full border rounded-lg px-3 py-2 ${
+                      weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 10000)
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
+                    }`}
                     value={weightKg}
                     onChange={(e) => setWeightKg(e.target.value)}
                   />
+                  {weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 10000) && (
+                    <p className="text-red-600 text-xs mt-1">
+                      Weight must be between 0.001 and 10,000 kg
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -749,14 +785,25 @@ export default function ProductsPage() {
                 >
                   –
                 </button>
-                <input
-                  type="number"
-                  min="1"
-                  max="10000"
-                  className="w-24 border rounded-lg px-3 py-2 text-center"
-                  value={newStock}
-                  onChange={(e) => setNewStock(e.target.value)}
-                />
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000"
+                    className={`w-full border rounded-lg px-3 py-2 text-center ${
+                      newStock && (Number(newStock) < 1 || Number(newStock) > 10000)
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
+                    }`}
+                    value={newStock}
+                    onChange={(e) => setNewStock(e.target.value)}
+                  />
+                  {newStock && (Number(newStock) < 1 || Number(newStock) > 10000) && (
+                    <p className="text-red-600 text-xs mt-1 text-center">
+                      Stock must be between 1 and 10,000
+                    </p>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="w-10 h-10 border rounded-lg hover:bg-gray-50"
