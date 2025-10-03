@@ -252,7 +252,7 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
       const headers = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(`${API}/api/admin/refund-tickets/${ticket._id}`, {
+      const res = await fetch(`${API}/admin/refund-tickets/${ticket._id}`, {
         method: "PUT",
         headers,
         body: JSON.stringify({ status, adminNote, paymongoRefundId })
@@ -484,7 +484,7 @@ export default function RefundTickets() {
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
       params.set("limit", "500"); // Fetch more for client-side pagination
 
-      const res = await fetch(`${API}/api/admin/refund-tickets?${params}`, { headers });
+      const res = await fetch(`${API}/admin/refund-tickets?${params}`, { headers });
       if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
 
       const data = await res.json();
