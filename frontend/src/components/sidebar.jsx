@@ -20,7 +20,7 @@ const Sidebar = () => {
     { name: "Delivery", path: "/admin-dashboard/delivery", icon: <FaTruck />, isParent: false },
     { name: "Product review ", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
     { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false },
-    { name: "Sales History", path: "/admin-dashboard/Sales", icon: <FaSignOutAlt />, isParent: false },
+    { name: "Sales And Refund ", path: "/admin-dashboard/Sales", icon: <FaSignOutAlt />, isParent: false },
     { name: "Logout", path: "/admin-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 
