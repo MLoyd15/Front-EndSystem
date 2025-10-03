@@ -421,33 +421,56 @@ export default function Sales() {
       setLoading(true);
       setErrorMsg("");
       try {
-        const headers = { "Content-Type": "application/json" };
         const token = localStorage.getItem("pos-token");
+        const headers = { "Content-Type": "application/json" };
         if (token) headers.Authorization = `Bearer ${token}`;
 
-        const res = await fetch(`${API}/orders`, { headers });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`API ${res.status} ${res.statusText} ${text ? "- " + text : ""}`);
+        // Fetch orders
+        const ordersRes = await fetch(`${API}/orders`, { headers });
+        if (!ordersRes.ok) {
+          const text = await ordersRes.text().catch(() => "");
+          throw new Error(`API ${ordersRes.status} ${ordersRes.statusText} ${text ? "- " + text : ""}`);
         }
-        const data = await res.json();
+        const ordersData = await ordersRes.json();
+        const ordersList = Array.isArray(ordersData) ? ordersData : ordersData?.orders ?? ordersData?.items ?? [];
 
-        const list = Array.isArray(data) ? data : data?.orders ?? data?.items ?? [];
-        const normalized = list.map((o) => ({
-          _id: o._id ?? o.id ?? "unknown",
-          items: Array.isArray(o.items) ? o.items : Array.isArray(o.products) ? o.products : [],
-          address: o.address ?? o.deliveryAddress ?? o.shippingAddress ?? "",
-          paymentMethod: o.paymentMethod ?? o.payment ?? "",
-          subtotal: o.subtotal ?? o.itemsTotal ?? null,
-          deliveryFee: o.deliveryFee ?? o.shipping ?? null,
-          total: o.total ?? o.totalAmount ?? null,
-          createdAt: o.createdAt ?? o.created ?? o.created_at ?? null,
-          updatedAt: o.updatedAt ?? o.updated ?? null,
-          // Extract delivery information
-          delivery: o.delivery ?? null,
-          deliveryStatus: o.delivery?.status ?? o.deliveryStatus ?? "pending",
-          __raw: o,
-        }));
+        // Fetch deliveries to get status
+        const deliveriesRes = await fetch(`${API}/delivery`, { headers });
+        let deliveriesMap = new Map();
+        
+        if (deliveriesRes.ok) {
+          const deliveriesData = await deliveriesRes.json();
+          const deliveriesList = Array.isArray(deliveriesData) ? deliveriesData : deliveriesData?.deliveries ?? [];
+          
+          // Create map of orderId -> delivery
+          deliveriesList.forEach(delivery => {
+            const orderId = delivery.order?._id ?? delivery.order ?? delivery.orderId;
+            if (orderId) {
+              deliveriesMap.set(String(orderId), delivery);
+            }
+          });
+        }
+
+        const normalized = ordersList.map((o) => {
+          const orderId = String(o._id ?? o.id ?? "unknown");
+          const delivery = deliveriesMap.get(orderId);
+          
+          return {
+            _id: orderId,
+            items: Array.isArray(o.items) ? o.items : Array.isArray(o.products) ? o.products : [],
+            address: o.address ?? o.deliveryAddress ?? o.shippingAddress ?? "",
+            paymentMethod: o.paymentMethod ?? o.payment ?? "",
+            subtotal: o.subtotal ?? o.itemsTotal ?? null,
+            deliveryFee: o.deliveryFee ?? o.shipping ?? null,
+            total: o.total ?? o.totalAmount ?? null,
+            createdAt: o.createdAt ?? o.created ?? o.created_at ?? null,
+            updatedAt: o.updatedAt ?? o.updated ?? null,
+            // Use delivery from deliveries endpoint
+            delivery: delivery ?? null,
+            deliveryStatus: delivery?.status ?? "pending",
+            __raw: o,
+          };
+        });
 
         if (mounted) {
           setOrders(normalized);
