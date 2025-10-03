@@ -32,12 +32,12 @@ export async function listDeliveries(req, res) {
     const deliveries = await Delivery.find(query)
       .populate({
       path: "order",
-      select: "status totalAmount createdAt products",
-      populate: [  // ← Change to array
-        { path: "products.product", select: "name price" },
-        { path: "user", select: "name email phone address" } // ← ADD THIS
-      ],
-    })
+       select: "status totalAmount createdAt products user", // 👈 include user here
+    populate: [
+      { path: "products.product", select: "name price" },
+      { path: "user", select: "name email phone address" } // 👈 this ensures user is populated
+    ],
+  })
     .populate("assignedDriver", "name phone")
     .populate("assignedVehicle", "plate capacityKg")
     .lean();
