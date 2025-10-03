@@ -15,7 +15,7 @@ import ChatPanel from './components/chat'
 import DriverDeliveries from './components/driverDeliveries'
 import Promo from './components/promo'
 import Logout from "./pages/Logout";
-import GoAgriLanding from './pages/GoAgriLanding'; // Import the landing page
+import GoAgriLanding from './components/GoAgriLanding'; // Import the landing page
 
 function App() {
   return (
