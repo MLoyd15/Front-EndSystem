@@ -64,7 +64,7 @@ app.use("/api/delivery", deliveryRoutes);
 app.use("/api/promo", promoRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api/admin/refund-tickets", adminRefundTicketsRouter);
+app.use("/api/refund-tickets", adminRefundTicketsRouter);
 
 // (Optional) simple health check
 app.get("/health", (_req, res) => res.json({ ok: true }));
