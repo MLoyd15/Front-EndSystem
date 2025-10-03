@@ -136,7 +136,7 @@ const Promo = () => {
   };
 
   // Validation errors
-  const maxDiscountError = form.maxDiscount && Number(form.maxDiscount) > 0 && Number(form.maxDiscount) < 50;
+  const maxDiscountError = form.maxDiscount && Number(form.maxDiscount) > 0 && (Number(form.maxDiscount) < 50 || Number(form.maxDiscount) > 1000);
   const valueError = form.type === "Percentage" ? (form.value && (Number(form.value) < 1 || Number(form.value) > 99)) : form.type === "Fixed Amount" ? (form.value && (Number(form.value) < 0 || Number(form.value) > 10000)) : false;
   const minSpendError = form.minSpend && Number(form.minSpend) < 50;
   const limitError = form.limit && Number(form.limit) > 10000;
@@ -204,7 +204,7 @@ const Promo = () => {
     }
     if (limit !== 0 && limit > 10000) return alert("Usage limit cannot exceed 10,000 (or set 0 for unlimited)");
     if (minSpend < 50) return alert("Minimum spend must be at least ₱50");
-    if (maxDiscount !== 0 && maxDiscount < 50) return showModal("Validation Error", "Max discount must be at least ₱50 or 0 for no cap", "error");
+    if (maxDiscount !== 0 && (maxDiscount < 50 || maxDiscount > 1000)) return showModal("Validation Error", "Max discount must be ₱50-1,000 or 0 for no cap", "error");
 
     try {
       const payload = {
@@ -801,11 +801,12 @@ const Promo = () => {
                           onChange={onChange}
                           placeholder="0"
                           min={0}
+                          max={1000}
                           step="1"
                           error={maxDiscountError}
                         />
                         <p className={`mt-1 text-[10px] ${maxDiscountError ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
-                          Min ₱50 or 0 for no cap
+                          ₱50-1,000 or 0 for no cap
                         </p>
                       </div>
                     </div>
