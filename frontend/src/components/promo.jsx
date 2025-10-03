@@ -202,8 +202,8 @@ const Promo = () => {
       if (val < 0) return alert("Amount cannot be negative");
       if (val > 10000) return alert("Fixed amount cannot exceed ₱10,000");
     }
-    if (limit !== 0 && limit > 10000) return alert("Usage limit cannot exceed 10,000 (or set 0 for unlimited)");
-    if (minSpend < 50) return alert("Minimum spend must be at least ₱50");
+    if (limit !== 0 && limit > 10000) return showModal("Validation Error", "Usage limit cannot exceed 10,000 or set 0 for unlimited", "error");
+    if (minSpend < 50) return  showModal("Validation Error", "Minimum spend must be at least ₱50", "error");
     if (maxDiscount !== 0 && (maxDiscount < 50 || maxDiscount > 1000)) return showModal("Validation Error", "Max discount must be ₱50-1,000 or 0 for no cap", "error");
 
     try {
