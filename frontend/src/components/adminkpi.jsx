@@ -33,6 +33,19 @@ function deliveryRangeFor(period) {
   return { start: now - 7 * ONE_DAY, end: now, label: "Last 7 days" };
 }
 
+function SectionHeader({ icon, title, subtitle }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
+        <div className="text-white text-lg">{icon}</div>
+      </div>
+      <div>
+        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+        {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
 
 
 export default function AdminKpi() {
