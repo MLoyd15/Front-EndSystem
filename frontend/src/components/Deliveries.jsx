@@ -337,7 +337,7 @@ export default function Deliveries() {
 
                             <div className="flex items-center gap-2 text-slate-600">
                               <Weight className="w-4 h-4" />
-                              <span>{d.order?.totalWeight || d.weight || 0} kg</span>
+                              <span>{d.order?.totalWeightKg || d.weightKg || 0} kg</span>
                             </div>
 
                             <div className="ml-auto flex items-center gap-2">
@@ -499,10 +499,10 @@ export default function Deliveries() {
                         <span className="text-slate-600">Status:</span>
                         <div>{statusPill(drawer.status)}</div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Weight:</span>
-                        <span className="font-medium">{drawer.order?.totalWeight || drawer.weight || 0} kg</span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Weight:</span>
+                      <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weightKg || 0} kg</span>
+                    </div>
                     </div>
                   </div>
 
