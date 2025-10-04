@@ -212,37 +212,44 @@ export default function AdminKpi() {
     // NEW: Fetch loyalty data from users
     const fetchLoyaltyData = async () => {
   try {
-    // Fetch from loyaltyrewards collection
+    // Call the deployed loyaltyrewards endpoint
     const { data } = await axios.get(`${API}/loyaltyrewards`, { headers });
-    const loyaltyRewards = Array.isArray(data) ? data : data?.loyaltyrewards || data?.rewards || [];
+    
+    console.log('Loyalty Rewards Data:', data); // Check what you receive
+    
+    const loyaltyRewards = Array.isArray(data) ? data : data?.loyaltyrewards || data?.data || [];
     
     // Calculate totals
-    const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => sum + (Number(reward.points) || 0), 0);
-    const totalSpent = loyaltyRewards.reduce((sum, reward) => sum + (Number(reward.totalSpent) || 0), 0);
+    const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
+      sum + (Number(reward.points) || 0), 0);
+    const totalSpent = loyaltyRewards.reduce((sum, reward) => 
+      sum + (Number(reward.totalSpent) || 0), 0);
     
-    // Get top spenders
+    // Get top spenders (sorted by totalSpent)
     const topSpenders = loyaltyRewards
       .filter(reward => (reward.totalSpent || 0) > 0)
       .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
       .slice(0, 10)
       .map(reward => ({
-        userId: reward.userId || { name: "Unknown", email: "" },
+        userId: reward.userId || {},
         totalSpent: reward.totalSpent || 0,
         points: reward.points || 0,
-        tier: reward.tier || 'Bronze'
+        tier: reward.tier || 'Bronze',
+        purchaseCount: reward.purchaseCount || 0
       }));
     
     // Flatten points history from all loyalty records
     const loyaltyHistory = loyaltyRewards
-      .filter(reward => reward.pointsHistory && reward.pointsHistory.length > 0)
+      .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
       .flatMap(reward => 
         reward.pointsHistory.map(entry => ({
-          ...entry,
-          userName: reward.userId?.name || "Unknown",
-          userEmail: reward.userId?.email || "",
           points: entry.points || 0,
-          source: entry.source || "—",
-          createdAt: entry.createdAt || new Date()
+          source: entry.source || "order_processed",
+          orderId: entry.orderId,
+          createdAt: entry.createdAt,
+          _id: entry._id,
+          userName: reward.userId?.name || "Unknown User",
+          userEmail: reward.userId?.email || ""
         }))
       )
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -256,8 +263,10 @@ export default function AdminKpi() {
       topSpenders,
       loyaltyHistory
     }));
+    
   } catch (e) {
-    console.warn("Loyalty data fetch error:", e?.response?.data?.message || e?.message);
+    console.error("Loyalty data fetch error:", e?.response?.data?.message || e?.message);
+    console.error("Full error:", e);
   }
 };
 
