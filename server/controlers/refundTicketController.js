@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 import axios from "axios";
 
 // PayMongo configuration
-const PAYMONGO_SECRET_KEY = sk_test_AFe1xWMyHWy9FRzVie9SrSQP;
+const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;;
 const PAYMONGO_API_URL = "https://api.paymongo.com/v1";
 
 // Helper function to create PayMongo refund
