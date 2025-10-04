@@ -33,6 +33,25 @@ function deliveryRangeFor(period) {
   return { start: now - 7 * ONE_DAY, end: now, label: "Last 7 days" };
 }
 
+function EnhancedKpiCard({ title, value, icon, gradient = "from-indigo-500 to-purple-600", subtitle }) {
+  return (
+    <div className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
+      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient}`} />
+      <div className="p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
+            <div className="text-white text-xl">{icon}</div>
+          </div>
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">{title}</p>
+        <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
+        {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+    </div>
+  );
+}
+
 function SectionHeader({ icon, title, subtitle }) {
   return (
     <div className="flex items-center gap-3 mb-4">
@@ -47,6 +66,50 @@ function SectionHeader({ icon, title, subtitle }) {
   );
 }
 
+function StockAlertCard({ title, items, type = "low" }) {
+  const config = {
+    low: { icon: <FaExclamationTriangle />, bgColor: "bg-amber-50", textColor: "text-amber-700", badgeBg: "bg-amber-100", emptyIcon: "📦" },
+    out: { icon: <FaExclamationTriangle />, bgColor: "bg-red-50", textColor: "text-red-700", badgeBg: "bg-red-100", emptyIcon: "🚫" },
+  };
+  const style = config[type];
+
+  return (
+    <div className="rounded-xl bg-white border border-gray-200 p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={`p-1.5 rounded-lg ${style.bgColor} ${style.textColor}`}>{style.icon}</div>
+          <h4 className="text-sm font-bold text-gray-900">{title}</h4>
+        </div>
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.bgColor} ${style.textColor}`}>{items.length}</span>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-6 text-gray-400">
+          <div className="text-3xl mb-2">{style.emptyIcon}</div>
+          <p className="text-xs">All good here!</p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {items.slice(0, 5).map((item) => (
+            <div key={item._id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+              <span className="text-sm text-gray-800 truncate flex-1">{item.name || "Unnamed"}</span>
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.badgeBg} ${style.textColor} ml-2`}>
+                {type === "out" ? "OOS" : `${item.stock} left`}
+              </span>
+            </div>
+          ))}
+          {items.length > 5 && (
+            <div className="text-center pt-2">
+              <button className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+                +{items.length - 5} more
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminKpi() {
   const [stats, setStats] = useState({
