@@ -25,6 +25,57 @@ const DATA_PLACEHOLDER_48 =
      </svg>`
   );
 
+const Modal = ({ isOpen, onClose, title, message, type = "info" }) => {
+  if (!isOpen) return null;
+
+  const getIcon = () => {
+    switch (type) {
+      case "success":
+        return "✓";
+      case "error":
+        return "✕";
+      case "warning":
+        return "⚠";
+      default:
+        return "ℹ";
+    }
+  };
+
+  const getColors = () => {
+    switch (type) {
+      case "success":
+        return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+      case "error":
+        return "bg-red-100 text-red-700 ring-red-200";
+      case "warning":
+        return "bg-amber-100 text-amber-700 ring-amber-200";
+      default:
+        return "bg-blue-100 text-blue-700 ring-blue-200";
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 animate-scaleIn">
+        <div className={`flex items-center gap-4 p-4 rounded-xl ring-2 ${getColors()}`}>
+          <div className="text-3xl font-bold">{getIcon()}</div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-lg mb-1">{title}</h3>
+            <p className="text-sm opacity-90">{message}</p>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-4 w-full bg-gray-800 hover:bg-gray-900 text-white px-4 py-2.5 rounded-lg font-medium transition-colors"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // helper: turn comma/newline-separated text into array of URLs
 const toUrlArray = (text) =>
   String(text || "")
@@ -39,6 +90,17 @@ const firstImage = (p) => {
 };
 
 export default function ProductsPage() {
+  // Modal notification state
+  const [modal, setModal] = useState(null);
+
+  const showModal = (title, message, type = "success") => {
+    setModal({ title, message, type });
+  };
+
+  const closeModal = () => {
+    setModal(null);
+  };
+
   // list & filters
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -109,6 +171,7 @@ export default function ProductsPage() {
       );
     } catch (e) {
       console.error("Error fetching products:", e);
+      showModal("Error", "Failed to fetch products", "error");
     } finally {
       setLoading(false);
     }
@@ -157,6 +220,7 @@ export default function ProductsPage() {
             : p
         )
       );
+      showModal("Success", "Stock updated!", "success");
     });
 
     socket.on("inventory:bulk", (updates) => {
@@ -196,9 +260,10 @@ export default function ProductsPage() {
         { value },
         { headers: { ...authHeader(), "Content-Type": "application/json" } }
       );
+      showModal("Success", `Catalog ${value ? "enabled" : "disabled"} successfully`, "success");
     } catch (e) {
       setItems(prev);
-      alert(e?.response?.data?.message || "Failed to update catalog flag");
+      showModal("Error", e?.response?.data?.message || "Failed to update catalog flag", "error");
     }
   };
 
@@ -232,12 +297,12 @@ export default function ProductsPage() {
         await axios.patch(`${API}/products/${editId}`, payload, {
           headers: { ...authHeader(), "Content-Type": "application/json" },
         });
-        alert("Product updated!");
+        showModal("Success", "Product updated successfully!", "success");
       } else {
         await axios.post(`${API}/products`, payload, {
           headers: { ...authHeader(), "Content-Type": "application/json" },
         });
-        alert("Product added!");
+        showModal("Success", "Product added successfully!", "success");
       }
 
       setShowAdd(false);
@@ -245,7 +310,7 @@ export default function ProductsPage() {
       fetchProducts();
     } catch (e) {
       console.error("Save product error:", e);
-      alert(e?.response?.data?.message || "Failed to save product");
+      showModal("Error", e?.response?.data?.message || "Failed to save product", "error");
     }
   };
 
@@ -275,9 +340,10 @@ export default function ProductsPage() {
     if (!window.confirm("Delete this product?")) return;
     try {
       await axios.delete(`${API}/products/${id}`, { headers: authHeader() });
+      showModal("Success", "Product deleted successfully!", "success");
       fetchProducts();
     } catch (e) {
-      alert(e?.response?.data?.message || "Failed to delete");
+      showModal("Error", e?.response?.data?.message || "Failed to delete", "error");
     }
   };
 
@@ -303,12 +369,12 @@ export default function ProductsPage() {
         { stock: Number(newStock) },
         { headers: { ...authHeader(), "Content-Type": "application/json" } }
       );
-      alert("Stock updated!");
+      showModal("Success", "Stock updated successfully!", "success");
       setShowStockModal(false);
       setStockProduct(null);
       fetchProducts();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to update stock");
+      showModal("Error", err?.response?.data?.message || "Failed to update stock", "error");
     }
   };
 
@@ -319,6 +385,17 @@ export default function ProductsPage() {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
+      {/* Modal Notification */}
+      {modal && (
+        <Modal
+          isOpen={!!modal}
+          onClose={closeModal}
+          title={modal.title}
+          message={modal.message}
+          type={modal.type}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Inventory Tracking</h1>
         <button
