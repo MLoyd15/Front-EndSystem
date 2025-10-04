@@ -32,9 +32,9 @@ export async function listDeliveries(req, res) {
     const deliveries = await Delivery.find(query)
       .populate({
       path: "order",
-      select: "userId items total address status deliveryType createdAt",
+      select: "user items total address status deliveryType createdAt",
       populate: {
-        path: "userId",
+        path: "user",
         select: "name email address loyaltyPoints loyaltyTier"
       }
     })
