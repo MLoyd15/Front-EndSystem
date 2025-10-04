@@ -1,11 +1,11 @@
-// src/components/AdminKpi.jsx
+// COMPLETE UPDATED AdminKpi.jsx with Loyalty Data from Users
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FaUsers, FaBoxes, FaExclamationTriangle, FaTruck } from "react-icons/fa";
+import { FaUsers, FaBoxes, FaExclamationTriangle, FaTruck, FaAward } from "react-icons/fa";
 import SalesChart from "./SalesChart";
 import { VITE_API_BASE } from "../config";
 
-/* ---------- Utils ---------- */
 const API = VITE_API_BASE;
 const CURRENCY = "₱";
 const peso = (n) =>
@@ -13,7 +13,6 @@ const peso = (n) =>
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
-// Count deliveries in a time range (delivered/completed/fulfilled)
 const countDeliveredInRange = (deliveries, startMs, endMs) =>
   deliveries.reduce((count, d) => {
     const t = new Date(d?.createdAt || d?.date || d?.updatedAt || Date.now()).getTime();
@@ -23,8 +22,7 @@ const countDeliveredInRange = (deliveries, startMs, endMs) =>
     return t >= startMs && t < endMs && isDelivered ? count + 1 : count;
   }, 0);
 
-// Helpers for delivery toggle ranges
-function deliveryRangeFor(period /* 'week' | 'month' */) {
+function deliveryRangeFor(period) {
   const now = Date.now();
   if (period === "month") {
     const startThis = new Date();
@@ -35,86 +33,7 @@ function deliveryRangeFor(period /* 'week' | 'month' */) {
   return { start: now - 7 * ONE_DAY, end: now, label: "Last 7 days" };
 }
 
-/* ---------- Enhanced KPI Card ---------- */
-function EnhancedKpiCard({ title, value, icon, gradient = "from-indigo-500 to-purple-600", subtitle }) {
-  return (
-    <div className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient}`} />
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
-            <div className="text-white text-xl">{icon}</div>
-          </div>
-        </div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">{title}</p>
-        <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
-        {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
-      </div>
-      <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-    </div>
-  );
-}
 
-/* ---------- Section Header ---------- */
-function SectionHeader({ icon, title, subtitle }) {
-  return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
-        <div className="text-white text-lg">{icon}</div>
-      </div>
-      <div>
-        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-        {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Stock Alert Card ---------- */
-function StockAlertCard({ title, items, type = "low" }) {
-  const config = {
-    low: { icon: <FaExclamationTriangle />, bgColor: "bg-amber-50", textColor: "text-amber-700", badgeBg: "bg-amber-100", emptyIcon: "📦" },
-    out: { icon: <FaExclamationTriangle />, bgColor: "bg-red-50", textColor: "text-red-700", badgeBg: "bg-red-100", emptyIcon: "🚫" },
-  };
-  const style = config[type];
-
-  return (
-    <div className="rounded-xl bg-white border border-gray-200 p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg ${style.bgColor} ${style.textColor}`}>{style.icon}</div>
-          <h4 className="text-sm font-bold text-gray-900">{title}</h4>
-        </div>
-        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.bgColor} ${style.textColor}`}>{items.length}</span>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="text-center py-6 text-gray-400">
-          <div className="text-3xl mb-2">{style.emptyIcon}</div>
-          <p className="text-xs">All good here!</p>
-        </div>
-      ) : (
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {items.slice(0, 5).map((item) => (
-            <div key={item._id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
-              <span className="text-sm text-gray-800 truncate flex-1">{item.name || "Unnamed"}</span>
-              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${style.badgeBg} ${style.textColor} ml-2`}>
-                {type === "out" ? "OOS" : `${item.stock} left`}
-              </span>
-            </div>
-          ))}
-          {items.length > 5 && (
-            <div className="text-center pt-2">
-              <button className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
-                +{items.length - 5} more
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function AdminKpi() {
   const [stats, setStats] = useState({
@@ -125,16 +44,16 @@ export default function AdminKpi() {
     orderVolume: 0,
     avgOrderValue: 0,
     lowStock: 0,
-    loyaltyPoints: 0,
-    loyaltyTier: "Sprout",
+    totalLoyaltyPoints: 0,
+    avgLoyaltyPoints: 0,
+    topLoyaltyUsers: [],
     loyaltyHistory: [],
+    tierDistribution: {},
   });
 
   const [err, setErr] = useState("");
   const [lowStockItems, setLowStockItems] = useState([]);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
-
-  // NEW: deliveries + toggle state
   const [deliveries, setDeliveries] = useState([]);
   const [deliveryCount, setDeliveryCount] = useState(0);
   const [deliveryLabel, setDeliveryLabel] = useState("This month");
@@ -214,26 +133,69 @@ export default function AdminKpi() {
       }
     };
 
+    // NEW: Fetch loyalty data from users
+    const fetchLoyaltyData = async () => {
+      try {
+        const { data } = await axios.get(`${API}/users`, { headers });
+        const users = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+        
+        const regularUsers = users.filter(user => user.role !== 'admin' && user.role !== 'superadmin');
+        
+        const totalLoyaltyPoints = regularUsers.reduce((sum, user) => sum + (Number(user.loyaltyPoints) || 0), 0);
+        
+        const topLoyaltyUsers = regularUsers
+          .filter(user => (user.loyaltyPoints || 0) > 0)
+          .sort((a, b) => (b.loyaltyPoints || 0) - (a.loyaltyPoints || 0))
+          .slice(0, 10);
+        
+        const loyaltyHistory = regularUsers
+          .filter(user => user.loyaltyHistory && user.loyaltyHistory.length > 0)
+          .flatMap(user => 
+            user.loyaltyHistory.map(entry => ({
+              ...entry,
+              user: user.name,
+              email: user.email
+            }))
+          )
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 20);
+        
+        const tierDistribution = regularUsers.reduce((acc, user) => {
+          const tier = user.loyaltyTier || 'Sprout';
+          acc[tier] = (acc[tier] || 0) + 1;
+          return acc;
+        }, {});
+        
+        setStats(prev => ({
+          ...prev,
+          totalLoyaltyPoints,
+          avgLoyaltyPoints: regularUsers.length > 0 ? Math.round(totalLoyaltyPoints / regularUsers.length) : 0,
+          topLoyaltyUsers,
+          loyaltyHistory,
+          tierDistribution
+        }));
+      } catch (e) {
+        console.warn("Loyalty data fetch error:", e?.response?.data?.message || e?.message);
+      }
+    };
+
     fetchStats();
     fetchOrders();
     fetchDeliveries();
     fetchProducts();
+    fetchLoyaltyData(); // Add this line
   }, []);
 
-  // Recompute Total Delivery when deliveries change
   useEffect(() => {
     const { start, end, label } = deliveryRangeFor("month");
     setDeliveryLabel(label);
     setDeliveryCount(countDeliveredInRange(deliveries, start, end));
   }, [deliveries]);
 
-  /* ---------- Render ---------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* LEFT COLUMN */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Business Overview */}
           <div className="space-y-4">
             <SectionHeader icon={<FaTruck />} title="Business Overview" subtitle="Key performance metrics" />
 
@@ -247,15 +209,13 @@ export default function AdminKpi() {
             )}
 
             <div className="space-y-3">
-              {/* Total Users */}
               <EnhancedKpiCard
                 title="Total Users"
                 value={stats.totalUsers.toLocaleString()}
                 icon={<FaUsers />}
                 gradient="from-blue-500 to-cyan-600"
               />
-
-              {/* Total Delivery */}
+              
               <EnhancedKpiCard
                 title="Total Delivery (Month)"
                 value={deliveryCount.toLocaleString()}
@@ -263,10 +223,17 @@ export default function AdminKpi() {
                 gradient="from-teal-500 to-emerald-600"
                 subtitle={deliveryLabel}
               />
+
+              <EnhancedKpiCard
+                title="Total Loyalty Points"
+                value={stats.totalLoyaltyPoints.toLocaleString()}
+                icon={<FaAward />}
+                gradient="from-purple-500 to-pink-600"
+                subtitle={`Avg: ${stats.avgLoyaltyPoints.toLocaleString()} pts/user`}
+              />
             </div>
           </div>
 
-          {/* Inventory Status */}
           <div className="space-y-4">
             <SectionHeader icon={<FaBoxes />} title="Inventory Status" subtitle="Stock management" />
             <div className="space-y-3">
@@ -287,7 +254,6 @@ export default function AdminKpi() {
             </div>
           </div>
 
-          {/* Stock Alerts */}
           <div className="space-y-4">
             <SectionHeader icon={<FaExclamationTriangle />} title="Stock Alerts" subtitle="Inventory warnings" />
             <StockAlertCard title="Low Stock" items={lowStockItems} type="low" />
@@ -295,9 +261,7 @@ export default function AdminKpi() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Sales Chart */}
           <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Sales Trends (Revenue &amp; Units Sold)</h3>
@@ -307,24 +271,27 @@ export default function AdminKpi() {
             </div>
           </div>
 
-          {/* Loyalty History */}
           <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Loyalty History</h2>
+              <h2 className="text-xl font-bold text-gray-900">Recent Loyalty Activity</h2>
               <div className="text-sm text-gray-500">
-                Tier: <span className="font-semibold text-gray-800">{stats.loyaltyTier}</span> •{" "}
-                Points: <span className="font-semibold text-gray-800">{Number(stats.loyaltyPoints || 0).toLocaleString()}</span>
+                Total: <span className="font-semibold text-gray-800">{stats.totalLoyaltyPoints.toLocaleString()}</span> pts
               </div>
             </div>
             {stats.loyaltyHistory?.length ? (
               <ul className="divide-y divide-gray-100">
                 {stats.loyaltyHistory.map((entry, i) => (
                   <li key={i} className="py-3 flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-800">{String(entry.action || "").toUpperCase()}</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-800">{entry.user || "Unknown"}</span>
+                      <span className="text-gray-400 text-xs ml-2">{entry.email || ""}</span>
+                    </div>
                     <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs ring-1 ring-emerald-200">
-                      {entry.points} pts
+                      {entry.action === 'redeem' ? '-' : '+'}{entry.points} pts
                     </span>
-                    <span className="text-gray-500">{entry.date ? new Date(entry.date).toLocaleDateString() : "—"}</span>
+                    <span className="text-gray-500 ml-4">
+                      {entry.date ? new Date(entry.date).toLocaleDateString() : "—"}
+                    </span>
                   </li>
                 ))}
               </ul>
