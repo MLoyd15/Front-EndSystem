@@ -212,7 +212,7 @@ export default function AdminKpi() {
     // NEW: Fetch loyalty data from users
     const fetchLoyaltyData = async () => {
       try {
-        const { data } = await axios.get(`${API}/users`, { headers });
+        const { data } = await axios.get(`${API}/user`, { headers });
         const users = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
         
         const regularUsers = users.filter(user => user.role !== 'admin' && user.role !== 'superadmin');
@@ -300,13 +300,7 @@ export default function AdminKpi() {
                 subtitle={deliveryLabel}
               />
 
-              <EnhancedKpiCard
-                title="Total Loyalty Points"
-                value={stats.totalLoyaltyPoints.toLocaleString()}
-                icon={<FaAward />}
-                gradient="from-purple-500 to-pink-600"
-                subtitle={`Avg: ${stats.avgLoyaltyPoints.toLocaleString()} pts/user`}
-              />
+            
             </div>
           </div>
 
