@@ -206,40 +206,36 @@ const Promo = () => {
   if (minSpend < 50) return showModal("Validation Error", "Minimum spend must be at least ₱50", "error");
   if (maxDiscount !== 0 && (maxDiscount < 50 || maxDiscount > 1000)) return showModal("Validation Error", "Max discount must be ₱50-1,000 or 0 for no cap", "error");
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset to start of today
 
   // Check if start date is provided and validate
   if (form.startsAt) {
-    const startDate = new Date(form.startsAt);
-    startDate.setHours(0, 0, 0, 0);
+    const startDate = new Date(form.startsAt + 'T00:00:00'); // Force time to midnight
     
-    if (startDate < now) {
+    if (startDate < today) {
       return showModal("Validation Error", "Start date cannot be in the past", "error");
     }
   }
 
   // Check if end date is provided and validate
   if (form.endsAt) {
-    const endDate = new Date(form.endsAt);
-    endDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(form.endsAt + 'T00:00:00'); // Force time to midnight
     
     // End date cannot be in the past (this prevents expired promos)
-    if (endDate < now) {
+    if (endDate < today) {
       return showModal("Validation Error", "End date cannot be in the past. This promo would be expired immediately.", "error");
     }
 
     // If both dates provided, end must be after start
     if (form.startsAt) {
-      const startDate = new Date(form.startsAt);
-      startDate.setHours(0, 0, 0, 0);
+      const startDate = new Date(form.startsAt + 'T00:00:00');
       
       if (endDate <= startDate) {
         return showModal("Validation Error", "End date must be after start date", "error");
       }
     }
   }
-  // ✅ DATE VALIDATION ENDS HERE
 
   try {
     const payload = {
