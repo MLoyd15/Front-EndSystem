@@ -313,6 +313,23 @@ const BundlesPage = () => {
     setSelectedProducts([]);
   };
 
+  // Calculate total price of selected products
+  const suggestedPrice = useMemo(() => {
+    return selectedProducts.reduce((total, item) => {
+      const product = products.find(p => p._id === item.product);
+      if (product && product.price) {
+        return total + (Number(product.price) * Number(item.quantity || 0));
+      }
+      return total;
+    }, 0);
+  }, [selectedProducts, products]);
+
+  // Calculate savings
+  const savings = useMemo(() => {
+    if (!bundlePrice || suggestedPrice === 0) return 0;
+    return suggestedPrice - Number(bundlePrice);
+  }, [bundlePrice, suggestedPrice]);
+
   const totalBundles = useMemo(() => bundles.length, [bundles]);
 
   // Keep edited bundle on top
@@ -418,6 +435,41 @@ const BundlesPage = () => {
                   required
                   className="w-full border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
+                
+                {/* Price Comparison */}
+                {selectedProducts.length > 0 && suggestedPrice > 0 && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-700">Products Total:</span>
+                      <span className="font-semibold text-gray-900">{peso(suggestedPrice)}</span>
+                    </div>
+                    
+                    {bundlePrice && Number(bundlePrice) > 0 && (
+                      <>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-gray-700">Bundle Price:</span>
+                          <span className="font-semibold text-gray-900">{peso(Number(bundlePrice))}</span>
+                        </div>
+                        
+                        <div className="pt-2 mt-2 border-t border-blue-300">
+                          {savings > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-emerald-700">Customer Savings:</span>
+                              <span className="text-sm font-bold text-emerald-700">{peso(savings)}</span>
+                            </div>
+                          ) : savings < 0 ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-amber-700">Markup:</span>
+                              <span className="text-sm font-bold text-amber-700">{peso(Math.abs(savings))}</span>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-600 text-center">Same as products total</div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
