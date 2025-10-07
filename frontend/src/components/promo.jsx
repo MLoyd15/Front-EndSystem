@@ -185,90 +185,96 @@ const Promo = () => {
   }, [q]);
 
   const createPromo = async () => {
-    const val = Number(form.value || 0);
-    const minSpend = Number(form.minSpend || 0);
-    const maxDiscount = Number(form.maxDiscount || 0);
-    const limit = Number(form.limit || 0);
+  const val = Number(form.value || 0);
+  const minSpend = Number(form.minSpend || 0);
+  const maxDiscount = Number(form.maxDiscount || 0);
+  const limit = Number(form.limit || 0);
 
-    // Validation
-    if (!form.code.trim()) return showModal("Validation Error", "Promo code is required", "error")
-    if (!form.name.trim()) return showModal("Validation Error", "Internal label is required", "error")
-    
-    if (form.type === "Percentage") {
-      if (val < 1) return showModal("Validation Error", "Percentage must be at least 1%", "error");
-      if (val > 99) return showModal("Validation Error", "Percentage cannot exceed 99%", "error");
-    }
-    if (form.type === "Fixed Amount") {
-      if (val < 0) return showModal("Validation Error", "Amount cannot be negative", "error");
-      if (val > 10000) return showModal("Validation Error", "Fixed amount cannot exceed ₱10,000", "error");
-    }
-    if (limit !== 0 && limit > 10000) return showModal("Validation Error", "Usage limit cannot exceed 10,000 or set 0 for unlimited", "error");
-    if (minSpend < 50) return showModal("Validation Error", "Minimum spend must be at least ₱50", "error");
-    if (maxDiscount !== 0 && (maxDiscount < 50 || maxDiscount > 1000)) return showModal("Validation Error", "Max discount must be ₱50-1,000 or 0 for no cap", "error");
+  // Validation
+  if (!form.code.trim()) return showModal("Validation Error", "Promo code is required", "error")
+  if (!form.name.trim()) return showModal("Validation Error", "Internal label is required", "error")
+  
+  if (form.type === "Percentage") {
+    if (val < 1) return showModal("Validation Error", "Percentage must be at least 1%", "error");
+    if (val > 99) return showModal("Validation Error", "Percentage cannot exceed 99%", "error");
+  }
+  if (form.type === "Fixed Amount") {
+    if (val < 0) return showModal("Validation Error", "Amount cannot be negative", "error");
+    if (val > 10000) return showModal("Validation Error", "Fixed amount cannot exceed ₱10,000", "error");
+  }
+  if (limit !== 0 && limit > 10000) return showModal("Validation Error", "Usage limit cannot exceed 10,000 or set 0 for unlimited", "error");
+  if (minSpend < 50) return showModal("Validation Error", "Minimum spend must be at least ₱50", "error");
+  if (maxDiscount !== 0 && (maxDiscount < 50 || maxDiscount > 1000)) return showModal("Validation Error", "Max discount must be ₱50-1,000 or 0 for no cap", "error");
 
-    // ✅ NEW: Date validation
-    const now = new Date();
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  // Check if start date is provided and validate
+  if (form.startsAt) {
+    const startDate = new Date(form.startsAt);
+    startDate.setHours(0, 0, 0, 0);
     
-    // Check if start date is provided and validate
+    if (startDate < now) {
+      return showModal("Validation Error", "Start date cannot be in the past", "error");
+    }
+  }
+
+  // Check if end date is provided and validate
+  if (form.endsAt) {
+    const endDate = new Date(form.endsAt);
+    endDate.setHours(0, 0, 0, 0);
+    
+    // End date cannot be in the past (this prevents expired promos)
+    if (endDate < now) {
+      return showModal("Validation Error", "End date cannot be in the past. This promo would be expired immediately.", "error");
+    }
+
+    // If both dates provided, end must be after start
     if (form.startsAt) {
       const startDate = new Date(form.startsAt);
-      if (startDate < now) {
-        return showModal("Validation Error", "Start date cannot be in the past", "error");
+      startDate.setHours(0, 0, 0, 0);
+      
+      if (endDate <= startDate) {
+        return showModal("Validation Error", "End date must be after start date", "error");
       }
     }
+  }
+  // ✅ DATE VALIDATION ENDS HERE
 
-    // Check if end date is provided and validate
-    if (form.endsAt) {
-      const endDate = new Date(form.endsAt);
-      
-      // End date cannot be in the past
-      if (endDate < now) {
-        return showModal("Validation Error", "End date cannot be in the past. This promo would be expired immediately.", "error");
-      }
-
-      // If both dates provided, end must be after start
-      if (form.startsAt) {
-        const startDate = new Date(form.startsAt);
-        if (endDate <= startDate) {
-          return showModal("Validation Error", "End date must be after start date", "error");
-        }
-      }
-    }
-
-    try {
-      const payload = {
-        ...form,
-        code: form.code.trim().toUpperCase(),
-        name: form.name.trim(),
-        value: form.type === "Free Shipping" ? 0 : val,
-        minSpend,
-        maxDiscount,
-        limit,
-      };
-      console.log("📤 Creating promo:", payload);
-      
-      const response = await axios.post(API, payload, { headers: auth() });
-      console.log("✅ Create response:", response.data);
-      
-      showModal("Success", "Promo created successfully!", "success")
-      setForm({
-        code: "",
-        name: "",
-        type: "Percentage",
-        value: "",
-        minSpend: "",
-        maxDiscount: "",
-        limit: "",
-        status: "Active",
-        startsAt: "",
-        endsAt: "",
-      });
-      load();
-    } catch (e) {
-      console.error("❌ Error creating promo:", e.response?.data || e);
-      showModal("Error", e?.response?.data?.message || "Error creating promo", "error");
-    }
-  };
+  try {
+    const payload = {
+      ...form,
+      code: form.code.trim().toUpperCase(),
+      name: form.name.trim(),
+      value: form.type === "Free Shipping" ? 0 : val,
+      minSpend,
+      maxDiscount,
+      limit,
+    };
+    console.log("📤 Creating promo:", payload);
+    
+    const response = await axios.post(API, payload, { headers: auth() });
+    console.log("✅ Create response:", response.data);
+    
+    showModal("Success", "Promo created successfully!", "success")
+    setForm({
+      code: "",
+      name: "",
+      type: "Percentage",
+      value: "",
+      minSpend: "",
+      maxDiscount: "",
+      limit: "",
+      status: "Active",
+      startsAt: "",
+      endsAt: "",
+    });
+    load();
+  } catch (e) {
+    console.error("❌ Error creating promo:", e.response?.data || e);
+    showModal("Error", e?.response?.data?.message || "Error creating promo", "error");
+  }
+};
 
   const duplicate = async (id) => {
     try {
@@ -331,15 +337,7 @@ const Promo = () => {
   const submitReactivate = async () => {
     const s = sched.startsAt ? new Date(sched.startsAt) : null;
     const e = sched.endsAt ? new Date(sched.endsAt) : null;
-    const now = new Date();
-    
     if (!s || !e) return showModal("Validation Error", "Please pick both Start and End.", "error");
-    
-    // Validate start date
-    if (s < now) return showModal("Validation Error", "Start date cannot be in the past.", "error");
-    
-    // Validate end date
-    if (e < now) return showModal("Validation Error", "End date cannot be in the past.", "error");
     if (e <= s) return showModal("Validation Error", "End must be after Start.", "error");
     
     try {
@@ -614,7 +612,7 @@ const Promo = () => {
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 pb-12">
-            {/* Table Section - TRUNCATED FOR SPACE, SAME AS ORIGINAL */}
+            {/* Table Section */}
             <div className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200/50 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full">
@@ -750,7 +748,7 @@ const Promo = () => {
                 </div>
               </div>
             </div>
-            {/* Create Promo Sidebar - Continue in next message */}
+
             {/* Create Promo Sidebar */}
             {!showArchived && (
               <div className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200/50 p-6 h-max sticky top-6">
