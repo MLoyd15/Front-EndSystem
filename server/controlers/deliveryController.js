@@ -34,7 +34,7 @@ export async function listDeliveries(req, res) {
     const deliveries = await Delivery.find(query)
       .populate({
       path: "order",
-      select: "user items total address status deliveryType createdAt",
+      select: "user items total address status deliveryType createdAt totalWeightKg",
       populate: {
         path: "user",
         select: "name email address loyaltyPoints loyaltyTier"

@@ -337,7 +337,7 @@ export default function Deliveries() {
 
                             <div className="flex items-center gap-2 text-slate-600">
                               <Weight className="w-4 h-4" />
-                              <span>{d.order?.totalWeight || d.weight || 0} kg</span>
+                              <span>{d.order?.totalWeightKg || d.weight || 0} kg</span>
                             </div>
 
                             <div className="ml-auto flex items-center gap-2">
@@ -501,13 +501,13 @@ export default function Deliveries() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Weight:</span>
-                        <span className="font-medium">{drawer.order?.totalWeight || drawer.weight || 0} kg</span>
+                        <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Customer Information */}
-                  {(drawerDetails?.order?.customer || drawer?.order?.customer) && (
+                  {(drawerDetails?.order?.user || drawer?.order?.user) && (
                     <div className="bg-slate-50 rounded-xl p-4">
                       <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
                         <User className="w-4 h-4" />
@@ -516,15 +516,11 @@ export default function Deliveries() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-slate-600">Name:</span>
-                          <span className="font-medium">{(drawerDetails?.order?.customer || drawer?.order?.customer)?.name || "—"}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Phone:</span>
-                          <span className="font-medium">{(drawerDetails?.order?.customer || drawer?.order?.customer)?.phone || "—"}</span>
+                          <span className="font-medium">{(drawerDetails?.order?.user || drawer?.order?.user)?.name || "—"}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-600">Email:</span>
-                          <span className="font-medium">{(drawerDetails?.order?.customer || drawer?.order?.customer)?.email || "—"}</span>
+                          <span className="font-medium">{(drawerDetails?.order?.user || drawer?.order?.user)?.email || "—"}</span>
                         </div>
                       </div>
                     </div>
@@ -656,7 +652,7 @@ function CompletedCancelledSummary({ deliveries, tab }) {
     return deliveryDate >= thisWeekStart;
   }).length;
 
-  const totalWeight = deliveries.reduce((sum, d) => sum + (d.order?.totalWeight || d.weight || 0), 0);
+  const totalWeight = deliveries.reduce((sum, d) => sum + (d.order?.totalWeightKg || d.weight || 0), 0);
 
   return (
     <div className={`rounded-3xl shadow-xl ring-1 p-5 ${bgColor}`}>
@@ -694,7 +690,7 @@ function CompletedCancelledSummary({ deliveries, tab }) {
                     <div className="text-xs text-slate-600">{fmtDateTime(d.updatedAt || d.createdAt)}</div>
                   </div>
                   <div className="text-xs text-slate-600">
-                    {d.order?.totalWeight || d.weight || 0} kg
+                    {d.order?.totalWeightKg || d.weight || 0} kg
                   </div>
                 </div>
               ))}
