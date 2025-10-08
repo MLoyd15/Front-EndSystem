@@ -33,7 +33,7 @@ function App() {
           <Route 
             path="/admin-dashboard" 
             element={
-              <ProtectedRoutes requireRole={["admin", "super-admin"]}>
+              <ProtectedRoutes requireRole={["admin", "superadmin"]}>
                 <Dashboard />
               </ProtectedRoutes>
             }
