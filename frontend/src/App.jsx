@@ -64,7 +64,7 @@ function App() {
       {/* ---------------- OTHER ---------------- */}
       <Route path="/customer/dashboard" element={<h1>admin Dashboard</h1>}/>
       <Route path="/login" element={<Login />} />
-      <Route path="/super-admin-login" element={<SuperAdminLogin />} />
+      <Route path="/Superlogin" element={<SuperAdminLogin />} />
       <Route path="/unauthorized" element={<p className="font-bold text-3xl mt-20 ml-20"> Unauthorized user</p>} />
     </Routes>
    </Router>
