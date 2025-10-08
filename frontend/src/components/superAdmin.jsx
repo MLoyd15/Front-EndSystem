@@ -43,7 +43,7 @@ const SuperAdminLogin = () => {
       }
 
       // Verify user is super admin
-      if (data.user.role !== 'super-admin') {
+      if (data.user.role !== 'superadmin') {
         throw new Error('Access denied. Super admin privileges required.');
       }
 
