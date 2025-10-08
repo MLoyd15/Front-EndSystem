@@ -119,6 +119,9 @@ const GoAgriLanding = () => {
       day: "numeric"
     });
   };
+    const handleLogoClick = () => {
+    window.location.href = '/Superlogin';
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -127,8 +130,12 @@ const GoAgriLanding = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center shadow-lg">
+            <div 
+              className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity group"
+              onClick={handleLogoClick}
+              title="Click to access admin login"
+            >
+              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
                 <span className="text-white font-bold text-sm">GO</span>
               </div>
               <div>
