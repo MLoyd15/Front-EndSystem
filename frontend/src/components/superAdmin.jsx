@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, AlertCircle, Loader } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
 
 const API = VITE_API_BASE;
 
 const SuperAdminLogin = () => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -54,7 +52,7 @@ const SuperAdminLogin = () => {
       localStorage.setItem('pos-user', JSON.stringify(data.user));
 
       // Redirect to super admin dashboard
-      navigate('/admin-dashboard');
+      window.location.href = '/admin-dashboard';
       
     } catch (err) {
       console.error('Login error:', err);
