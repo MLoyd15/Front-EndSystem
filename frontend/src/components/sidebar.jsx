@@ -7,7 +7,8 @@ import {
   FaTruck,
   FaUsers,
   FaStar,
-  FaUser
+  FaUser,
+  FaTools  // ← Add this import
 } from "react-icons/fa";
 import { NavLink } from "react-router";
 import { MdDiscount, MdHistory} from "react-icons/md";
@@ -18,16 +19,17 @@ const Sidebar = () => {
     { name: "Categories", path: "/admin-dashboard/categories", icon: <FaTable />, isParent: false },
     { name: "Products", path: "/admin-dashboard/products", icon: <FaBox />, isParent: false },
     { name: "Delivery", path: "/admin-dashboard/delivery", icon: <FaTruck />, isParent: false },
-    { name: "Product review ", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
+    { name: "Product review", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
     { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false },
-    { name: "Sales History ", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false },
+    { name: "Sales History", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false },
+    // ✅ ADD THIS LINE - Maintenance menu for super-admin only
+    { name: "Maintenance", path: "/admin-dashboard/maintenance", icon: <FaTools />, isParent: false, superAdminOnly: true },
     { name: "Logout", path: "/admin-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 
   const driverItems = [
     { name: "Dashboard", path: "/driver-dashboard", icon: <FaHome />, isParent: true },
     { name: "Deliveries", path: "/driver-dashboard/delivery", icon: <FaTruck />, isParent: false },
-    
     { name: "Logout", path: "/driver-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 
@@ -38,7 +40,13 @@ const Sidebar = () => {
     if (user?.role === "driver") {
       setItems(driverItems);
     } else {
-      setItems(menuItems);
+      // ✅ CHANGE THIS - Filter menu items based on role
+      let filteredItems = menuItems;
+      if (user?.role !== "super-admin") {
+        // Hide super-admin only items for regular admins
+        filteredItems = menuItems.filter(item => !item.superAdminOnly);
+      }
+      setItems(filteredItems);
     }
   }, []);
 

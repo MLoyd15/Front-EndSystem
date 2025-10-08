@@ -18,6 +18,7 @@ import Logout from "./pages/Logout";
 import GoAgriLanding from './components/GoAgriLanding'; // Import the landing page
 import Sales from './components/Sales'
 import SuperAdminLogin from './components/superAdmin'
+import Maintenance from './components/Maintenance'
 
 function App() {
   return (
@@ -27,24 +28,29 @@ function App() {
       <Route path="/" element={<GoAgriLanding />}/>
 
       {/* For admin */}
-      <Route 
-        path="/admin-dashboard" 
-        element={
-          <ProtectedRoutes requireRole={["admin"]}>
-            <Dashboard />
-          </ProtectedRoutes>
-        }
-      >
-        <Route index element={<AdminKpi />} />
-        <Route path="categories" element={<Categories />} />
-        <Route path="products" element={<ProductsPage />} />
-        <Route path="delivery" element={<Deliveries />} />
-        <Route path="inventory" element={<h1>inventory</h1>} />
-        <Route path="review" element={<Review/>} />
-        <Route path="promo" element={<Promo/>}/>
-        <Route path="Sales" element={<Sales/>}/>
-        <Route path="logout" element={<Logout/>}/>
-      </Route>
+      <BrowserRouter>
+        <MaintenanceGuard>
+          <Route 
+            path="/admin-dashboard" 
+            element={
+              <ProtectedRoutes requireRole={["admin"]}>
+                <Dashboard />
+              </ProtectedRoutes>
+            }
+          >
+            <Route index element={<AdminKpi />} />
+            <Route path="categories" element={<Categories />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="delivery" element={<Deliveries />} />
+            <Route path="inventory" element={<h1>inventory</h1>} />
+            <Route path="review" element={<Review/>} />
+            <Route path="promo" element={<Promo/>}/>
+            <Route path="Sales" element={<Sales/>}/>
+            <Route path="maintenance" element={<Maintenance />} />
+            <Route path="logout" element={<Logout/>}/>
+          </Route>
+        </MaintenanceGuard>
+      </BrowserRouter>
 
       {/* For Driver*/}
       <Route
