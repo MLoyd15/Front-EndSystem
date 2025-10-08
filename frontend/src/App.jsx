@@ -23,18 +23,17 @@ import MaintenanceGuard from './components/MaintenanceGuard'
 
 function App() {
   return (
-   <Router>
-    <Routes>
-      {/* Landing Page as Home */}
-      <Route path="/" element={<GoAgriLanding />}/>
+    <Router>
+      <MaintenanceGuard> {/* ✅ Wrap Routes, not individual Route */}
+        <Routes>
+          {/* Landing Page as Home */}
+          <Route path="/" element={<GoAgriLanding />} />
 
-      {/* For admin */}
-      
-        <MaintenanceGuard>
+          {/* For admin */}
           <Route 
             path="/admin-dashboard" 
             element={
-              <ProtectedRoutes requireRole={["admin"]}>
+              <ProtectedRoutes requireRole={["admin", "super-admin"]}>
                 <Dashboard />
               </ProtectedRoutes>
             }
@@ -44,37 +43,36 @@ function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="delivery" element={<Deliveries />} />
             <Route path="inventory" element={<h1>inventory</h1>} />
-            <Route path="review" element={<Review/>} />
-            <Route path="promo" element={<Promo/>}/>
-            <Route path="Sales" element={<Sales/>}/>
+            <Route path="review" element={<Review />} />
+            <Route path="promo" element={<Promo />} />
+            <Route path="Sales" element={<Sales />} />
             <Route path="maintenance" element={<Maintenance />} />
-            <Route path="logout" element={<Logout/>}/>
+            <Route path="logout" element={<Logout />} />
           </Route>
-        </MaintenanceGuard>
-     
 
-      {/* For Driver*/}
-      <Route
-        path="/driver-dashboard"
-        element={
-          <ProtectedRoutes requireRole={["driver"]}>
-            <DriverDashboard />
-          </ProtectedRoutes>
-        }
-      >
-        <Route index element={<DriverDashboardComponent />} />
-        <Route path="delivery" element={<DriverDeliveries  />} />
-        <Route path="profile" element={<ChatPanel/>}/>
-        <Route path="logout" element={<Logout/>} />
-      </Route>
+          {/* For Driver */}
+          <Route
+            path="/driver-dashboard"
+            element={
+              <ProtectedRoutes requireRole={["driver"]}>
+                <DriverDashboard />
+              </ProtectedRoutes>
+            }
+          >
+            <Route index element={<DriverDashboardComponent />} />
+            <Route path="delivery" element={<DriverDeliveries />} />
+            <Route path="profile" element={<ChatPanel />} />
+            <Route path="logout" element={<Logout />} />
+          </Route>
 
-      {/* ---------------- OTHER ---------------- */}
-      <Route path="/customer/dashboard" element={<h1>admin Dashboard</h1>}/>
-      <Route path="/login" element={<Login />} />
-      <Route path="/Superlogin" element={<SuperAdminLogin />} />
-      <Route path="/unauthorized" element={<p className="font-bold text-3xl mt-20 ml-20"> Unauthorized user</p>} />
-    </Routes>
-   </Router>
+          {/* ---------------- OTHER ---------------- */}
+          <Route path="/customer/dashboard" element={<h1>admin Dashboard</h1>} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/Superlogin" element={<SuperAdminLogin />} />
+          <Route path="/unauthorized" element={<p className="font-bold text-3xl mt-20 ml-20">Unauthorized user</p>} />
+        </Routes>
+      </MaintenanceGuard>
+    </Router>
   )
 }
 
