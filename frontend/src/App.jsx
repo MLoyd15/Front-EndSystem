@@ -28,7 +28,7 @@ function App() {
       <Route path="/" element={<GoAgriLanding />}/>
 
       {/* For admin */}
-      <BrowserRouter>
+      
         <MaintenanceGuard>
           <Route 
             path="/admin-dashboard" 
@@ -50,7 +50,7 @@ function App() {
             <Route path="logout" element={<Logout/>}/>
           </Route>
         </MaintenanceGuard>
-      </BrowserRouter>
+     
 
       {/* For Driver*/}
       <Route
