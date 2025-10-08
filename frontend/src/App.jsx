@@ -19,6 +19,7 @@ import GoAgriLanding from './components/GoAgriLanding'; // Import the landing pa
 import Sales from './components/Sales'
 import SuperAdminLogin from './components/superAdmin'
 import Maintenance from './components/Maintenance'
+import MaintenanceGuard from './components/MaintenanceGuard'
 
 function App() {
   return (
