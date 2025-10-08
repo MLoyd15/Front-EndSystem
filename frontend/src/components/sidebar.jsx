@@ -42,7 +42,7 @@ const Sidebar = () => {
     } else {
       // ✅ CHANGE THIS - Filter menu items based on role
       let filteredItems = menuItems;
-      if (user?.role !== "super-admin") {
+      if (user?.role !== "superadmin") {
         // Hide super-admin only items for regular admins
         filteredItems = menuItems.filter(item => !item.superAdminOnly);
       }
