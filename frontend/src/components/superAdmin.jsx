@@ -29,7 +29,7 @@ const SuperAdminLogin = () => {
 
     try {
       // Use your API endpoint for super admin login
-      const response = await axios.post(`${API}/auth/super-admin-login`, formData, {
+      const response = await axios.post(`${API}/auth/login`, formData, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -164,19 +164,7 @@ const SuperAdminLogin = () => {
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
-              <a href="#forgot-password" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors">
-                Forgot password?
-              </a>
-            </div>
+         
 
             {/* Submit Button */}
             <button
