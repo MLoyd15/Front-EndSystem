@@ -65,7 +65,7 @@ maintenanceSchema.statics.getInstance = async function() {
     maintenance = await this.create({
       enabled: false,
       message: 'We are currently performing scheduled maintenance. Please check back soon.',
-      allowedRoles: ['admin', 'super-admin']
+      allowedRoles: ['admin', 'superadmin']
     });
   }
   
