@@ -26,47 +26,34 @@ class LalamoveService {
     const method = 'POST';
     const timestamp = new Date().getTime().toString();
 
-    const body = {
-      data: {
-        serviceType: 'MOTORCYCLE', // or 'CAR', 'VAN', 'TRUCK'
+   const body = {
+        serviceType: 'MOTORCYCLE',
         specialRequests: [],
         language: 'en_PH',
         stops: [
-          {
-            location: {
-              lat: pickupLocation.lat,
-              lng: pickupLocation.lng,
-            },
+            {
+            coordinates: { lat: pickupLocation.lat, lng: pickupLocation.lng },
             addresses: {
-              en_PH: {
-                displayString: pickupLocation.address,
-                country: 'PH',
-              },
+                en_PH: { displayString: pickupLocation.address, country: 'PH' }
+            }
             },
-          },
-          {
-            location: {
-              lat: deliveryLocation.lat,
-              lng: deliveryLocation.lng,
-            },
+            {
+            coordinates: { lat: deliveryLocation.lat, lng: deliveryLocation.lng },
             addresses: {
-              en_PH: {
-                displayString: deliveryLocation.address,
-                country: 'PH',
-              },
-            },
-          },
+                en_PH: { displayString: deliveryLocation.address, country: 'PH' }
+            }
+            }
         ],
         deliveries: items.map((item, index) => ({
-          toStop: index + 1,
-          toContact: {
+            toStop: index + 1,
+            toContact: {
             name: deliveryLocation.contactName,
-            phone: deliveryLocation.contactPhone,
-          },
-          remarks: item.remarks || '',
-        })),
-      },
-    };
+            phone: deliveryLocation.contactPhone
+            },
+            remarks: item.remarks || ''
+        }))
+        };
+
 
     const bodyString = JSON.stringify(body);
     const signature = this.generateSignature(method, path, timestamp, bodyString);
