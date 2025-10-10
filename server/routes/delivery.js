@@ -8,7 +8,7 @@ import {
   getResources,
   assignDriverVehicle,
   createDeliveryFromOrder // ✅ NEW
-} from "../controllers/deliveryController.js";
+} from "../controlers/deliveryController.js";
 
 router.get("/", protect, listDeliveries);
 router.get("/:id", protect, getDeliveryById);                    // ✅ NEW
