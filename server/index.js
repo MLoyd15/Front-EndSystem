@@ -20,6 +20,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 import adminRefundTicketsRouter from "./routes/adminRefundTickets.js";
 import maintenanceRoutes from './routes/maintenance.js';
+import lalamoveRoutes from './routes/lalamove.js';
 
 
 
@@ -67,8 +68,6 @@ app.use("/api/driver", driverRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/refund-tickets", adminRefundTicketsRouter);
 app.use('/api/maintenance', maintenanceRoutes);
-
-const lalamoveRoutes = require('./routes/lalamove');
 app.use('/api/lalamove', lalamoveRoutes);
 
 

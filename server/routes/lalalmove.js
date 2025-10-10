@@ -1,8 +1,9 @@
 // backend/routes/lalamove.js
-const express = require('express');
+import express from 'express';
+import lalamoveService from '../services/lalamoveService.js';
+import { protect } from '../middleware/auth.js'; // Your auth middleware
+
 const router = express.Router();
-const lalamoveService = require('../services/lalamoveService');
-const { protect } = require('../middleware/auth'); // Your auth middleware
 
 // Get delivery quotation
 router.post('/quotation', protect, async (req, res) => {
@@ -48,8 +49,7 @@ router.post('/order', protect, async (req, res) => {
 
     // If successful, update your delivery record
     if (result.success && req.body.deliveryId) {
-      // Update your delivery document with Lalamove order ID
-      const Delivery = require('../models/Delivery'); // Your model
+      const { default: Delivery } = await import('../models/Delivery.js');
       await Delivery.findByIdAndUpdate(req.body.deliveryId, {
         lalamoveOrderId: result.data.orderId,
         status: 'assigned',
@@ -105,7 +105,7 @@ router.delete('/order/:orderId', protect, async (req, res) => {
 
     // Update your delivery record
     if (result.success && req.body.deliveryId) {
-      const Delivery = require('../models/Delivery');
+      const { default: Delivery } = await import('../models/Delivery.js');
       await Delivery.findByIdAndUpdate(req.body.deliveryId, {
         status: 'cancelled',
       });
@@ -121,4 +121,4 @@ router.delete('/order/:orderId', protect, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
