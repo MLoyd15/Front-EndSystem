@@ -1,15 +1,17 @@
-// In your delivery routes file
-import {
-  listDeliveries,
+import express from "express";
+import { 
+    listDeliveries,
   getDeliveryById,        // ✅ NEW
   updateDelivery,
   updateLalamoveData,     // ✅ NEW
   getLalamoveDriverLocation, // ✅ NEW
   getResources,
   assignDriverVehicle,
-  createDeliveryFromOrder // ✅ NEW
-} from "../controlers/deliveryController.js";
+  createDeliveryFromOrder
+ } from "../controlers/deliveryController.js";
+import authMiddleware, { requireRole } from "../middleware/authMiddleware.js";
 
+const router = express.Router();
 router.get("/", protect, listDeliveries);
 router.get("/:id", protect, getDeliveryById);                    // ✅ NEW
 router.put("/:id", protect, updateDelivery);
@@ -17,4 +19,6 @@ router.put("/:id/lalamove", protect, updateLalamoveData);        // ✅ NEW
 router.get("/:id/driver-location", protect, getLalamoveDriverLocation); // ✅ NEW
 router.get("/resources/all", protect, getResources);
 router.put("/:id/assign", protect, assignDriverVehicle);
-router.post("/from-order", protect, createDeliveryFromOrder);    // ✅ NEW
+router.post("/from-order", protect, createDeliveryFromOrder);
+
+export default router;
