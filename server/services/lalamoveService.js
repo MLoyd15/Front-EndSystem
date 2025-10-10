@@ -1,0 +1,238 @@
+// backend/services/lalamoveService.js
+const axios = require('axios');
+const crypto = require('crypto');
+
+class LalamoveService {
+  constructor() {
+    this.apiKey = process.env.LALAMOVE_API_KEY;
+    this.apiSecret = process.env.LALAMOVE_API_SECRET;
+    this.market = process.env.LALAMOVE_MARKET || 'PH';
+    this.baseUrl = process.env.LALAMOVE_API_URL || 'https://rest.lalamove.com';
+  }
+
+  // Generate signature for API authentication
+  generateSignature(method, path, timestamp, body) {
+    const rawSignature = `${timestamp}\r\n${method}\r\n${path}\r\n\r\n${body}`;
+    return crypto
+      .createHmac('sha256', this.apiSecret)
+      .update(rawSignature)
+      .digest('hex');
+  }
+
+  // Get quotation for delivery
+  async getQuotation(pickupLocation, deliveryLocation, items = []) {
+    const path = `/v3/quotations`;
+    const url = `${this.baseUrl}${path}`;
+    const method = 'POST';
+    const timestamp = new Date().getTime().toString();
+
+    const body = {
+      data: {
+        serviceType: 'MOTORCYCLE', // or 'CAR', 'VAN', 'TRUCK'
+        specialRequests: [],
+        language: 'en_PH',
+        stops: [
+          {
+            location: {
+              lat: pickupLocation.lat,
+              lng: pickupLocation.lng,
+            },
+            addresses: {
+              en_PH: {
+                displayString: pickupLocation.address,
+                country: 'PH',
+              },
+            },
+          },
+          {
+            location: {
+              lat: deliveryLocation.lat,
+              lng: deliveryLocation.lng,
+            },
+            addresses: {
+              en_PH: {
+                displayString: deliveryLocation.address,
+                country: 'PH',
+              },
+            },
+          },
+        ],
+        deliveries: items.map((item, index) => ({
+          toStop: index + 1,
+          toContact: {
+            name: deliveryLocation.contactName,
+            phone: deliveryLocation.contactPhone,
+          },
+          remarks: item.remarks || '',
+        })),
+      },
+    };
+
+    const bodyString = JSON.stringify(body);
+    const signature = this.generateSignature(method, path, timestamp, bodyString);
+
+    try {
+      const response = await axios.post(url, body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+          'X-LLM-Country': this.market,
+        },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error('Lalamove quotation error:', error.response?.data || error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to get quotation',
+      };
+    }
+  }
+
+  // Create an order
+  async createOrder(orderData) {
+    const path = `/v3/orders`;
+    const url = `${this.baseUrl}${path}`;
+    const method = 'POST';
+    const timestamp = new Date().getTime().toString();
+
+    const body = {
+      data: {
+        quotationId: orderData.quotationId,
+        sender: {
+          stopId: orderData.pickupStopId,
+          name: orderData.senderName,
+          phone: orderData.senderPhone,
+        },
+        recipients: orderData.recipients.map((recipient) => ({
+          stopId: recipient.stopId,
+          name: recipient.name,
+          phone: recipient.phone,
+          remarks: recipient.remarks || '',
+        })),
+        isPODEnabled: true, // Proof of Delivery
+        partner: orderData.partnerOrderId || '',
+      },
+    };
+
+    const bodyString = JSON.stringify(body);
+    const signature = this.generateSignature(method, path, timestamp, bodyString);
+
+    try {
+      const response = await axios.post(url, body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+          'X-LLM-Country': this.market,
+        },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error('Lalamove order creation error:', error.response?.data || error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to create order',
+      };
+    }
+  }
+
+  // Get order details
+  async getOrderDetails(orderId) {
+    const path = `/v3/orders/${orderId}`;
+    const url = `${this.baseUrl}${path}`;
+    const method = 'GET';
+    const timestamp = new Date().getTime().toString();
+
+    const signature = this.generateSignature(method, path, timestamp, '');
+
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+          'X-LLM-Country': this.market,
+        },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error('Lalamove get order error:', error.response?.data || error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to get order details',
+      };
+    }
+  }
+
+  // Cancel order
+  async cancelOrder(orderId) {
+    const path = `/v3/orders/${orderId}`;
+    const url = `${this.baseUrl}${path}`;
+    const method = 'DELETE';
+    const timestamp = new Date().getTime().toString();
+
+    const signature = this.generateSignature(method, path, timestamp, '');
+
+    try {
+      const response = await axios.delete(url, {
+        headers: {
+          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+          'X-LLM-Country': this.market,
+        },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error('Lalamove cancel order error:', error.response?.data || error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to cancel order',
+      };
+    }
+  }
+
+  // Get driver location
+  async getDriverLocation(orderId) {
+    const path = `/v3/orders/${orderId}/drivers`;
+    const url = `${this.baseUrl}${path}`;
+    const method = 'GET';
+    const timestamp = new Date().getTime().toString();
+
+    const signature = this.generateSignature(method, path, timestamp, '');
+
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+          'X-LLM-Country': this.market,
+        },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error('Lalamove get driver location error:', error.response?.data || error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to get driver location',
+      };
+    }
+  }
+}
+
+module.exports = new LalamoveService();

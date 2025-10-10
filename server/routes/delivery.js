@@ -1,16 +1,20 @@
-import express from "express";
-import { listDeliveries, updateDelivery,   getResources, assignDriverVehicle } from "../controlers/deliveryController.js";
-import authMiddleware, { requireRole } from "../middleware/authMiddleware.js";
+// In your delivery routes file
+import {
+  listDeliveries,
+  getDeliveryById,        // ✅ NEW
+  updateDelivery,
+  updateLalamoveData,     // ✅ NEW
+  getLalamoveDriverLocation, // ✅ NEW
+  getResources,
+  assignDriverVehicle,
+  createDeliveryFromOrder // ✅ NEW
+} from "../controllers/deliveryController.js";
 
-const router = express.Router();
-
-router.get("/", authMiddleware, listDeliveries);
-
-// Admin can change base fields
-router.put("/:id", authMiddleware, requireRole(["admin", "driver"]), updateDelivery);
-
-// Admin only: resources / assignment
-router.get("/resources/all", authMiddleware, requireRole(["admin", "driver"]), getResources);
-router.put("/:id/assign", authMiddleware, requireRole(["admin", "driver"]), assignDriverVehicle);
-
-export default router;
+router.get("/", protect, listDeliveries);
+router.get("/:id", protect, getDeliveryById);                    // ✅ NEW
+router.put("/:id", protect, updateDelivery);
+router.put("/:id/lalamove", protect, updateLalamoveData);        // ✅ NEW
+router.get("/:id/driver-location", protect, getLalamoveDriverLocation); // ✅ NEW
+router.get("/resources/all", protect, getResources);
+router.put("/:id/assign", protect, assignDriverVehicle);
+router.post("/from-order", protect, createDeliveryFromOrder);    // ✅ NEW

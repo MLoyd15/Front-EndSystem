@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
-import MaintenancePage from './MaintenancePage';
+import MaintenancePage from './components/MaintenancePage';
 
 const MaintenanceGuard = ({ children }) => {
   const [checking, setChecking] = useState(true);

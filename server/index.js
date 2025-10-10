@@ -68,9 +68,13 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/refund-tickets", adminRefundTicketsRouter);
 app.use('/api/maintenance', maintenanceRoutes);
 
+const lalamoveRoutes = require('./routes/lalamove');
+app.use('/api/lalamove', lalamoveRoutes);
+
 
 // (Optional) simple health check
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
 
 // ✅ Socket.IO
 const server = http.createServer(app);
