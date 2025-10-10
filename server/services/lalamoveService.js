@@ -11,125 +11,83 @@ class LalamoveService {
   }
 
   // Generate signature for API authentication
-  generateSignature(method, path, timestamp, body) {
-    const rawSignature = `${timestamp}\r\n${method}\r\n${path}\r\n\r\n${body}`;
-    return crypto
-      .createHmac('sha256', this.apiSecret)
-      .update(rawSignature)
-      .digest('hex');
+generateSignature(method, path, timestamp, body) {
+  if (!this.apiSecret) {
+    throw new Error("Lalamove API secret not configured (LALAMOVE_API_SECRET)");
   }
+  const rawSignature = `${timestamp}\r\n${method}\r\n${path}\r\n\r\n${body}`;
+  return crypto.createHmac('sha256', String(this.apiSecret)).update(rawSignature).digest('hex');
+}
 
   // Get quotation for delivery
-  async getQuotation(pickupLocation, deliveryLocation, items = []) {
-    const path = `/v3/quotations`;
-    const url = `${this.baseUrl}${path}`;
-    const method = 'POST';
-    const timestamp = new Date().getTime().toString();
+  // Get quotation for delivery
+async getQuotation(pickupLocation, deliveryLocation, items = []) {
+  const path = `/v3/quotations`;
+  const url = `${this.baseUrl}${path}`;
+  const method = 'POST';
+  const timestamp = new Date().getTime().toString();
 
-   const body = {
-        serviceType: 'MOTORCYCLE',
-        specialRequests: [],
-        language: 'en_PH',
-        stops: [
-            {
-            coordinates: { lat: pickupLocation.lat, lng: pickupLocation.lng },
-            addresses: {
-                en_PH: { displayString: pickupLocation.address, country: 'PH' }
-            }
-            },
-            {
-            coordinates: { lat: deliveryLocation.lat, lng: deliveryLocation.lng },
-            addresses: {
-                en_PH: { displayString: deliveryLocation.address, country: 'PH' }
-            }
-            }
-        ],
-        deliveries: items.map((item, index) => ({
-            toStop: index + 1,
-            toContact: {
-            name: deliveryLocation.contactName,
-            phone: deliveryLocation.contactPhone
-            },
-            remarks: item.remarks || ''
-        }))
-        };
-
-
-    const bodyString = JSON.stringify(body);
-    const signature = this.generateSignature(method, path, timestamp, bodyString);
-
-    try {
-      const response = await axios.post(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'X-LLM-Country': this.market,
+  const body = {
+    serviceType: 'MOTORCYCLE',
+    specialRequests: [],
+    language: 'en_PH',
+    stops: [
+      {
+        coordinates: {
+          lat: pickupLocation.lat,
+          lng: pickupLocation.lng,
         },
-      });
-
-      return {
-        success: true,
-        data: response.data,
-      };
-    } catch (error) {
-      console.error('Lalamove quotation error:', error.response?.data || error);
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Failed to get quotation',
-      };
-    }
-  }
-
-  // Create an order
-  async createOrder(orderData) {
-    const path = `/v3/orders`;
-    const url = `${this.baseUrl}${path}`;
-    const method = 'POST';
-    const timestamp = new Date().getTime().toString();
-
-    const body = {
-      data: {
-        quotationId: orderData.quotationId,
-        sender: {
-          stopId: orderData.pickupStopId,
-          name: orderData.senderName,
-          phone: orderData.senderPhone,
+        addresses: {
+          en_PH: {
+            displayString: pickupLocation.address,
+            country: 'PH',
+          },
         },
-        recipients: orderData.recipients.map((recipient) => ({
-          stopId: recipient.stopId,
-          name: recipient.name,
-          phone: recipient.phone,
-          remarks: recipient.remarks || '',
-        })),
-        isPODEnabled: true, // Proof of Delivery
-        partner: orderData.partnerOrderId || '',
       },
-    };
-
-    const bodyString = JSON.stringify(body);
-    const signature = this.generateSignature(method, path, timestamp, bodyString);
-
-    try {
-      const response = await axios.post(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'X-LLM-Country': this.market,
+      {
+        coordinates: {
+          lat: deliveryLocation.lat,
+          lng: deliveryLocation.lng,
         },
-      });
+        addresses: {
+          en_PH: {
+            displayString: deliveryLocation.address,
+            country: 'PH',
+          },
+        },
+      },
+    ],
+    deliveries: items.map((item, index) => ({
+      toStop: index + 1,
+      toContact: {
+        name: deliveryLocation.contactName,
+        phone: deliveryLocation.contactPhone,
+      },
+      remarks: item.remarks || '',
+    })),
+  };
 
-      return {
-        success: true,
-        data: response.data,
-      };
-    } catch (error) {
-      console.error('Lalamove order creation error:', error.response?.data || error);
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Failed to create order',
-      };
-    }
+  const bodyString = JSON.stringify(body);
+  const signature = this.generateSignature(method, path, timestamp, bodyString);
+
+  try {
+    const response = await axios.post(url, body, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+        'X-LLM-Country': this.market,
+      },
+    });
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Lalamove quotation error:', error.response?.data || error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to get quotation',
+    };
   }
+}
 
   // Get order details
   async getOrderDetails(orderId) {
