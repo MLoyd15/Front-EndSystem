@@ -1,12 +1,11 @@
 // order controller website
 
 import Order from "../models/Order.js";
-import Delivery from "../models/Delivery.js"; // ✅ Import Delivery
 
 // GET all orders with summary stats (+ sales by category)
 export const getOrders = async (req, res) => {
   try {
-    const { startDate, endDate, status, deliveryType } = req.query; // ✅ Added filters
+    const { startDate, endDate } = req.query;
     let query = {};
 
     // ✅ Filter by date range if provided
@@ -14,22 +13,10 @@ export const getOrders = async (req, res) => {
       query.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
     }
 
-    // ✅ Filter by status
-    if (status) {
-      query.status = status;
-    }
-
-    // ✅ Filter by delivery type
-    if (deliveryType) {
-      query.deliveryType = deliveryType;
-    }
-
     // ✅ Fetch all orders
     const orders = await Order.find(query)
-      .populate("user", "name email phone address loyaltyPoints loyaltyTier")
-      .populate("products.product", "name price category")
-      .populate("delivery", "status type thirdPartyProvider assignedDriver lalamove.orderId") // ✅ Populate delivery
-      .sort({ createdAt: -1 });
+      .populate("user", "name email loyaltyPoints loyaltyTier")
+      .populate("products.product", "name price category"); // ← (category helps if populated)
 
     // ✅ Order volume (total count)
     const orderCount = await Order.countDocuments(query);
@@ -41,23 +28,27 @@ export const getOrders = async (req, res) => {
     ]);
     const totalRevenue = revenueAgg[0]?.total || 0;
 
-    // ✅ Average order value
+    // ✅ Average order value (return a number)
     const avgOrderValue =
       orderCount > 0 ? Number((totalRevenue / orderCount).toFixed(2)) : 0;
 
-    // ✅ Sales by Category (your existing logic)
+    // ✅ Sales by Category (robust)
     const salesByCategory = await Order.aggregate([
       { $match: query },
       { $unwind: "$products" },
+
+      // Normalize common item fields
       {
         $set: {
           itemProductId: { $ifNull: ["$products.product", "$products.productId"] },
           itemQty: { $ifNull: ["$products.quantity", 0] },
           itemUnitPrice: { $ifNull: ["$products.price", null] },
-          itemCategory: { $ifNull: ["$products.category", null] },
-          itemType: { $ifNull: ["$products.type", "product"] },
+          itemCategory: { $ifNull: ["$products.category", null] }, // snapshot on item, if you ever store it
+          itemType: { $ifNull: ["$products.type", "product"] }, // Detect type (product or bundle)
         }
       },
+
+      // Handle Product and Bundle Logic
       {
         $lookup: {
           from: "products",
@@ -67,6 +58,8 @@ export const getOrders = async (req, res) => {
         }
       },
       { $unwind: { path: "$prod", preserveNullAndEmptyArrays: true } },
+
+      // If product.category is an ObjectId, resolve Category doc (collection = 'categories')
       {
         $lookup: {
           from: "categories",
@@ -76,37 +69,45 @@ export const getOrders = async (req, res) => {
         }
       },
       { $unwind: { path: "$cat", preserveNullAndEmptyArrays: true } },
+
+      // Handle bundles (use price from the bundle, not individual products)
       {
         $lookup: {
           from: "bundles",
-          localField: "itemProductId",
+          localField: "itemProductId", // if it's a bundle, fetch bundle
           foreignField: "_id",
           as: "bundle"
         }
       },
       { $unwind: { path: "$bundle", preserveNullAndEmptyArrays: true } },
+
+      // If the product is a bundle, calculate revenue based on bundle price
       {
         $set: {
           resolvedPrice: {
             $cond: [
-              { $eq: ["$itemType", "bundle"] },
+              { $eq: ["$itemType", "bundle"] }, // If it's a bundle, use bundle price
               { $ifNull: ["$bundle.price", 0] },
               { $ifNull: ["$itemUnitPrice", { $ifNull: ["$prod.price", 0] }] }
             ]
           }
         }
       },
+
+      // Resolve category name (handle if category is missing, use fallback)
       {
         $set: {
           resolvedCategory: {
             $ifNull: [
               "$itemCategory",
-              { $ifNull: ["$cat.categoryName", "$cat.name"] },
+              { $ifNull: ["$cat.categoryName", "$cat.name"] }, // <-- handles both field names
               "Uncategorized"
             ]
           }
         }
       },
+
+      // Group and sum
       {
         $group: {
           _id: "$resolvedCategory",
@@ -119,81 +120,17 @@ export const getOrders = async (req, res) => {
       { $project: { _id: 0, category: 1, units: 1, revenue: 1 } }
     ]);
 
-    // ✅ Delivery stats
-    const deliveryStats = await Order.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: "$deliveryType",
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
     res.json({
       orders,
       summary: {
         orderCount,
         totalRevenue,
         avgOrderValue,
-        salesByCategory,
-        deliveryStats // ✅ NEW
+        salesByCategory, // ← ✅ NEW: include it in the response
       },
     });
   } catch (err) {
     console.error("Error fetching orders:", err);
     res.status(500).json({ message: "Server error" });
-  }
-};
-
-// ✅ NEW: Create order with delivery
-export const createOrder = async (req, res) => {
-  try {
-    const { 
-      user, 
-      products, 
-      totalAmount, 
-      deliveryType, 
-      deliveryAddress,
-      customerContact,
-      deliveryCoordinates,
-      notes 
-    } = req.body;
-
-    // Create order
-    const order = new Order({
-      user,
-      products,
-      totalAmount,
-      deliveryType: deliveryType || "pickup",
-      deliveryAddress,
-      customerContact,
-      deliveryCoordinates,
-      notes,
-      status: "pending"
-    });
-
-    await order.save();
-
-    // Auto-create delivery record if not pickup
-    if (deliveryType && deliveryType !== "pickup") {
-      const delivery = new Delivery({
-        order: order._id,
-        type: deliveryType,
-        status: "pending",
-        deliveryAddress: deliveryAddress,
-        customer: customerContact
-      });
-
-      await delivery.save();
-      
-      order.delivery = delivery._id;
-      await order.save();
-    }
-
-    res.status(201).json({ success: true, order });
-  } catch (err) {
-    console.error("Error creating order:", err);
-    res.status(500).json({ success: false, message: "Failed to create order", error: err.message });
   }
 };
