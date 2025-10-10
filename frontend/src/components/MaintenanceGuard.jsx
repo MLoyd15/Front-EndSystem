@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
-import MaintenancePage from './components/MaintenancePage';
+import MaintenancePage from './MaintenancePage';
 
 const MaintenanceGuard = ({ children }) => {
   const [checking, setChecking] = useState(true);
@@ -14,7 +14,7 @@ const MaintenanceGuard = ({ children }) => {
       try {
         const token = localStorage.getItem('pos-token');
         
-        if (!token) {
+        if (!token) { 
           const { data } = await axios.get(`${VITE_API_BASE}/maintenance/status`);
           setMaintenanceEnabled(data.enabled);
           setCanAccess(!data.enabled);
