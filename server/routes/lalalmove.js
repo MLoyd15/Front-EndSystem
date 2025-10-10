@@ -1,12 +1,12 @@
 // backend/routes/lalamove.js
 import express from 'express';
 import lalamoveService from '../services/lalamoveService.js';
-import { protect } from '../middleware/auth.js'; // Your auth middleware
+import authMiddleware, { requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Get delivery quotation
-router.post('/quotation', protect, async (req, res) => {
+router.post('/quotation', authMiddleware, async (req, res) => {
   try {
     const { pickupLocation, deliveryLocation, items } = req.body;
 
@@ -34,7 +34,7 @@ router.post('/quotation', protect, async (req, res) => {
 });
 
 // Create Lalamove order
-router.post('/order', protect, async (req, res) => {
+router.post('/order', authMiddleware, async (req, res) => {
   try {
     const orderData = req.body;
 
@@ -68,7 +68,7 @@ router.post('/order', protect, async (req, res) => {
 });
 
 // Get order status
-router.get('/order/:orderId', protect, async (req, res) => {
+router.get('/order/:orderId', authMiddleware, async (req, res) => {
   try {
     const { orderId } = req.params;
     const result = await lalamoveService.getOrderDetails(orderId);
@@ -83,7 +83,7 @@ router.get('/order/:orderId', protect, async (req, res) => {
 });
 
 // Get driver location
-router.get('/order/:orderId/driver', protect, async (req, res) => {
+router.get('/order/:orderId/driver', authMiddleware, async (req, res) => {
   try {
     const { orderId } = req.params;
     const result = await lalamoveService.getDriverLocation(orderId);
@@ -98,7 +98,7 @@ router.get('/order/:orderId/driver', protect, async (req, res) => {
 });
 
 // Cancel order
-router.delete('/order/:orderId', protect, async (req, res) => {
+router.delete('/order/:orderId', authMiddleware, async (req, res) => {
   try {
     const { orderId } = req.params;
     const result = await lalamoveService.cancelOrder(orderId);
