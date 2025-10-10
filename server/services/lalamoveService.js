@@ -1,6 +1,6 @@
 // backend/services/lalamoveService.js
-const axios = require('axios');
-const crypto = require('crypto');
+import axios from 'axios';
+import crypto from 'crypto';
 
 class LalamoveService {
   constructor() {
@@ -235,4 +235,5 @@ class LalamoveService {
   }
 }
 
-module.exports = new LalamoveService();
+// ✅ Export as ES module default
+export default new LalamoveService();
