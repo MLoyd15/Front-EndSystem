@@ -20,7 +20,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 import adminRefundTicketsRouter from "./routes/adminRefundTickets.js";
 import maintenanceRoutes from './routes/maintenance.js';
-import lalamoveRoutes from './routes/lalamove.js';
+import lalamoveRoutes from './routes/lalalmove.js';
 
 
 
