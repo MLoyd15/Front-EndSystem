@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from "express";
 import cors from "cors";
 import http from "http";
@@ -157,4 +158,14 @@ app.set("io", io);
 server.listen(process.env.PORT || 5000, () => {
   connectDB();
   console.log("The server is live with WebSocket");
+});
+
+
+console.log('🔍 Environment Check:', {
+  nodeEnv: process.env.NODE_ENV,
+  port: process.env.PORT,
+  hasMongoUrl: !!process.env.MONGO_URL,
+  hasLalamoveKey: !!process.env.LALAMOVE_API_KEY,
+  hasLalamoveSecret: !!process.env.LALAMOVE_API_SECRET,
+  lalamoveKeyPreview: process.env.LALAMOVE_API_KEY?.substring(0, 10) + '...',
 });
