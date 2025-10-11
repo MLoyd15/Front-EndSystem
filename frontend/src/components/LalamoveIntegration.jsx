@@ -172,7 +172,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
             {
               stopId: quotation.stops?.[1]?.stopId,
               name: delivery.customer?.name || 'Customer',
-              phone: delivery.customer?.phone || '+639000000000',
+              phone: delivery.customer?.phone || '+639171234567',
               remarks: `Order: ${delivery.order?.code || delivery._id}`,
             },
           ],
