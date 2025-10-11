@@ -10,13 +10,16 @@ class LalamoveService {
     this.apiSecret = process.env.LALAMOVE_API_SECRET;
     this.market = process.env.LALAMOVE_MARKET || 'PH_MNL';
     this.baseUrl = process.env.LALAMOVE_API_URL || 'https://rest.sandbox.lalamove.com';
+    
+    // ✅ Check if using sandbox
+    this.isSandbox = this.baseUrl.includes('sandbox');
 
     console.log('🚚 Lalamove Service initialized');
     console.log('📍 Market:', this.market);
     console.log('🌐 Base URL:', this.baseUrl);
+    console.log('🧪 Sandbox Mode:', this.isSandbox);
   }
 
-  // Generate signature for API authentication
   generateSignature(method, path, timestamp, body) {
     const rawSignature = `${timestamp}\r\n${method}\r\n${path}\r\n\r\n${body}`;
     return crypto
@@ -25,19 +28,22 @@ class LalamoveService {
       .digest('hex');
   }
 
-  // Get quotation for delivery
   async getQuotation(pickupLocation, deliveryLocation, items = []) {
-    // ✅ IMPORTANT: path must include market
-    const path = `/${this.market}/v3/quotations`;
+    // ✅ FIXED: Sandbox uses different path structure
+    const path = this.isSandbox 
+      ? '/v3/quotations'  // Sandbox: no market in path
+      : `/${this.market}/v3/quotations`; // Production: market in path
+    
     const url = `${this.baseUrl}${path}`;
     const method = 'POST';
     const timestamp = new Date().getTime().toString();
 
     const body = {
-      scheduleAt: '', // Empty for immediate delivery
-      serviceType: 'MOTORCYCLE', // or 'VAN', 'CAR', 'TRUCK'
+      scheduleAt: '',
+      serviceType: 'MOTORCYCLE',
       specialRequests: [],
       language: 'en_PH',
+      market: this.market, // ✅ Market goes in body for sandbox
       stops: [
         {
           location: {
@@ -81,14 +87,15 @@ class LalamoveService {
     console.log('URL:', url);
     console.log('Path:', path);
     console.log('Market:', this.market);
-    console.log('Timestamp:', timestamp);
+    console.log('Body:', JSON.stringify(body, null, 2));
 
     try {
       const response = await axios.post(url, body, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Market': this.market // ✅ Also include in header
         }
       });
 
@@ -100,25 +107,30 @@ class LalamoveService {
     } catch (error) {
       console.error('❌ Lalamove quotation error:', {
         status: error.response?.status,
+        statusText: error.response?.statusText,
         data: error.response?.data,
         message: error.message
       });
       
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to get quotation'
+        error: error.response?.data?.message || error.message || 'Failed to get quotation',
+        details: error.response?.data
       };
     }
   }
 
-  // Create an order
   async createOrder(orderData) {
-    const path = `/${this.market}/v3/orders`;
+    const path = this.isSandbox 
+      ? '/v3/orders'
+      : `/${this.market}/v3/orders`;
+    
     const url = `${this.baseUrl}${path}`;
     const method = 'POST';
     const timestamp = new Date().getTime().toString();
 
     const body = {
+      market: this.market, // ✅ Include market in body
       quotationId: orderData.quotationId,
       sender: {
         stopId: orderData.pickupStopId,
@@ -143,7 +155,8 @@ class LalamoveService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Market': this.market
         }
       });
 
@@ -153,7 +166,7 @@ class LalamoveService {
         data: response.data
       };
     } catch (error) {
-      console.error('❌ Lalamove order creation error:', {
+      console.error('❌ Order creation error:', {
         status: error.response?.status,
         data: error.response?.data,
         message: error.message
@@ -161,14 +174,17 @@ class LalamoveService {
 
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to create order'
+        error: error.response?.data?.message || error.message || 'Failed to create order',
+        details: error.response?.data
       };
     }
   }
 
-  // Get order details
   async getOrderDetails(orderId) {
-    const path = `/${this.market}/v3/orders/${orderId}`;
+    const path = this.isSandbox 
+      ? `/v3/orders/${orderId}`
+      : `/${this.market}/v3/orders/${orderId}`;
+    
     const url = `${this.baseUrl}${path}`;
     const method = 'GET';
     const timestamp = new Date().getTime().toString();
@@ -179,7 +195,8 @@ class LalamoveService {
       const response = await axios.get(url, {
         headers: {
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Market': this.market
         }
       });
 
@@ -188,7 +205,7 @@ class LalamoveService {
         data: response.data
       };
     } catch (error) {
-      console.error('❌ Lalamove get order error:', error.response?.data || error);
+      console.error('❌ Get order error:', error.response?.data || error);
       return {
         success: false,
         error: error.response?.data?.message || 'Failed to get order details'
@@ -196,9 +213,11 @@ class LalamoveService {
     }
   }
 
-  // Cancel order
   async cancelOrder(orderId) {
-    const path = `/${this.market}/v3/orders/${orderId}`;
+    const path = this.isSandbox 
+      ? `/v3/orders/${orderId}`
+      : `/${this.market}/v3/orders/${orderId}`;
+    
     const url = `${this.baseUrl}${path}`;
     const method = 'DELETE';
     const timestamp = new Date().getTime().toString();
@@ -209,7 +228,8 @@ class LalamoveService {
       const response = await axios.delete(url, {
         headers: {
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Market': this.market
         }
       });
 
@@ -218,7 +238,7 @@ class LalamoveService {
         data: response.data
       };
     } catch (error) {
-      console.error('❌ Lalamove cancel order error:', error.response?.data || error);
+      console.error('❌ Cancel order error:', error.response?.data || error);
       return {
         success: false,
         error: error.response?.data?.message || 'Failed to cancel order'
@@ -226,9 +246,11 @@ class LalamoveService {
     }
   }
 
-  // Get driver location
   async getDriverLocation(orderId) {
-    const path = `/${this.market}/v3/orders/${orderId}/drivers`;
+    const path = this.isSandbox 
+      ? `/v3/orders/${orderId}/drivers`
+      : `/${this.market}/v3/orders/${orderId}/drivers`;
+    
     const url = `${this.baseUrl}${path}`;
     const method = 'GET';
     const timestamp = new Date().getTime().toString();
@@ -239,7 +261,8 @@ class LalamoveService {
       const response = await axios.get(url, {
         headers: {
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Market': this.market
         }
       });
 
@@ -248,7 +271,7 @@ class LalamoveService {
         data: response.data
       };
     } catch (error) {
-      console.error('❌ Lalamove get driver location error:', error.response?.data || error);
+      console.error('❌ Get driver location error:', error.response?.data || error);
       return {
         success: false,
         error: error.response?.data?.message || 'Failed to get driver location'
