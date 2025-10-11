@@ -1,6 +1,8 @@
 // backend/services/lalamoveService.js
 import axios from 'axios';
 import crypto from 'crypto';
+import dotenv from 'dotenv';
+dotenv.config(); 
 
 class LalamoveService {
   constructor() {
