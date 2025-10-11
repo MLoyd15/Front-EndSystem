@@ -118,7 +118,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
             lng: deliveryLocation.lng,
             address: deliveryLocation.address,
             contactName: delivery.customer?.name || 'Customer',
-            contactPhone: delivery.customer?.phone || '+639000000000',
+            contactPhone: delivery.customer?.phone || '+639171234567',
           },
           items: delivery.order?.items?.map((item) => ({
             remarks: `${item.productName || item.name} x${item.quantity}`,
@@ -127,19 +127,32 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
         { headers: auth() }
       );
 
-      if (response.data.success) {
-        setQuotation(response.data.data);
-        setStep('confirm');
-      } else {
-        setError(response.data.error || 'Failed to get quotation');
+    
+    if (response.data.success) {
+      setQuotation(response.data.data);
+      setStep('confirm');
+    } else {
+      // ✅ Show validation errors if available
+      const validationErrors = response.data.validationErrors;
+      if (validationErrors && Array.isArray(validationErrors)) {
+        const errorMessages = validationErrors.map(err => 
+          `${err.field || 'Field'}: ${err.message || 'Invalid'}`
+        ).join(', ');
+        throw new Error(`Validation errors: ${errorMessages}`);
       }
-    } catch (err) {
-      console.error('Quotation error:', err);
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to get quotation');
-    } finally {
-      setLoading(false);
+      throw new Error(response.data.error || 'Failed to get quotation');
     }
-  };
+  } catch (err) {
+    console.error('Quotation error:', err);
+    setError(
+      err.response?.data?.message || 
+      err.message || 
+      'Failed to get quotation. Please check the delivery details.'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const bookDelivery = async () => {
     if (!quotation) return;
