@@ -4,10 +4,6 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 dotenv.config(); 
 
-// services/lalamoveService.js
-import axios from 'axios';
-import crypto from 'crypto';
-
 class LalamoveService {
   constructor() {
     this.apiKey = process.env.LALAMOVE_API_KEY;
@@ -41,57 +37,44 @@ class LalamoveService {
   }
 
   async getQuotation(pickupLocation, deliveryLocation, items = []) {
-    const path = this.isSandbox ? '/v3/quotations' : `/${this.market}/v3/quotations`;
+    // ✅ For sandbox, use /v2 instead of /v3
+    const path = '/v2/quotations';
     const url = `${this.baseUrl}${path}`;
     const method = 'POST';
     const timestamp = new Date().getTime().toString();
 
     const deliveryPhone = this.formatPhoneNumber(deliveryLocation.contactPhone);
 
-    // ✅ FIXED: Proper structure with sender info
+    // ✅ V2 API structure (sandbox)
     const body = {
-      data: { // ✅ Wrap in 'data' object
-        scheduleAt: '',
-        serviceType: 'MOTORCYCLE',
-        specialRequests: [],
-        language: 'en_PH',
-        stops: [
-          {
-            location: {
-              lat: String(pickupLocation.lat),
-              lng: String(pickupLocation.lng)
-            },
-            addresses: {
-              en_PH: {
-                displayString: pickupLocation.address,
-                country: 'PH'
-              }
-            }
+      serviceType: 'MOTORCYCLE',
+      language: 'en_PH',
+      stops: [
+        {
+          coordinates: {
+            lat: String(pickupLocation.lat),
+            lng: String(pickupLocation.lng)
           },
-          {
-            location: {
-              lat: String(deliveryLocation.lat),
-              lng: String(deliveryLocation.lng)
-            },
-            addresses: {
-              en_PH: {
-                displayString: deliveryLocation.address,
-                country: 'PH'
-              }
-            }
-          }
-        ],
-        deliveries: [
-          {
-            toStop: 1, // Second stop (index 1)
-            toContact: {
-              name: deliveryLocation.contactName || 'Customer',
-              phone: deliveryPhone
-            },
-            remarks: items.map(item => item.remarks).join(', ') || 'Order delivery'
-          }
-        ]
-      }
+          address: pickupLocation.address
+        },
+        {
+          coordinates: {
+            lat: String(deliveryLocation.lat),
+            lng: String(deliveryLocation.lng)
+          },
+          address: deliveryLocation.address
+        }
+      ],
+      deliveries: [
+        {
+          toStop: 1, // Index of delivery stop
+          toContact: {
+            name: deliveryLocation.contactName || 'Customer',
+            phone: deliveryPhone
+          },
+          remarks: items.map(item => item.remarks).join(', ') || 'Order delivery'
+        }
+      ]
     };
 
     const bodyString = JSON.stringify(body);
@@ -100,7 +83,7 @@ class LalamoveService {
     console.log('🔍 Lalamove Request Debug:');
     console.log('URL:', url);
     console.log('Path:', path);
-    console.log('Market:', this.market);
+    console.log('API Key:', this.apiKey);
     console.log('Body:', JSON.stringify(body, null, 2));
 
     try {
@@ -109,71 +92,56 @@ class LalamoveService {
           'Content-Type': 'application/json',
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
           'Accept': 'application/json',
-          'Market': this.market // ✅ Add market to header
+          'X-LLM-Market': this.market // ✅ V2 uses this header
         }
       });
 
       console.log('✅ Quotation success:', JSON.stringify(response.data, null, 2));
       
-      // ✅ Extract data from response
-      const quotationData = response.data.data || response.data;
-      
       return {
         success: true,
-        data: quotationData
+        data: response.data
       };
     } catch (error) {
       console.error('❌ Lalamove quotation error:');
       console.error('Status:', error.response?.status);
+      console.error('Headers:', error.response?.headers);
       console.error('Error Data:', JSON.stringify(error.response?.data, null, 2));
-      console.error('Full Errors:', JSON.stringify(error.response?.data?.errors, null, 2));
       
-      // ✅ Better error message
       let errorMessage = 'Failed to get quotation';
       if (error.response?.data?.errors) {
         const errors = error.response.data.errors;
         if (Array.isArray(errors)) {
-          errorMessage = errors.map(e => {
-            if (e.id === 'ERR_INSUFFICIENT_STOPS') {
-              return 'Delivery distance is too short or stops are invalid. Minimum distance required.';
-            }
-            return e.message || e.id || 'Unknown error';
-          }).join(', ');
+          errorMessage = errors.map(e => e.message || e.id || 'Unknown error').join(', ');
         }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
       }
       
       return {
         success: false,
         error: errorMessage,
-        details: error.response?.data,
-        validationErrors: error.response?.data?.errors
+        details: error.response?.data
       };
     }
   }
 
   async createOrder(orderData) {
-    const path = this.isSandbox ? '/v3/orders' : `/${this.market}/v3/orders`;
+    const path = '/v2/orders';
     const url = `${this.baseUrl}${path}`;
     const method = 'POST';
     const timestamp = new Date().getTime().toString();
 
     const body = {
-      data: { // ✅ Wrap in 'data' object
-        quotationId: orderData.quotationId,
-        sender: {
-          stopId: orderData.pickupStopId,
-          name: orderData.senderName,
-          phone: orderData.senderPhone
-        },
-        recipients: orderData.recipients.map((recipient) => ({
-          stopId: recipient.stopId,
-          name: recipient.name,
-          phone: recipient.phone,
-          remarks: recipient.remarks || ''
-        })),
-        isPODEnabled: true,
-        partner: orderData.partnerOrderId || ''
-      }
+      quotationId: orderData.quotationId,
+      sender: {
+        stopId: orderData.pickupStopId,
+        name: orderData.senderName,
+        phone: orderData.senderPhone
+      },
+      recipients: orderData.recipients,
+      isPODEnabled: true,
+      partner: orderData.partnerOrderId || ''
     };
 
     const bodyString = JSON.stringify(body);
@@ -185,14 +153,14 @@ class LalamoveService {
           'Content-Type': 'application/json',
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
           'Accept': 'application/json',
-          'Market': this.market
+          'X-LLM-Market': this.market
         }
       });
 
       console.log('✅ Order created:', response.data);
       return {
         success: true,
-        data: response.data.data || response.data
+        data: response.data
       };
     } catch (error) {
       console.error('❌ Order creation error:', JSON.stringify(error.response?.data, null, 2));
@@ -205,7 +173,7 @@ class LalamoveService {
   }
 
   async getOrderDetails(orderId) {
-    const path = this.isSandbox ? `/v3/orders/${orderId}` : `/${this.market}/v3/orders/${orderId}`;
+    const path = `/v2/orders/${orderId}`;
     const url = `${this.baseUrl}${path}`;
     const method = 'GET';
     const timestamp = new Date().getTime().toString();
@@ -216,13 +184,13 @@ class LalamoveService {
         headers: {
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
           'Accept': 'application/json',
-          'Market': this.market
+          'X-LLM-Market': this.market
         }
       });
 
       return {
         success: true,
-        data: response.data.data || response.data
+        data: response.data
       };
     } catch (error) {
       console.error('❌ Get order error:', error.response?.data || error);
@@ -234,24 +202,28 @@ class LalamoveService {
   }
 
   async cancelOrder(orderId) {
-    const path = this.isSandbox ? `/v3/orders/${orderId}` : `/${this.market}/v3/orders/${orderId}`;
+    const path = `/v2/orders/${orderId}`;
     const url = `${this.baseUrl}${path}`;
-    const method = 'DELETE';
+    const method = 'PUT';
     const timestamp = new Date().getTime().toString();
-    const signature = this.generateSignature(method, path, timestamp, '');
+    
+    const body = { status: 'CANCELED' };
+    const bodyString = JSON.stringify(body);
+    const signature = this.generateSignature(method, path, timestamp, bodyString);
 
     try {
-      const response = await axios.delete(url, {
+      const response = await axios.put(url, body, {
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
           'Accept': 'application/json',
-          'Market': this.market
+          'X-LLM-Market': this.market
         }
       });
 
       return {
         success: true,
-        data: response.data.data || response.data
+        data: response.data
       };
     } catch (error) {
       console.error('❌ Cancel order error:', error.response?.data || error);
@@ -263,7 +235,7 @@ class LalamoveService {
   }
 
   async getDriverLocation(orderId) {
-    const path = this.isSandbox ? `/v3/orders/${orderId}/drivers` : `/${this.market}/v3/orders/${orderId}/drivers`;
+    const path = `/v2/orders/${orderId}`;
     const url = `${this.baseUrl}${path}`;
     const method = 'GET';
     const timestamp = new Date().getTime().toString();
@@ -274,13 +246,13 @@ class LalamoveService {
         headers: {
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
           'Accept': 'application/json',
-          'Market': this.market
+          'X-LLM-Market': this.market
         }
       });
 
       return {
         success: true,
-        data: response.data.data || response.data
+        data: response.data
       };
     } catch (error) {
       console.error('❌ Get driver location error:', error.response?.data || error);
