@@ -10,8 +10,6 @@ class LalamoveService {
     this.apiSecret = process.env.LALAMOVE_API_SECRET;
     this.market = process.env.LALAMOVE_MARKET || 'PH_MNL';
     this.baseUrl = process.env.LALAMOVE_API_URL || 'https://rest.sandbox.lalamove.com';
-    
-    // ✅ Check if using sandbox
     this.isSandbox = this.baseUrl.includes('sandbox');
 
     console.log('🚚 Lalamove Service initialized');
@@ -28,23 +26,42 @@ class LalamoveService {
       .digest('hex');
   }
 
-  async getQuotation(pickupLocation, deliveryLocation, items = []) {
-    // ✅ FIXED: Sandbox uses different path structure
-    const path = this.isSandbox 
-      ? '/v3/quotations'  // Sandbox: no market in path
-      : `/${this.market}/v3/quotations`; // Production: market in path
+  // ✅ Helper to format phone number for Lalamove
+  formatPhoneNumber(phone) {
+    // Remove all non-digits
+    let cleaned = phone.replace(/\D/g, '');
     
+    // If starts with 0, replace with +63
+    if (cleaned.startsWith('0')) {
+      cleaned = '63' + cleaned.substring(1);
+    }
+    
+    // If doesn't start with country code, add it
+    if (!cleaned.startsWith('63')) {
+      cleaned = '63' + cleaned;
+    }
+    
+    // Add + prefix
+    return '+' + cleaned;
+  }
+
+  async getQuotation(pickupLocation, deliveryLocation, items = []) {
+    const path = this.isSandbox ? '/v3/quotations' : `/${this.market}/v3/quotations`;
     const url = `${this.baseUrl}${path}`;
     const method = 'POST';
     const timestamp = new Date().getTime().toString();
 
+    // ✅ Format phone numbers
+    const deliveryPhone = this.formatPhoneNumber(deliveryLocation.contactPhone);
+
     const body = {
-      scheduleAt: '',
+      scheduleAt: '', // Empty string for immediate delivery
       serviceType: 'MOTORCYCLE',
       specialRequests: [],
       language: 'en_PH',
-      market: this.market, // ✅ Market goes in body for sandbox
+      market: this.market, // ✅ Use PH_MNL, not PH
       stops: [
+        // Stop 0: Pickup
         {
           location: {
             lat: String(pickupLocation.lat),
@@ -57,6 +74,7 @@ class LalamoveService {
             }
           }
         },
+        // Stop 1: Delivery
         {
           location: {
             lat: String(deliveryLocation.lat),
@@ -70,14 +88,16 @@ class LalamoveService {
           }
         }
       ],
-      deliveries: items.map((item, index) => ({
-        toStop: index + 1,
-        toContact: {
-          name: deliveryLocation.contactName,
-          phone: deliveryLocation.contactPhone
-        },
-        remarks: item.remarks || ''
-      }))
+      deliveries: [
+        {
+          toStop: 1, // ✅ Index 1 = second stop (delivery location)
+          toContact: {
+            name: deliveryLocation.contactName || 'Customer',
+            phone: deliveryPhone // ✅ Properly formatted phone
+          },
+          remarks: items.map(item => item.remarks).join(', ') || 'Order delivery'
+        }
+      ]
     };
 
     const bodyString = JSON.stringify(body);
@@ -87,6 +107,7 @@ class LalamoveService {
     console.log('URL:', url);
     console.log('Path:', path);
     console.log('Market:', this.market);
+    console.log('Delivery Phone (formatted):', deliveryPhone);
     console.log('Body:', JSON.stringify(body, null, 2));
 
     try {
@@ -95,31 +116,30 @@ class LalamoveService {
           'Content-Type': 'application/json',
           'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
           'Accept': 'application/json',
-          'Market': this.market // ✅ Also include in header
+          'Market': this.market
         }
       });
 
-      console.log('✅ Quotation success:', response.data);
+      console.log('✅ Quotation success:', JSON.stringify(response.data, null, 2));
       return {
         success: true,
         data: response.data
       };
     } catch (error) {
-      console.error('❌ Lalamove quotation error:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
+      console.error('❌ Lalamove quotation error:');
+      console.error('Status:', error.response?.status);
+      console.error('Status Text:', error.response?.statusText);
+      console.error('Error Data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('Full Errors:', JSON.stringify(error.response?.data?.errors, null, 2));
       
       return {
         success: false,
         error: error.response?.data?.message || error.message || 'Failed to get quotation',
-        details: error.response?.data
+        details: error.response?.data,
+        validationErrors: error.response?.data?.errors // ✅ Pass validation errors
       };
     }
   }
-
   async createOrder(orderData) {
     const path = this.isSandbox 
       ? '/v3/orders'
