@@ -233,12 +233,11 @@ export default function AdminKpi() {
       sum + (Number(reward.totalSpent) || 0), 0
     );
     
-    // Get top users
+    // Get top users by points
     const topLoyaltyUsers = loyaltyRewards
       .sort((a, b) => (b.points || 0) - (a.points || 0))
       .slice(0, 5)
       .map(reward => ({
-        // ✅ FIXED: Handle both populated and non-populated userId
         userId: reward.userId?._id || reward.userId,
         userName: reward.userId?.name || 'Unknown User',
         userEmail: reward.userId?.email || '',
@@ -248,19 +247,18 @@ export default function AdminKpi() {
         purchaseCount: reward.purchaseCount || 0
       }));
     
-    // ✅ FIXED: Flatten points history with proper user data
+    // Flatten points history with user data
     const loyaltyHistory = loyaltyRewards
       .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
       .flatMap(reward => 
         reward.pointsHistory.map(entry => ({
           points: entry.points || 0,
-          date: entry.createdAt || entry.date,
+          date: entry.createdAt || new Date(),
           orderId: entry.orderId,
           source: entry.source || 'order_processed',
-          // ✅ FIXED: Get user name from populated userId
           user: reward.userId?.name || 'Unknown User',
           email: reward.userId?.email || '',
-          action: 'earned'
+          action: entry.source === 'redeem' ? 'redeem' : 'earned'
         }))
       )
       .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -273,7 +271,7 @@ export default function AdminKpi() {
       return acc;
     }, {});
 
-    // Average
+    // Average points per user
     const avgLoyaltyPoints = loyaltyRewards.length > 0 
       ? Math.round(totalLoyaltyPoints / loyaltyRewards.length) 
       : 0;
@@ -290,9 +288,10 @@ export default function AdminKpi() {
     
     console.log('✅ Loyalty data loaded:', {
       totalPoints: totalLoyaltyPoints,
+      avgPoints: avgLoyaltyPoints,
       topUsers: topLoyaltyUsers.length,
       historyCount: loyaltyHistory.length,
-      sampleHistory: loyaltyHistory[0] // ✅ Debug first entry
+      sampleUser: topLoyaltyUsers[0]
     });
     
   } catch (e) {
