@@ -41,10 +41,10 @@ export const getUserLoyaltyRewards = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // Access the loyaltyrewards collection
+    // Access the loyaltyrewards collection directly
     const LoyaltyReward = mongoose.connection.collection('loyaltyrewards');
     
-    const rewards = await LoyaltyReward.find({ userId: mongoose.Types.ObjectId(userId) })
+    const rewards = await LoyaltyReward.find({ userId: new mongoose.Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
       .toArray();
 

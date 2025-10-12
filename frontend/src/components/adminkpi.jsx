@@ -212,7 +212,7 @@ export default function AdminKpi() {
     // ✅ NEW: Fetch loyalty data
     const fetchLoyaltyData = async () => {
       try {
-        const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
+        const { data } = await axios.get(`${API}/loyalty`, { headers });
         
         console.log('🔍 Loyalty Rewards Response:', data);
         
