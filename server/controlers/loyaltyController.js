@@ -32,3 +32,25 @@ export const redeemReward = async (req, res) => {
     res.status(500).json({ message: "Error redeeming reward" });
   }
 };
+
+export const getUserLoyaltyRewards = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // Access the loyaltyrewards collection
+    const LoyaltyReward = mongoose.connection.collection('loyaltyrewards');
+    
+    const rewards = await LoyaltyReward.find({ userId: mongoose.Types.ObjectId(userId) })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json({ success: true, rewards });
+  } catch (error) {
+    console.error("Error fetching loyalty rewards:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

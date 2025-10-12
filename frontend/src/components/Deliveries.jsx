@@ -35,9 +35,18 @@ const statusPill = (status) => {
     assigned: ["sky", "Assigned"],
     "in-transit": ["amber", "In transit"],
     completed: ["green", "Completed"],
-    cancelled: ["red", "Cancelled"],
+      cancelled: ["red", "Cancelled"],
+    
+    // ✅ Lalamove statuses
+    "ASSIGNING_DRIVER": ["amber", "Finding Driver"],
+    "ON_GOING": ["sky", "On Going"],
+    "PICKED_UP": ["amber", "Picked Up"],
+    "COMPLETED": ["green", "Delivered"],
+    "CANCELLED": ["red", "Cancelled"],
+    "EXPIRED": ["gray", "Expired"],
+    
   };
-  const [c, label] = map[status] || map.pending;
+  const [c, label] = map[status] || ["gray", status || "Pending"];
   return chip(c, label);
 };
 
@@ -238,6 +247,49 @@ export default function Deliveries() {
     if (tab === "pickup") return delivery.pickupLocation || "Set pickup location";
     return delivery.deliveryAddress || "Set delivery address";
   };
+
+const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
+  try {
+    const response = await axios.get(
+      `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
+      { headers: auth() }
+    );
+    
+    if (response.data.success) {
+      const lalamoveData = response.data.data.data || response.data.data;
+      
+      // Update the delivery with latest Lalamove status
+      await axios.put(
+        `${API}/${deliveryId}`,
+        {
+          'lalamove.status': lalamoveData.status,
+          'lalamove.driver': lalamoveData.driver,
+        },
+        { headers: auth() }
+      );
+      
+      load(); // Reload deliveries
+    }
+  } catch (error) {
+    console.error('Failed to sync Lalamove status:', error);
+  }
+};
+
+// Add a refresh button for Lalamove deliveries
+const renderSyncButton = (delivery) => {
+  if (!delivery.lalamove?.orderId) return null;
+  
+  return (
+    <button
+      onClick={() => syncLalamoveStatus(delivery._id, delivery.lalamove.orderId)}
+      className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-pink-300 text-pink-700 hover:bg-pink-50 inline-flex items-center gap-2"
+      title="Sync Lalamove Status"
+    >
+      <RefreshCcw className="w-3 h-3" />
+      Sync
+    </button>
+  );
+};
 
   return (
     <div className="min-h-screen bg-white text-slate-900">

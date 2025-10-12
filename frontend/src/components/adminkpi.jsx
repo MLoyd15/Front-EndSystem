@@ -1,4 +1,4 @@
-// COMPLETE UPDATED AdminKpi.jsx with Loyalty Data from Users
+// COMPLETE UPDATED AdminKpi.jsx with Loyalty Data
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
@@ -209,72 +209,97 @@ export default function AdminKpi() {
       }
     };
 
-    // NEW: Fetch loyalty data from users
+    // ✅ NEW: Fetch loyalty data
     const fetchLoyaltyData = async () => {
-  try {
-    // Call the deployed loyaltyrewards endpoint
-    const { data } = await axios.get(`${API}/loyaltyrewards`, { headers });
-    
-    console.log('Loyalty Rewards Data:', data); // Check what you receive
-    
-    const loyaltyRewards = Array.isArray(data) ? data : data?.loyaltyrewards || data?.data || [];
-    
-    // Calculate totals
-    const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
-      sum + (Number(reward.points) || 0), 0);
-    const totalSpent = loyaltyRewards.reduce((sum, reward) => 
-      sum + (Number(reward.totalSpent) || 0), 0);
-    
-    // Get top spenders (sorted by totalSpent)
-    const topSpenders = loyaltyRewards
-      .filter(reward => (reward.totalSpent || 0) > 0)
-      .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
-      .slice(0, 10)
-      .map(reward => ({
-        userId: reward.userId || {},
-        totalSpent: reward.totalSpent || 0,
-        points: reward.points || 0,
-        tier: reward.tier || 'Bronze',
-        purchaseCount: reward.purchaseCount || 0
-      }));
-    
-    // Flatten points history from all loyalty records
-    const loyaltyHistory = loyaltyRewards
-      .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
-      .flatMap(reward => 
-        reward.pointsHistory.map(entry => ({
-          points: entry.points || 0,
-          source: entry.source || "order_processed",
-          orderId: entry.orderId,
-          createdAt: entry.createdAt,
-          _id: entry._id,
-          userName: reward.userId?.name || "Unknown User",
-          userEmail: reward.userId?.email || ""
-        }))
-      )
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 20);
-    
-    setStats(prev => ({
-      ...prev,
-      totalLoyaltyPoints,
-      totalSpent,
-      avgSpent: loyaltyRewards.length > 0 ? Math.round(totalSpent / loyaltyRewards.length) : 0,
-      topSpenders,
-      loyaltyHistory
-    }));
-    
-  } catch (e) {
-    console.error("Loyalty data fetch error:", e?.response?.data?.message || e?.message);
-    console.error("Full error:", e);
-  }
-};
+      try {
+        const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
+        
+        console.log('🔍 Loyalty Rewards Response:', data);
+        
+        const loyaltyRewards = Array.isArray(data) ? data 
+          : data?.rewards || data?.data || [];
+        
+        if (!loyaltyRewards.length) {
+          console.log('ℹ️ No loyalty rewards found');
+          return;
+        }
+
+        // Calculate total points
+        const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
+          sum + (Number(reward.points) || 0), 0
+        );
+        
+        // Calculate total spent
+        const totalSpent = loyaltyRewards.reduce((sum, reward) => 
+          sum + (Number(reward.totalSpent) || 0), 0
+        );
+        
+        // Get top users
+        const topLoyaltyUsers = loyaltyRewards
+          .sort((a, b) => (b.points || 0) - (a.points || 0))
+          .slice(0, 5)
+          .map(reward => ({
+            userId: reward.userId,
+            points: reward.points || 0,
+            tier: reward.tier || '',
+            totalSpent: reward.totalSpent || 0,
+            purchaseCount: reward.purchaseCount || 0
+          }));
+        
+        // Flatten points history
+        const loyaltyHistory = loyaltyRewards
+          .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
+          .flatMap(reward => 
+            reward.pointsHistory.map(entry => ({
+              points: entry.points || 0,
+              date: entry.date || entry.createdAt,
+              orderId: entry.orderId,
+              user: reward.userId?.name || 'Unknown User',
+              email: reward.userId?.email || '',
+              action: 'earned'
+            }))
+          )
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 10);
+
+        // Tier distribution
+        const tierDistribution = loyaltyRewards.reduce((acc, reward) => {
+          const tier = reward.tier || 'bronze';
+          acc[tier] = (acc[tier] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Average
+        const avgLoyaltyPoints = loyaltyRewards.length > 0 
+          ? Math.round(totalLoyaltyPoints / loyaltyRewards.length) 
+          : 0;
+
+        setStats(prev => ({
+          ...prev,
+          totalLoyaltyPoints,
+          avgLoyaltyPoints,
+          topLoyaltyUsers,
+          loyaltyHistory,
+          tierDistribution,
+          totalSpent
+        }));
+        
+        console.log('✅ Loyalty data loaded:', {
+          totalPoints: totalLoyaltyPoints,
+          topUsers: topLoyaltyUsers.length,
+          historyCount: loyaltyHistory.length
+        });
+        
+      } catch (e) {
+        console.error("❌ Loyalty data fetch error:", e?.response?.data || e?.message);
+      }
+    };
 
     fetchStats();
     fetchOrders();
     fetchDeliveries();
     fetchProducts();
-    fetchLoyaltyData(); // Add this line
+    fetchLoyaltyData(); // ✅ Call loyalty fetch
   }, []);
 
   useEffect(() => {
@@ -315,7 +340,14 @@ export default function AdminKpi() {
                 subtitle={deliveryLabel}
               />
 
-            
+              {/* ✅ NEW: Loyalty Card */}
+              <EnhancedKpiCard
+                title="Loyalty Points"
+                value={stats.totalLoyaltyPoints.toLocaleString()}
+                icon={<FaAward />}
+                gradient="from-purple-500 to-pink-600"
+                subtitle={`Avg: ${stats.avgLoyaltyPoints} pts/user`}
+              />
             </div>
           </div>
 
@@ -356,6 +388,7 @@ export default function AdminKpi() {
             </div>
           </div>
 
+          {/* ✅ NEW: Loyalty Activity Section */}
           <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Recent Loyalty Activity</h2>
