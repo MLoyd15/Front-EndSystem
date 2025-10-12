@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
+import RefundTickets from "./RefundTickets"; 
 
 // --- CONFIG / HELPERS ---
 const API = (VITE_API_BASE || "").replace(/\/+$/, ""); // strip trailing slash if any
@@ -698,7 +699,7 @@ export default function Sales() {
       {selectedOrder && (
         <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       )}
-
+    <RefundTickets />
     </div>
   );
 }
