@@ -1,12 +1,13 @@
+// components/LalamoveIntegration.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import { Truck, MapPin, DollarSign, Clock, AlertCircle, CheckCircle, Navigation } from 'lucide-react';
 import { VITE_API_BASE } from '../config';
+import { MapPin, Truck, X, Loader, AlertCircle, CheckCircle2, Package, Navigation } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-// Fix Leaflet default marker icons
+// Fix Leaflet marker icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -14,7 +15,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom marker icons
+// Custom icons for pickup and delivery
 const pickupIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
@@ -33,15 +34,15 @@ const deliveryIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-// Component to handle map clicks
-const MapClickHandler = ({ onLocationSelect, markerType }) => {
+// Map click handler component
+function LocationMarker({ onLocationSelect, markerType }) {
   useMapEvents({
-    click: (e) => {
+    click(e) {
       onLocationSelect(e.latlng, markerType);
     },
   });
   return null;
-};
+}
 
 const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
   const [step, setStep] = useState('map'); // 'map' | 'quotation' | 'confirm' | 'success'
@@ -66,6 +67,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
   const API = VITE_API_BASE;
   const auth = () => ({
     Authorization: `Bearer ${localStorage.getItem('pos-token')}`,
+    'Content-Type': 'application/json'
   });
 
   // Reverse geocode coordinates to get address
@@ -127,57 +129,65 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
         { headers: auth() }
       );
 
-    
-    if (response.data.success) {
-      setQuotation(response.data.data);
-      setStep('confirm');
-    } else {
-      // ✅ Show validation errors if available
-      const validationErrors = response.data.validationErrors;
-      if (validationErrors && Array.isArray(validationErrors)) {
-        const errorMessages = validationErrors.map(err => 
-          `${err.field || 'Field'}: ${err.message || 'Invalid'}`
-        ).join(', ');
-        throw new Error(`Validation errors: ${errorMessages}`);
+      console.log('📦 Quotation response:', response.data);
+
+      if (response.data.success) {
+        const quotationData = response.data.data;
+        
+        // ✅ Check if we have the required stopIds
+        if (!quotationData.pickupStopId || !quotationData.deliveryStopId) {
+          throw new Error('Missing stop IDs from quotation response');
+        }
+        
+        setQuotation(quotationData);
+        setStep('confirm');
+      } else {
+        throw new Error(response.data.error || 'Failed to get quotation');
       }
-      throw new Error(response.data.error || 'Failed to get quotation');
+    } catch (err) {
+      console.error('Quotation error:', err);
+      setError(
+        err.response?.data?.message || 
+        err.message || 
+        'Failed to get quotation. Please check the delivery details.'
+      );
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Quotation error:', err);
-    setError(
-      err.response?.data?.message || 
-      err.message || 
-      'Failed to get quotation. Please check the delivery details.'
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const bookDelivery = async () => {
-    if (!quotation) return;
+    if (!quotation || !quotation.pickupStopId || !quotation.deliveryStopId) {
+      setError('Missing required stop IDs. Cannot create order.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
+      const orderData = {
+        deliveryId: delivery._id, // ✅ Added deliveryId
+        quotationId: quotation.quotationId,
+        pickupStopId: quotation.pickupStopId, // ✅ Use extracted stopId
+        senderName: 'GO AGRI TRADING',
+        senderPhone: '+639123456789',
+        recipients: [
+          {
+            stopId: quotation.deliveryStopId, // ✅ Use extracted stopId
+            name: delivery.customer?.name || 'Customer',
+            phone: delivery.customer?.phone || '+639171234567',
+            remarks: `Order #${String(delivery.order?._id || delivery._id).slice(-6).toUpperCase()}`,
+          },
+        ],
+        partnerOrderId: String(delivery._id),
+      };
+
+      console.log('📤 Creating order with data:', orderData);
+
       const response = await axios.post(
         `${API}/lalamove/order`,
-        {
-          deliveryId: delivery._id,
-          quotationId: quotation.quotationId,
-          pickupStopId: quotation.stops?.[0]?.stopId,
-          senderName: 'GO AGRI TRADING',
-          senderPhone: '+639123456789',
-          recipients: [
-            {
-              stopId: quotation.stops?.[1]?.stopId,
-              name: delivery.customer?.name || 'Customer',
-              phone: delivery.customer?.phone || '+639171234567',
-              remarks: `Order: ${delivery.order?.code || delivery._id}`,
-            },
-          ],
-          partnerOrderId: delivery.order?.code || delivery._id,
-        },
+        orderData,
         { headers: auth() }
       );
 
@@ -188,11 +198,11 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
           onClose();
         }, 2000);
       } else {
-        setError(response.data.error || 'Failed to book delivery');
+        throw new Error(response.data.error || 'Failed to book delivery');
       }
     } catch (err) {
       console.error('Booking error:', err);
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to book delivery');
+      setError(err.response?.data?.message || err.message || 'Failed to book delivery');
     } finally {
       setLoading(false);
     }
@@ -223,263 +233,254 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-gradient-to-r from-pink-500 to-red-500 text-white p-6 rounded-t-2xl z-10">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500 to-red-500 text-white">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
                 <Truck className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Lalamove Booking</h2>
-                <p className="text-sm text-gray-500">Third-party delivery service</p>
+                <h2 className="text-2xl font-bold">Lalamove Booking</h2>
+                <p className="text-sm text-pink-100">
+                  {step === 'map' && 'Select pickup and delivery locations'}
+                  {step === 'confirm' && 'Review and confirm booking'}
+                  {step === 'success' && 'Booking successful!'}
+                </p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition">✕</button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
+        </div>
 
-          {/* Error Message */}
+        {/* Content */}
+        <div className="p-6">
+          {/* Error Display */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 mb-6">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-red-900">Error</p>
+                <h3 className="font-semibold text-red-900 mb-1">Error</h3>
                 <p className="text-sm text-red-700">{error}</p>
               </div>
-              <button onClick={() => setError('')} className="text-red-600 hover:text-red-800">✕</button>
+              <button onClick={() => setError('')} className="text-red-600 hover:text-red-800">
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
 
-          {/* Step 1: Map Selection */}
+          {/* Map View */}
           {step === 'map' && (
             <div className="space-y-4">
-              {/* Marker Selection Toggle */}
-              <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
-                <button
+              {/* Location Info Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition ${
+                    selectingMarker === 'pickup' 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-slate-200 bg-white hover:border-green-300'
+                  }`}
                   onClick={() => setSelectingMarker('pickup')}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                    selectingMarker === 'pickup'
-                      ? 'bg-white text-green-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
                 >
-                  <MapPin className="w-4 h-4" />
-                  Pickup Location
-                </button>
-                <button
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-green-600 flex-shrink-0 mt-1" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-green-900 mb-1">Pickup Location</h3>
+                      <p className="text-sm text-green-700 truncate">{pickupLocation.address}</p>
+                      <p className="text-xs text-green-600 mt-1">
+                        {pickupLocation.lat.toFixed(4)}, {pickupLocation.lng.toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition ${
+                    selectingMarker === 'delivery' 
+                      ? 'border-red-500 bg-red-50' 
+                      : 'border-slate-200 bg-white hover:border-red-300'
+                  }`}
                   onClick={() => setSelectingMarker('delivery')}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                    selectingMarker === 'delivery'
-                      ? 'bg-white text-red-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
                 >
-                  <MapPin className="w-4 h-4" />
-                  Delivery Location
-                </button>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-red-600 flex-shrink-0 mt-1" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-red-900 mb-1">Delivery Address</h3>
+                      <p className="text-sm text-red-700 truncate">{deliveryLocation.address}</p>
+                      <p className="text-xs text-red-600 mt-1">
+                        {deliveryLocation.lat.toFixed(4)}, {deliveryLocation.lng.toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Map */}
-              <div className="relative rounded-xl overflow-hidden border-2 border-gray-200" style={{ height: '400px' }}>
+              <div className="h-96 rounded-xl overflow-hidden border-2 border-slate-200">
                 <MapContainer
-                  center={[14.5995, 120.9842]}
+                  center={[pickupLocation.lat, pickupLocation.lng]}
                   zoom={13}
                   style={{ height: '100%', width: '100%' }}
-                  scrollWheelZoom={true}
                 >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
+                  <LocationMarker onLocationSelect={handleMapClick} markerType={selectingMarker} />
                   
-                  <MapClickHandler 
-                    onLocationSelect={handleMapClick}
-                    markerType={selectingMarker}
-                  />
-
-                  {/* Pickup Marker */}
                   <Marker position={[pickupLocation.lat, pickupLocation.lng]} icon={pickupIcon}>
                     <Popup>
-                      <div className="text-sm">
-                        <p className="font-bold text-green-700">📦 Pickup</p>
-                        <p className="text-xs text-gray-600 mt-1">{pickupLocation.address}</p>
-                      </div>
+                      <strong>Pickup Location</strong><br />
+                      {pickupLocation.address}
                     </Popup>
                   </Marker>
-
-                  {/* Delivery Marker */}
+                  
                   <Marker position={[deliveryLocation.lat, deliveryLocation.lng]} icon={deliveryIcon}>
                     <Popup>
-                      <div className="text-sm">
-                        <p className="font-bold text-red-700">🏠 Delivery</p>
-                        <p className="text-xs text-gray-600 mt-1">{deliveryLocation.address}</p>
-                      </div>
+                      <strong>Delivery Address</strong><br />
+                      {deliveryLocation.address}
                     </Popup>
                   </Marker>
                 </MapContainer>
-
-                {/* Current Location Button */}
-                <button
-                  onClick={getCurrentLocation}
-                  className="absolute top-4 right-4 p-3 bg-white rounded-xl shadow-lg hover:bg-gray-50 transition z-[1000]"
-                  title="Use current location"
-                >
-                  <Navigation className="w-5 h-5 text-blue-600" />
-                </button>
               </div>
 
-              {/* Location Details */}
+              {/* Map Instructions */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-900">
+                  <strong>Instructions:</strong> Click on the {selectingMarker === 'pickup' ? 'green' : 'red'} card above 
+                  to select which marker to move, then click on the map to place it.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={getCurrentLocation}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 transition"
+                >
+                  <Navigation className="w-4 h-4" />
+                  Use My Location
+                </button>
+                <button
+                  onClick={getQuotation}
+                  disabled={loading}
+                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold hover:from-pink-600 hover:to-red-600 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin inline mr-2" />
+                      Getting Quotation...
+                    </>
+                  ) : (
+                    'Get Quotation'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Quotation Confirm */}
+          {step === 'confirm' && quotation && (
+            <div className="space-y-6">
+              {/* Location Summary */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                   <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 mb-1">Pickup Location</p>
-                      <p className="text-sm text-gray-600 line-clamp-2">{pickupLocation.address}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {pickupLocation.lat.toFixed(6)}, {pickupLocation.lng.toFixed(6)}
-                      </p>
+                    <MapPin className="w-5 h-5 text-green-600 flex-shrink-0 mt-1" />
+                    <div>
+                      <h3 className="font-semibold text-green-900 mb-1">Pickup</h3>
+                      <p className="text-sm text-green-700">{pickupLocation.address}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-red-50 rounded-xl p-4 border border-red-200">
                   <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 mb-1">Delivery Location</p>
-                      <p className="text-sm text-gray-600 line-clamp-2">{deliveryLocation.address}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {deliveryLocation.lat.toFixed(6)}, {deliveryLocation.lng.toFixed(6)}
-                      </p>
+                    <MapPin className="w-5 h-5 text-red-600 flex-shrink-0 mt-1" />
+                    <div>
+                      <h3 className="font-semibold text-red-900 mb-1">Delivery</h3>
+                      <p className="text-sm text-red-700">{deliveryLocation.address}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={onClose}
-                  className="flex-1 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => setStep('quotation')}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-red-500 text-white rounded-xl font-medium hover:from-pink-600 hover:to-red-600 transition"
-                >
-                  Continue to Quotation
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Get Quotation */}
-          {step === 'quotation' && (
-            <div className="space-y-6">
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">Pickup Location</p>
-                    <p className="text-sm text-gray-600">{pickupLocation.address}</p>
+              {/* Quotation Details */}
+              <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Quotation Details
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Service Type:</span>
+                    <span className="font-medium text-slate-900">{quotation.priceBreakdown?.serviceType || 'MOTORCYCLE'}</span>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">Delivery Address</p>
-                    <p className="text-sm text-gray-600">{deliveryLocation.address}</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Distance:</span>
+                    <span className="font-medium text-slate-900">
+                      {quotation.distance ? `${(quotation.distance.value / 1000).toFixed(2)} km` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Estimated Time:</span>
+                    <span className="font-medium text-slate-900">30-45 mins</span>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-900 font-bold">Total Price:</span>
+                      <span className="text-2xl font-bold text-pink-600">
+                        ₱{(quotation.priceBreakdown?.total || 0).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* Actions */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep('map')}
-                  disabled={loading}
-                  className="flex-1 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 disabled:opacity-50"
+                  className="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition"
                 >
                   Back to Map
                 </button>
                 <button
-                  onClick={getQuotation}
-                  disabled={loading}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-red-500 text-white rounded-xl font-medium hover:from-pink-600 hover:to-red-600 disabled:opacity-50"
-                >
-                  {loading ? 'Getting quotation...' : 'Get Quotation'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Confirm Booking */}
-          {step === 'confirm' && quotation && (
-            <div className="space-y-6">
-              <div className="bg-gradient-to-br from-pink-50 to-red-50 rounded-xl p-6 border border-pink-200">
-                <h3 className="font-bold text-gray-900 mb-4">Quotation Details</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
-                      Delivery Fee
-                    </span>
-                    <span className="font-bold text-gray-900 text-xl">
-                      ₱{quotation.priceBreakdown?.total?.toLocaleString() || '0'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Estimated Time
-                    </span>
-                    <span className="font-medium text-gray-900">
-                      {quotation.estimatedTime || '30-45 mins'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 flex items-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      Service Type
-                    </span>
-                    <span className="font-medium text-gray-900">
-                      {quotation.serviceType || 'Motorcycle'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep('quotation')}
-                  disabled={loading}
-                  className="flex-1 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50"
-                >
-                  Back
-                </button>
-                <button
                   onClick={bookDelivery}
                   disabled={loading}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-red-500 text-white rounded-xl font-medium hover:from-pink-600 hover:to-red-600 disabled:opacity-50"
+                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold hover:from-pink-600 hover:to-red-600 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Booking...' : 'Confirm Booking'}
+                  {loading ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin inline mr-2" />
+                      Confirming Booking...
+                    </>
+                  ) : (
+                    'Confirm Booking'
+                  )}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 4: Success */}
+          {/* Success */}
           {step === 'success' && (
-            <div className="text-center py-8">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-12 h-12 text-green-600" />
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 animate-bounce">
+                <CheckCircle2 className="w-12 h-12 text-green-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Booking Successful!</h3>
-              <p className="text-gray-600 mb-6">
-                Your Lalamove delivery has been booked. The driver will be assigned shortly.
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                Booking Successful!
+              </h3>
+              <p className="text-slate-600 text-center max-w-md">
+                Your Lalamove delivery has been booked successfully. The delivery information has been updated.
               </p>
             </div>
           )}
