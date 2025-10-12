@@ -18,7 +18,8 @@ import {
   ExternalLink,
   RefreshCw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from "lucide-react";
 
 import { VITE_API_BASE } from "../config";
