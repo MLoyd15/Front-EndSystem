@@ -209,101 +209,95 @@ export default function AdminKpi() {
       }
     };
 
-   const fetchLoyaltyData = async () => {
-  try {
-    const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
-    
-    console.log('🔍 Loyalty Rewards Response:', data);
-    
-    const loyaltyRewards = Array.isArray(data) ? data 
-      : data?.rewards || data?.data || [];
-    
-    if (!loyaltyRewards.length) {
-      console.log('ℹ️ No loyalty rewards found');
-      return;
-    }
+    const fetchLoyaltyData = async () => {
+      try {
+        const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
+        
+        console.log('🔍 Loyalty Rewards Response:', data);
+        
+        const loyaltyRewards = Array.isArray(data) ? data 
+          : data?.rewards || data?.data || [];
+        
+        if (!loyaltyRewards.length) {
+          console.log('ℹ️ No loyalty rewards found');
+          return;
+        }
 
-    // Calculate total points
-    const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
-      sum + (Number(reward.points) || 0), 0
-    );
-    
-    // Calculate total spent
-    const totalSpent = loyaltyRewards.reduce((sum, reward) => 
-      sum + (Number(reward.totalSpent) || 0), 0
-    );
-    
-    // Get top users by points
-    const topLoyaltyUsers = loyaltyRewards
-      .sort((a, b) => (b.points || 0) - (a.points || 0))
-      .slice(0, 5)
-      .map(reward => ({
-        userId: reward.userId?._id || reward.userId,
-        userName: reward.userId?.name || 'Unknown User',
-        userEmail: reward.userId?.email || '',
-        points: reward.points || 0,
-        tier: reward.tier || '',
-        totalSpent: reward.totalSpent || 0,
-        purchaseCount: reward.purchaseCount || 0
-      }));
-    
-    // Flatten points history with user data
-    const loyaltyHistory = loyaltyRewards
-      .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
-      .flatMap(reward => 
-        reward.pointsHistory.map(entry => ({
-          points: entry.points || 0,
-          date: entry.createdAt || new Date(),
-          orderId: entry.orderId,
-          source: entry.source || 'order_processed',
-          user: reward.userId?.name || 'Unknown User',
-          email: reward.userId?.email || '',
-          action: entry.source === 'redeem' ? 'redeem' : 'earned'
-        }))
-      )
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 10);
+        const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
+          sum + (Number(reward.points) || 0), 0
+        );
+        
+        const totalSpent = loyaltyRewards.reduce((sum, reward) => 
+          sum + (Number(reward.totalSpent) || 0), 0
+        );
+        
+        const topLoyaltyUsers = loyaltyRewards
+          .sort((a, b) => (b.points || 0) - (a.points || 0))
+          .slice(0, 5)
+          .map(reward => ({
+            userId: reward.userId?._id || reward.userId,
+            userName: reward.userId?.name || 'Unknown User',
+            userEmail: reward.userId?.email || '',
+            points: reward.points || 0,
+            tier: reward.tier || '',
+            totalSpent: reward.totalSpent || 0,
+            purchaseCount: reward.purchaseCount || 0
+          }));
+        
+        const loyaltyHistory = loyaltyRewards
+          .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
+          .flatMap(reward => 
+            reward.pointsHistory.map(entry => ({
+              points: entry.points || 0,
+              date: entry.createdAt || new Date(),
+              orderId: entry.orderId,
+              source: entry.source || 'order_processed',
+              user: reward.userId?.name || 'Unknown User',
+              email: reward.userId?.email || '',
+              action: entry.source === 'redeem' ? 'redeem' : 'earned'
+            }))
+          )
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 10);
 
-    // Tier distribution
-    const tierDistribution = loyaltyRewards.reduce((acc, reward) => {
-      const tier = reward.tier || 'bronze';
-      acc[tier] = (acc[tier] || 0) + 1;
-      return acc;
-    }, {});
+        const tierDistribution = loyaltyRewards.reduce((acc, reward) => {
+          const tier = reward.tier || 'bronze';
+          acc[tier] = (acc[tier] || 0) + 1;
+          return acc;
+        }, {});
 
-    // Average points per user
-    const avgLoyaltyPoints = loyaltyRewards.length > 0 
-      ? Math.round(totalLoyaltyPoints / loyaltyRewards.length) 
-      : 0;
+        const avgLoyaltyPoints = loyaltyRewards.length > 0 
+          ? Math.round(totalLoyaltyPoints / loyaltyRewards.length) 
+          : 0;
 
-    setStats(prev => ({
-      ...prev,
-      totalLoyaltyPoints,
-      avgLoyaltyPoints,
-      topLoyaltyUsers,
-      loyaltyHistory,
-      tierDistribution,
-      totalSpent
-    }));
-    
-    console.log('✅ Loyalty data loaded:', {
-      totalPoints: totalLoyaltyPoints,
-      avgPoints: avgLoyaltyPoints,
-      topUsers: topLoyaltyUsers.length,
-      historyCount: loyaltyHistory.length,
-      sampleUser: topLoyaltyUsers[0]
-    });
-    
-  } catch (e) {
-    console.error("❌ Loyalty data fetch error:", e?.response?.data || e?.message);
-  }
-};
+        setStats(prev => ({
+          ...prev,
+          totalLoyaltyPoints,
+          avgLoyaltyPoints,
+          topLoyaltyUsers,
+          loyaltyHistory,
+          tierDistribution,
+          totalSpent
+        }));
+        
+        console.log('✅ Loyalty data loaded:', {
+          totalPoints: totalLoyaltyPoints,
+          avgPoints: avgLoyaltyPoints,
+          topUsers: topLoyaltyUsers.length,
+          historyCount: loyaltyHistory.length,
+          sampleUser: topLoyaltyUsers[0]
+        });
+        
+      } catch (e) {
+        console.error("❌ Loyalty data fetch error:", e?.response?.data || e?.message);
+      }
+    };
 
     fetchStats();
     fetchOrders();
     fetchDeliveries();
     fetchProducts();
-    fetchLoyaltyData(); // ✅ Call loyalty fetch
+    fetchLoyaltyData();
   }, []);
 
   useEffect(() => {
@@ -344,7 +338,6 @@ export default function AdminKpi() {
                 subtitle={deliveryLabel}
               />
 
-              {/* ✅ NEW: Loyalty Card */}
               <EnhancedKpiCard
                 title="Loyalty Points"
                 value={stats.totalLoyaltyPoints.toLocaleString()}
@@ -392,34 +385,91 @@ export default function AdminKpi() {
             </div>
           </div>
 
-          {/* ✅ NEW: Loyalty Activity Section */}
+          {/* ✅ NEW: Top Loyalty Members */}
           <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Recent Loyalty Activity</h2>
+              <h2 className="text-xl font-bold text-gray-900">Top Loyalty Members</h2>
               <div className="text-sm text-gray-500">
                 Total: <span className="font-semibold text-gray-800">{stats.totalLoyaltyPoints.toLocaleString()}</span> pts
               </div>
             </div>
+            
+            {stats.topLoyaltyUsers?.length ? (
+              <div className="space-y-3">
+                {stats.topLoyaltyUsers.map((user, i) => (
+                  <div key={i} className="p-4 rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-md transition-all">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold">
+                          {user.userName?.charAt(0)?.toUpperCase() || 'U'}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{user.userName}</h3>
+                          <p className="text-xs text-gray-500">{user.userEmail}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-purple-600">{user.points} pts</div>
+                        {user.tier && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                            {user.tier}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
+                      <div>
+                        <span className="text-xs text-gray-500">Total Spent</span>
+                        <p className="font-semibold text-gray-900">{peso(user.totalSpent)}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-500">Purchases</span>
+                        <p className="font-semibold text-gray-900">{user.purchaseCount}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
+                <p className="text-gray-500">No loyalty members yet.</p>
+              </div>
+            )}
+          </div>
+
+          {/* ✅ NEW: Recent Points Activity */}
+          <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
+            <div className="mb-3">
+              <h2 className="text-xl font-bold text-gray-900">Recent Points Activity</h2>
+            </div>
             {stats.loyaltyHistory?.length ? (
-              <ul className="divide-y divide-gray-100">
+              <div className="space-y-2">
                 {stats.loyaltyHistory.map((entry, i) => (
-                  <li key={i} className="py-3 flex items-center justify-between text-sm">
+                  <div key={i} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
                     <div className="flex-1">
                       <span className="font-medium text-gray-800">{entry.user || "Unknown"}</span>
                       <span className="text-gray-400 text-xs ml-2">{entry.email || ""}</span>
+                      <p className="text-xs text-gray-500 mt-1">{entry.source || 'order_processed'}</p>
                     </div>
-                    <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs ring-1 ring-emerald-200">
-                      {entry.action === 'redeem' ? '-' : '+'}{entry.points} pts
-                    </span>
-                    <span className="text-gray-500 ml-4">
-                      {entry.date ? new Date(entry.date).toLocaleDateString() : "—"}
-                    </span>
-                  </li>
+                    <div className="flex items-center gap-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                        entry.action === 'redeem' 
+                          ? 'bg-red-50 text-red-700 ring-red-200' 
+                          : 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                      }`}>
+                        {entry.action === 'redeem' ? '-' : '+'}{entry.points} pts
+                      </span>
+                      <span className="text-gray-500 text-xs min-w-[80px] text-right">
+                        {entry.date ? new Date(entry.date).toLocaleDateString() : "—"}
+                      </span>
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
-                <p className="text-gray-500">No loyalty activity yet.</p>
+                <p className="text-gray-500">No activity yet.</p>
               </div>
             )}
           </div>
