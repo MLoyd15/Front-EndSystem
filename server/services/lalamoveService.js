@@ -37,91 +37,109 @@ class LalamoveService {
   }
 
   async getQuotation(pickupLocation, deliveryLocation, items = []) {
-    // ✅ V3 API path
-    const path = '/v3/quotations';
-    const url = `${this.baseUrl}${path}`;
-    const method = 'POST';
-    const timestamp = new Date().getTime().toString();
+  const path = '/v3/quotations';
+  const url = `${this.baseUrl}${path}`;
+  const method = 'POST';
+  const timestamp = new Date().getTime().toString();
 
-    const deliveryPhone = this.formatPhoneNumber(deliveryLocation.contactPhone);
+  const deliveryPhone = this.formatPhoneNumber(deliveryLocation.contactPhone);
 
-    // ✅ CORRECT V3 Structure with proper nesting
-    const requestBody = {
-      data: {
-        serviceType: 'MOTORCYCLE',
-        language: 'en_PH',
-        stops: [
-          {
-            coordinates: {
-              lat: String(pickupLocation.lat),
-              lng: String(pickupLocation.lng)
-            },
-            address: pickupLocation.address
+  const requestBody = {
+    data: {
+      serviceType: 'MOTORCYCLE',
+      language: 'en_PH',
+      stops: [
+        {
+          coordinates: {
+            lat: String(pickupLocation.lat),
+            lng: String(pickupLocation.lng)
           },
-          {
-            coordinates: {
-              lat: String(deliveryLocation.lat),
-              lng: String(deliveryLocation.lng)
-            },
-            address: deliveryLocation.address
-          }
-        ],
-        item: {
-          quantity: String(items.length || 1),
-          weight: 'LESS_THAN_3KG',
-          categories: ['FOOD_DELIVERY'],
-          handlingInstructions: []
+          address: pickupLocation.address
+        },
+        {
+          coordinates: {
+            lat: String(deliveryLocation.lat),
+            lng: String(deliveryLocation.lng)
+          },
+          address: deliveryLocation.address
         }
+      ],
+      item: {
+        quantity: String(items.length || 1),
+        weight: 'LESS_THAN_3KG',
+        categories: ['FOOD_DELIVERY'],
+        handlingInstructions: []
+      }
+    }
+  };
+
+  const bodyString = JSON.stringify(requestBody);
+  const signature = this.generateSignature(method, path, timestamp, bodyString);
+
+  console.log('🔍 Lalamove V3 Request Debug:');
+  console.log('URL:', url);
+  console.log('Body:', JSON.stringify(requestBody, null, 2));
+
+  try {
+    const response = await axios.post(url, requestBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+        'Accept': 'application/json',
+        'Market': this.market
+      }
+    });
+
+    console.log('✅ Quotation success:', JSON.stringify(response.data, null, 2));
+    
+    // ✅ Extract the data properly
+    const quotationData = response.data.data || response.data;
+    
+    // ✅ Extract stopIds from the response
+    const stops = quotationData.stops || [];
+    const pickupStopId = stops[0]?.stopId || stops[0]?.id;
+    const deliveryStopId = stops[1]?.stopId || stops[1]?.id;
+    
+    console.log('📍 Extracted Stop IDs:', { pickupStopId, deliveryStopId });
+    
+    return {
+      success: true,
+      data: {
+        ...quotationData,
+        // ✅ Add these for easy access
+        pickupStopId,
+        deliveryStopId,
+        quotationId: quotationData.quotationId || quotationData.id,
+        priceBreakdown: {
+          total: quotationData.priceBreakdown?.total || quotationData.totalPrice || 0,
+          currency: quotationData.priceBreakdown?.currency || 'PHP',
+          serviceType: quotationData.serviceType || 'MOTORCYCLE'
+        },
+        stops: stops
       }
     };
-
-    const bodyString = JSON.stringify(requestBody);
-    const signature = this.generateSignature(method, path, timestamp, bodyString);
-
-    console.log('🔍 Lalamove V3 Request Debug:');
-    console.log('URL:', url);
-    console.log('Path:', path);
-    console.log('Market:', this.market);
-    console.log('Body:', JSON.stringify(requestBody, null, 2));
-
-    try {
-      const response = await axios.post(url, requestBody, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'Accept': 'application/json',
-          'Market': this.market
-        }
-      });
-
-      console.log('✅ Quotation success:', JSON.stringify(response.data, null, 2));
-      
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('❌ Lalamove quotation error:');
-      console.error('Status:', error.response?.status);
-      console.error('Error Data:', JSON.stringify(error.response?.data, null, 2));
-      
-      let errorMessage = 'Failed to get quotation';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.errors) {
-        const errors = error.response.data.errors;
-        if (Array.isArray(errors)) {
-          errorMessage = errors.map(e => e.message || e.id || 'Unknown error').join(', ');
-        }
+  } catch (error) {
+    console.error('❌ Lalamove quotation error:');
+    console.error('Status:', error.response?.status);
+    console.error('Error Data:', JSON.stringify(error.response?.data, null, 2));
+    
+    let errorMessage = 'Failed to get quotation';
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.errors) {
+      const errors = error.response.data.errors;
+      if (Array.isArray(errors)) {
+        errorMessage = errors.map(e => e.message || e.id || 'Unknown error').join(', ');
       }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        details: error.response?.data
-      };
     }
+    
+    return {
+      success: false,
+      error: errorMessage,
+      details: error.response?.data
+    };
   }
+}
 
   async createOrder(orderData) {
     const path = '/v3/orders';
