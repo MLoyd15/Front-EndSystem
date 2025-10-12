@@ -461,7 +461,7 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
 };
 
 // --- MAIN COMPONENT ---
-export default function RefundTickets() {
+export default function RefundTickets({ onBack }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
@@ -580,6 +580,16 @@ export default function RefundTickets() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
+           {/* ADD THIS BACK BUTTON */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors group"
+            >
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="font-medium">Back to Orders</span>
+            </button>
+          )}
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-600 rounded-lg">
               <DollarSign className="h-6 w-6 text-white" />
