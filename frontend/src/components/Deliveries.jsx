@@ -490,7 +490,6 @@ export default function Deliveries() {
               className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl ring-1 ring-slate-200 p-6 overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Drawer content remains the same */}
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-slate-800">
                   Order {last6(drawer.order?._id || drawer.order || drawer._id)}
@@ -506,8 +505,148 @@ export default function Deliveries() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* All your existing drawer content */}
-                  {/* ... (keep all existing drawer sections) ... */}
+                  {/* Order Information */}
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4" />
+                      Order Information
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Order ID:</span>
+                        <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Delivery Type:</span>
+                        <span className="font-medium capitalize">{drawer.type || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Status:</span>
+                        <div>{statusPill(drawer.status)}</div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Weight:</span>
+                        <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Information */}
+                  {(drawerDetails?.order?.user || drawer?.order?.user) && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        Customer Information
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Name:</span>
+                          <span className="font-medium">{(drawerDetails?.order?.user || drawer?.order?.user)?.name || "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Email:</span>
+                          <span className="font-medium">{(drawerDetails?.order?.user || drawer?.order?.user)?.email || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Location Information */}
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Location Details
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <span className="text-slate-600 block mb-1">Pickup Location:</span>
+                        <span className="font-medium">{drawer.pickupLocation || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 block mb-1">Delivery Address:</span>
+                        <span className="font-medium">{drawer.deliveryAddress || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Scheduled Time:</span>
+                        <span className="font-medium">{fmtDateTime(drawer.scheduledDate)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Assignment Information */}
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                      <Bike className="w-4 h-4" />
+                      Assignment Details
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {drawer.thirdPartyProvider ? (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">3rd Party Provider:</span>
+                          <span className="font-medium">{drawer.thirdPartyProvider}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Driver:</span>
+                            <span className="font-medium">{driverLabel(drawer) || "Not assigned"}</span>
+                          </div>
+                          {drawer.assignedDriver?.phone && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Driver Phone:</span>
+                              <span className="font-medium flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {drawer.assignedDriver.phone}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Vehicle:</span>
+                            <span className="font-medium">{vehicleLabel(drawer) || "Not assigned"}</span>
+                          </div>
+                          {drawer.assignedVehicle?.capacityKg && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Vehicle Capacity:</span>
+                              <span className="font-medium">{drawer.assignedVehicle.capacityKg} kg</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Order Items */}
+                  {(drawerDetails?.order?.items || drawer?.order?.items) && (drawerDetails?.order?.items || drawer?.order?.items).length > 0 && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                        <Package className="w-4 h-4" />
+                        Order Items ({(drawerDetails?.order?.items || drawer?.order?.items).length})
+                      </h4>
+                      <div className="space-y-3 max-h-48 overflow-y-auto">
+                        {(drawerDetails?.order?.items || drawer?.order?.items).map((item, idx) => (
+                          <div key={idx} className="bg-white rounded-lg p-3 text-sm">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-medium text-slate-800">{item.productName || item.name || "—"}</span>
+                              <span className="text-slate-600">×{item.quantity || 1}</span>
+                            </div>
+                            {item.price && (
+                              <div className="text-slate-600">₱{item.price.toLocaleString()}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Order Summary */}
+                  {(drawerDetails?.order?.total || drawer?.order?.total) && (
+                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                      <h4 className="font-medium text-emerald-800 mb-2">Order Total</h4>
+                      <div className="text-2xl font-bold text-emerald-700">
+                        ₱{(drawerDetails?.order?.total || drawer?.order?.total).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
