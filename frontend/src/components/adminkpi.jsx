@@ -209,91 +209,96 @@ export default function AdminKpi() {
       }
     };
 
-    // ✅ NEW: Fetch loyalty data
-    const fetchLoyaltyData = async () => {
-      try {
-        const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
-        
-        console.log('🔍 Loyalty Rewards Response:', data);
-        
-        const loyaltyRewards = Array.isArray(data) ? data 
-          : data?.rewards || data?.data || [];
-        
-        if (!loyaltyRewards.length) {
-          console.log('ℹ️ No loyalty rewards found');
-          return;
-        }
+   const fetchLoyaltyData = async () => {
+  try {
+    const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
+    
+    console.log('🔍 Loyalty Rewards Response:', data);
+    
+    const loyaltyRewards = Array.isArray(data) ? data 
+      : data?.rewards || data?.data || [];
+    
+    if (!loyaltyRewards.length) {
+      console.log('ℹ️ No loyalty rewards found');
+      return;
+    }
 
-        // Calculate total points
-        const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
-          sum + (Number(reward.points) || 0), 0
-        );
-        
-        // Calculate total spent
-        const totalSpent = loyaltyRewards.reduce((sum, reward) => 
-          sum + (Number(reward.totalSpent) || 0), 0
-        );
-        
-        // Get top users
-        const topLoyaltyUsers = loyaltyRewards
-          .sort((a, b) => (b.points || 0) - (a.points || 0))
-          .slice(0, 5)
-          .map(reward => ({
-            userId: reward.userId,
-            points: reward.points || 0,
-            tier: reward.tier || '',
-            totalSpent: reward.totalSpent || 0,
-            purchaseCount: reward.purchaseCount || 0
-          }));
-        
-        // Flatten points history
-        const loyaltyHistory = loyaltyRewards
-          .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
-          .flatMap(reward => 
-            reward.pointsHistory.map(entry => ({
-              points: entry.points || 0,
-              date: entry.date || entry.createdAt,
-              orderId: entry.orderId,
-              user: reward.userId?.name || 'Unknown User',
-              email: reward.userId?.email || '',
-              action: 'earned'
-            }))
-          )
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .slice(0, 10);
+    // Calculate total points
+    const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
+      sum + (Number(reward.points) || 0), 0
+    );
+    
+    // Calculate total spent
+    const totalSpent = loyaltyRewards.reduce((sum, reward) => 
+      sum + (Number(reward.totalSpent) || 0), 0
+    );
+    
+    // Get top users
+    const topLoyaltyUsers = loyaltyRewards
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .slice(0, 5)
+      .map(reward => ({
+        // ✅ FIXED: Handle both populated and non-populated userId
+        userId: reward.userId?._id || reward.userId,
+        userName: reward.userId?.name || 'Unknown User',
+        userEmail: reward.userId?.email || '',
+        points: reward.points || 0,
+        tier: reward.tier || '',
+        totalSpent: reward.totalSpent || 0,
+        purchaseCount: reward.purchaseCount || 0
+      }));
+    
+    // ✅ FIXED: Flatten points history with proper user data
+    const loyaltyHistory = loyaltyRewards
+      .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
+      .flatMap(reward => 
+        reward.pointsHistory.map(entry => ({
+          points: entry.points || 0,
+          date: entry.createdAt || entry.date,
+          orderId: entry.orderId,
+          source: entry.source || 'order_processed',
+          // ✅ FIXED: Get user name from populated userId
+          user: reward.userId?.name || 'Unknown User',
+          email: reward.userId?.email || '',
+          action: 'earned'
+        }))
+      )
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
 
-        // Tier distribution
-        const tierDistribution = loyaltyRewards.reduce((acc, reward) => {
-          const tier = reward.tier || 'bronze';
-          acc[tier] = (acc[tier] || 0) + 1;
-          return acc;
-        }, {});
+    // Tier distribution
+    const tierDistribution = loyaltyRewards.reduce((acc, reward) => {
+      const tier = reward.tier || 'bronze';
+      acc[tier] = (acc[tier] || 0) + 1;
+      return acc;
+    }, {});
 
-        // Average
-        const avgLoyaltyPoints = loyaltyRewards.length > 0 
-          ? Math.round(totalLoyaltyPoints / loyaltyRewards.length) 
-          : 0;
+    // Average
+    const avgLoyaltyPoints = loyaltyRewards.length > 0 
+      ? Math.round(totalLoyaltyPoints / loyaltyRewards.length) 
+      : 0;
 
-        setStats(prev => ({
-          ...prev,
-          totalLoyaltyPoints,
-          avgLoyaltyPoints,
-          topLoyaltyUsers,
-          loyaltyHistory,
-          tierDistribution,
-          totalSpent
-        }));
-        
-        console.log('✅ Loyalty data loaded:', {
-          totalPoints: totalLoyaltyPoints,
-          topUsers: topLoyaltyUsers.length,
-          historyCount: loyaltyHistory.length
-        });
-        
-      } catch (e) {
-        console.error("❌ Loyalty data fetch error:", e?.response?.data || e?.message);
-      }
-    };
+    setStats(prev => ({
+      ...prev,
+      totalLoyaltyPoints,
+      avgLoyaltyPoints,
+      topLoyaltyUsers,
+      loyaltyHistory,
+      tierDistribution,
+      totalSpent
+    }));
+    
+    console.log('✅ Loyalty data loaded:', {
+      totalPoints: totalLoyaltyPoints,
+      topUsers: topLoyaltyUsers.length,
+      historyCount: loyaltyHistory.length,
+      sampleHistory: loyaltyHistory[0] // ✅ Debug first entry
+    });
+    
+  } catch (e) {
+    console.error("❌ Loyalty data fetch error:", e?.response?.data || e?.message);
+  }
+};
 
     fetchStats();
     fetchOrders();
