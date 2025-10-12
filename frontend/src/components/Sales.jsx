@@ -12,12 +12,13 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  DollarSign,
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
-import refundsTicket from "./refundsTicket"; 
+import RefundsTicket from "./refundsTicket"; // Import with correct casing
 
 // --- CONFIG / HELPERS ---
-const API = (VITE_API_BASE || "").replace(/\/+$/, ""); // strip trailing slash if any
+const API = (VITE_API_BASE || "").replace(/\/+$/, "");
 const cn = (...c) => c.filter(Boolean).join(" ");
 
 const peso = (n) =>
@@ -395,6 +396,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
 
 // --- MAIN COMPONENT ---
 export default function Sales() {
+  const [activeTab, setActiveTab] = useState("orders"); // Tab state
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
@@ -529,6 +531,11 @@ export default function Sales() {
     return { totalRevenue, totalOrders, delivered, cancelled, pending };
   }, [orders]);
 
+  // Render RefundsTicket component when refunds tab is active
+  if (activeTab === "refunds") {
+    return <RefundsTicket onBack={() => setActiveTab("orders")} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -572,13 +579,43 @@ export default function Sales() {
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <Package className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-600 rounded-lg">
+                <Package className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-4xl font-bold">Sales & Deliveries</h1>
             </div>
-            <h1 className="text-4xl font-bold">Sales & Deliveries</h1>
           </div>
           <p className="text-gray-500 text-lg">Track orders and delivery status in one place</p>
+          
+          {/* NEW: Tab Navigation */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setActiveTab("orders")}
+              className={cn(
+                "px-4 py-2 rounded-lg font-medium transition-colors",
+                activeTab === "orders"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-100"
+              )}
+            >
+              <Package className="h-4 w-4 inline mr-2" />
+              Orders
+            </button>
+            <button
+              onClick={() => setActiveTab("refunds")}
+              className={cn(
+                "px-4 py-2 rounded-lg font-medium transition-colors",
+                activeTab === "refunds"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-100"
+              )}
+            >
+              <DollarSign className="h-4 w-4 inline mr-2" />
+              Refund Tickets
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -699,7 +736,7 @@ export default function Sales() {
       {selectedOrder && (
         <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       )}
-    <refundsTicket />
+
     </div>
   );
 }
