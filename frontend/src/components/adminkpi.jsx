@@ -1,8 +1,8 @@
-// COMPLETE UPDATED AdminKpi.jsx with Loyalty Data
+// COMPLETE UPDATED AdminKpi.jsx with Loyalty Data and Modal
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FaUsers, FaBoxes, FaExclamationTriangle, FaTruck, FaAward } from "react-icons/fa";
+import { FaUsers, FaBoxes, FaExclamationTriangle, FaTruck, FaAward, FaTimes } from "react-icons/fa";
 import SalesChart from "./SalesChart";
 import { VITE_API_BASE } from "../config";
 
@@ -111,6 +111,105 @@ function StockAlertCard({ title, items, type = "low" }) {
   );
 }
 
+// ✅ NEW: User Points History Modal
+function UserHistoryModal({ user, onClose, allRewards }) {
+  if (!user) return null;
+
+  // Find the user's full reward data
+  const userReward = allRewards.find(r => r.userId?._id === user.userId || r.userId === user.userId);
+  const pointsHistory = userReward?.pointsHistory || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-lg">
+                {user.userName?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">{user.userName}</h2>
+                <p className="text-sm text-white/80">{user.userEmail}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-white/20 transition-colors"
+            >
+              <FaTimes className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* User Stats */}
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <div className="bg-white/10 rounded-lg p-3">
+              <p className="text-xs text-white/70">Total Points</p>
+              <p className="text-2xl font-bold">{user.points}</p>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3">
+              <p className="text-xs text-white/70">Total Spent</p>
+              <p className="text-lg font-bold">{peso(user.totalSpent)}</p>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3">
+              <p className="text-xs text-white/70">Purchases</p>
+              <p className="text-2xl font-bold">{user.purchaseCount}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Points History */}
+        <div className="p-6 overflow-y-auto max-h-[calc(80vh-280px)]">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Points History</h3>
+          
+          {pointsHistory.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No points history yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pointsHistory
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {entry.source || 'order_processed'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : '—'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ring-1 ${
+                        entry.source === 'redeem' 
+                          ? 'bg-red-50 text-red-700 ring-red-200' 
+                          : 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                      }`}>
+                        {entry.source === 'redeem' ? '-' : '+'}{entry.points} pts
+                      </span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-pink-700 transition-all"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminKpi() {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -120,11 +219,8 @@ export default function AdminKpi() {
     orderVolume: 0,
     avgOrderValue: 0,
     lowStock: 0,
-    totalLoyaltyPoints: 0,
-    avgLoyaltyPoints: 0,
     topLoyaltyUsers: [],
-    loyaltyHistory: [],
-    tierDistribution: {},
+    allLoyaltyRewards: [], // ✅ Store all rewards for modal
   });
 
   const [err, setErr] = useState("");
@@ -133,6 +229,9 @@ export default function AdminKpi() {
   const [deliveries, setDeliveries] = useState([]);
   const [deliveryCount, setDeliveryCount] = useState(0);
   const [deliveryLabel, setDeliveryLabel] = useState("This month");
+  
+  // ✅ NEW: Modal state
+  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("pos-token");
@@ -213,27 +312,16 @@ export default function AdminKpi() {
       try {
         const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
         
-        console.log('🔍 Loyalty Rewards Response:', data);
-        
         const loyaltyRewards = Array.isArray(data) ? data 
           : data?.rewards || data?.data || [];
         
         if (!loyaltyRewards.length) {
-          console.log('ℹ️ No loyalty rewards found');
           return;
         }
 
-        const totalLoyaltyPoints = loyaltyRewards.reduce((sum, reward) => 
-          sum + (Number(reward.points) || 0), 0
-        );
-        
-        const totalSpent = loyaltyRewards.reduce((sum, reward) => 
-          sum + (Number(reward.totalSpent) || 0), 0
-        );
-        
         const topLoyaltyUsers = loyaltyRewards
           .sort((a, b) => (b.points || 0) - (a.points || 0))
-          .slice(0, 5)
+          .slice(0, 10) // ✅ Show top 10
           .map(reward => ({
             userId: reward.userId?._id || reward.userId,
             userName: reward.userId?.name || 'Unknown User',
@@ -243,50 +331,12 @@ export default function AdminKpi() {
             totalSpent: reward.totalSpent || 0,
             purchaseCount: reward.purchaseCount || 0
           }));
-        
-        const loyaltyHistory = loyaltyRewards
-          .filter(reward => Array.isArray(reward.pointsHistory) && reward.pointsHistory.length > 0)
-          .flatMap(reward => 
-            reward.pointsHistory.map(entry => ({
-              points: entry.points || 0,
-              date: entry.createdAt || new Date(),
-              orderId: entry.orderId,
-              source: entry.source || 'order_processed',
-              user: reward.userId?.name || 'Unknown User',
-              email: reward.userId?.email || '',
-              action: entry.source === 'redeem' ? 'redeem' : 'earned'
-            }))
-          )
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .slice(0, 10);
-
-        const tierDistribution = loyaltyRewards.reduce((acc, reward) => {
-          const tier = reward.tier || 'bronze';
-          acc[tier] = (acc[tier] || 0) + 1;
-          return acc;
-        }, {});
-
-        const avgLoyaltyPoints = loyaltyRewards.length > 0 
-          ? Math.round(totalLoyaltyPoints / loyaltyRewards.length) 
-          : 0;
 
         setStats(prev => ({
           ...prev,
-          totalLoyaltyPoints,
-          avgLoyaltyPoints,
           topLoyaltyUsers,
-          loyaltyHistory,
-          tierDistribution,
-          totalSpent
+          allLoyaltyRewards: loyaltyRewards // ✅ Store all for modal
         }));
-        
-        console.log('✅ Loyalty data loaded:', {
-          totalPoints: totalLoyaltyPoints,
-          avgPoints: avgLoyaltyPoints,
-          topUsers: topLoyaltyUsers.length,
-          historyCount: loyaltyHistory.length,
-          sampleUser: topLoyaltyUsers[0]
-        });
         
       } catch (e) {
         console.error("❌ Loyalty data fetch error:", e?.response?.data || e?.message);
@@ -337,14 +387,6 @@ export default function AdminKpi() {
                 gradient="from-teal-500 to-emerald-600"
                 subtitle={deliveryLabel}
               />
-
-              <EnhancedKpiCard
-                title="Loyalty Points"
-                value={stats.totalLoyaltyPoints.toLocaleString()}
-                icon={<FaAward />}
-                gradient="from-purple-500 to-pink-600"
-                subtitle={`Avg: ${stats.avgLoyaltyPoints} pts/user`}
-              />
             </div>
           </div>
 
@@ -385,19 +427,21 @@ export default function AdminKpi() {
             </div>
           </div>
 
-          {/* ✅ NEW: Top Loyalty Members */}
+          {/* ✅ UPDATED: Top Loyalty Members with Click */}
           <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3">
               <h2 className="text-xl font-bold text-gray-900">Top Loyalty Members</h2>
-              <div className="text-sm text-gray-500">
-                Total: <span className="font-semibold text-gray-800">{stats.totalLoyaltyPoints.toLocaleString()}</span> pts
-              </div>
+              <p className="text-sm text-gray-500">Click on a user to view their points history</p>
             </div>
             
             {stats.topLoyaltyUsers?.length ? (
               <div className="space-y-3">
                 {stats.topLoyaltyUsers.map((user, i) => (
-                  <div key={i} className="p-4 rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-md transition-all">
+                  <div 
+                    key={i} 
+                    onClick={() => setSelectedUser(user)}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer"
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold">
@@ -437,44 +481,15 @@ export default function AdminKpi() {
               </div>
             )}
           </div>
-
-          {/* ✅ NEW: Recent Points Activity */}
-          <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
-            <div className="mb-3">
-              <h2 className="text-xl font-bold text-gray-900">Recent Points Activity</h2>
-            </div>
-            {stats.loyaltyHistory?.length ? (
-              <div className="space-y-2">
-                {stats.loyaltyHistory.map((entry, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-800">{entry.user || "Unknown"}</span>
-                      <span className="text-gray-400 text-xs ml-2">{entry.email || ""}</span>
-                      <p className="text-xs text-gray-500 mt-1">{entry.source || 'order_processed'}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
-                        entry.action === 'redeem' 
-                          ? 'bg-red-50 text-red-700 ring-red-200' 
-                          : 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                      }`}>
-                        {entry.action === 'redeem' ? '-' : '+'}{entry.points} pts
-                      </span>
-                      <span className="text-gray-500 text-xs min-w-[80px] text-right">
-                        {entry.date ? new Date(entry.date).toLocaleDateString() : "—"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
-                <p className="text-gray-500">No activity yet.</p>
-              </div>
-            )}
-          </div>
         </div>
       </div>
+      {selectedUser && (
+        <UserHistoryModal 
+          user={selectedUser} 
+          onClose={() => setSelectedUser(null)}
+          allRewards={stats.allLoyaltyRewards}
+        />
+      )}
     </div>
   );
 }
