@@ -122,36 +122,40 @@ export default function Deliveries() {
   useEffect(() => { load(); }, [tab, status]);
   useEffect(() => { setPage(1); }, [tab, status, query]);
 
-  const filtered = useMemo(() => {
-    const typeKey = String(tab).toLowerCase();
-    let byTab = [];
+const filtered = useMemo(() => {
+  const typeKey = String(tab).toLowerCase();
+  let byTab = [];
 
-    if (tab === "completed") {
-      byTab = rows.filter((r) => r.status === "completed");
-    } else if (tab === "cancelled") {
-      byTab = rows.filter((r) => r.status === "cancelled");
-    } else {
-      byTab = rows.filter(
-        (r) =>
-          String(r.type || "").toLowerCase() === typeKey &&
-          !["completed", "cancelled"].includes(r.status)
-      );
-    }
+  if (tab === "completed") {
+    // ✅ Show ALL completed deliveries regardless of type
+    byTab = rows.filter((r) => r.status === "completed");
+    console.log('📊 Completed deliveries:', byTab.length);
+  } else if (tab === "cancelled") {
+    byTab = rows.filter((r) => r.status === "cancelled");
+  } else {
+    // Show active deliveries by type
+    byTab = rows.filter(
+      (r) =>
+        String(r.type || "").toLowerCase() === typeKey &&
+        !["completed", "cancelled"].includes(r.status)
+    );
+  }
 
-    if (!query) return byTab;
+  if (!query) return byTab;
 
-    const q = query.toLowerCase();
-    return byTab.filter((r) => {
-      const addr = String(r.deliveryAddress || "").toLowerCase();
-      const pick = String(r.pickupLocation || "").toLowerCase();
-      const prov = String(r.thirdPartyProvider || "").toLowerCase();
-      const drv = String(driverLabel(r)).toLowerCase();
-      const veh = String(vehicleLabel(r)).toLowerCase();
-      const id = String(r._id || "").toLowerCase();
-      const orderId = String(r.orderId || "").toLowerCase();
-      return [addr, pick, prov, drv, veh, id, orderId].some((t) => t.includes(q));
-    });
-  }, [rows, query, tab]);
+  const q = query.toLowerCase();
+  return byTab.filter((r) => {
+    const addr = String(r.deliveryAddress || "").toLowerCase();
+    const pick = String(r.pickupLocation || "").toLowerCase();
+    const prov = String(r.thirdPartyProvider || "").toLowerCase();
+    const drv = String(driverLabel(r)).toLowerCase();
+    const veh = String(vehicleLabel(r)).toLowerCase();
+    const id = String(r._id || "").toLowerCase();
+    const orderId = String(r.orderId || "").toLowerCase();
+    const lalamoveId = String(r.lalamove?.orderId || "").toLowerCase();
+    return [addr, pick, prov, drv, veh, id, orderId, lalamoveId].some((t) => t.includes(q));
+  });
+}, [rows, query, tab]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   useEffect(() => {
@@ -252,31 +256,36 @@ const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
   setSyncing(deliveryId);
   try {
     console.log('🔄 Syncing Lalamove status for delivery:', deliveryId);
+    console.log('📋 Lalamove Order ID:', lalamoveOrderId);
     
+    // Get latest status from Lalamove
     const response = await axios.get(
       `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
       { headers: auth() }
     );
     
+    console.log('📥 Lalamove sync response:', response.data);
+    
     if (response.data.success) {
       const lalamoveData = response.data.data;
       const lalamoveStatus = lalamoveData.status;
       
-      // ✅ Map Lalamove status to your system status
+      // ✅ Map Lalamove status to system status
       const systemStatus = mapLalamoveStatus(lalamoveStatus);
       
       console.log('📊 Status mapping:', {
-        lalamove: lalamoveStatus,
-        system: systemStatus
+        lalamoveStatus,
+        systemStatus,
+        willMoveToCompleted: systemStatus === 'completed'
       });
       
-      // ✅ Update BOTH lalamove.status AND delivery.status
+      // Build update payload
       const updatePayload = {
-        status: systemStatus, // ✅ Update main status
-        'lalamove.status': lalamoveStatus,
+        status: systemStatus, // ✅ Update main delivery status
+        'lalamove.status': lalamoveStatus, // Keep Lalamove status for reference
       };
       
-      // Update driver if available
+      // Update driver info if available
       if (lalamoveData.driver || lalamoveData.driverId) {
         updatePayload['lalamove.driver'] = {
           name: lalamoveData.driver?.name || lalamoveData.driverName || '',
@@ -288,21 +297,41 @@ const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
       
       // ✅ If completed, set deliveredAt timestamp
       if (systemStatus === 'completed') {
-        updatePayload.deliveredAt = new Date();
+        updatePayload.deliveredAt = new Date().toISOString();
+        console.log('✅ Setting deliveredAt timestamp');
       }
       
+      console.log('🔼 Updating delivery with:', updatePayload);
+      
+      // Update delivery in database
       await axios.put(
         `${API}/${deliveryId}`,
         updatePayload,
         { headers: auth() }
       );
       
-      alert(`✅ Status synced! Lalamove: ${lalamoveStatus} → System: ${systemStatus}`);
-      load(); // Reload deliveries
+      console.log('✅ Delivery updated successfully');
+      
+      // Show success message
+      if (systemStatus === 'completed') {
+        alert(`✅ Delivery completed! Moving to Completed tab.\n\nLalamove Status: ${lalamoveStatus}\nSystem Status: ${systemStatus}`);
+      } else {
+        alert(`Status synced successfully!\n\nLalamove: ${lalamoveStatus}\nSystem: ${systemStatus}`);
+      }
+      
+      load(); // Reload deliveries to reflect changes
+    } else {
+      throw new Error(response.data.error || 'Sync failed');
     }
   } catch (error) {
-    console.error('❌ Sync failed:', error);
-    alert('Failed to sync status. Please try again.');
+    console.error('❌ Failed to sync Lalamove status:', error);
+    console.error('Error response:', error.response?.data);
+    
+    alert(
+      error.response?.data?.message || 
+      error.message || 
+      'Failed to sync status from Lalamove. Please try again.'
+    );
   } finally {
     setSyncing(null);
   }

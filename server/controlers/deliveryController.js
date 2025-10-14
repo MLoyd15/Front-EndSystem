@@ -100,41 +100,50 @@ export async function updateDelivery(req, res) {
       "estimatedDeliveryTime",
       "notes",
       "deliveredAt", // ✅ Add this
-      "lalamove.status",        // ✅ Allow nested updates
-      "lalamove.driver",        // ✅ Allow nested updates
+      "lalamove.status",
+      "lalamove.driver",
       "lalamove.orderId",
       "lalamove.shareLink"
     ];
     
     const updates = {};
     
-    // Handle nested lalamove updates
+    // ✅ Handle main status update (most important!)
+    if (req.body.status) {
+      updates.status = req.body.status;
+      console.log('📝 Updating main status to:', req.body.status);
+    }
+    
+    // Handle nested lalamove.status
     if (req.body['lalamove.status']) {
-      if (!updates.lalamove) updates.lalamove = {};
-      updates.lalamove.status = req.body['lalamove.status'];
+      if (!updates.$set) updates.$set = {};
+      updates.$set['lalamove.status'] = req.body['lalamove.status'];
+      console.log('📝 Updating lalamove.status to:', req.body['lalamove.status']);
     }
     
+    // Handle nested lalamove.driver
     if (req.body['lalamove.driver']) {
-      if (!updates.lalamove) updates.lalamove = {};
-      updates.lalamove.driver = req.body['lalamove.driver'];
+      if (!updates.$set) updates.$set = {};
+      updates.$set['lalamove.driver'] = req.body['lalamove.driver'];
     }
     
-  // ✅ Handle deliveredAt timestamp
+    // ✅ Handle deliveredAt timestamp
     if (req.body.deliveredAt) {
-      updates.deliveredAt = req.body.deliveredAt;
+      updates.deliveredAt = new Date(req.body.deliveredAt);
+      console.log('📝 Setting deliveredAt:', updates.deliveredAt);
     }
     
-    // Handle other updates
+    // Handle other simple updates
     for (const k of allowed) {
       if (k.includes('lalamove.') || k === 'status' || k === 'deliveredAt') continue;
       if (k in req.body) updates[k] = req.body[k];
     }
 
-    console.log('🔄 Updating delivery with:', updates);
+    console.log('🔄 Final update payload:', JSON.stringify(updates, null, 2));
 
     const updated = await Delivery.findByIdAndUpdate(
       req.params.id,
-      { $set: updates },
+      updates,
       { new: true, runValidators: true }
     )
     .populate("order")
@@ -145,7 +154,11 @@ export async function updateDelivery(req, res) {
       return res.status(404).json({ success: false, message: "Not found" });
     }
 
-    console.log('✅ Delivery updated:', updated._id);
+    console.log('✅ Delivery updated:', {
+      id: updated._id,
+      status: updated.status,
+      lalamoveStatus: updated.lalamove?.status
+    });
 
     res.json({ success: true, delivery: updated });
   } catch (e) {
@@ -153,7 +166,6 @@ export async function updateDelivery(req, res) {
     res.status(400).json({ success: false, message: "Update failed", error: e.message });
   }
 }
-
 // ✅ NEW: Update Lalamove-specific data
 export async function updateLalamoveData(req, res) {
   try {

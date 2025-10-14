@@ -216,11 +216,17 @@ async getOrderDetails(orderId) {
       }
     });
 
-    console.log('✅ Lalamove order details response:', JSON.stringify(response.data, null, 2));
+    console.log('✅ Lalamove order details:', JSON.stringify(response.data, null, 2));
+
+    // ✅ Extract and normalize the response
+    const orderData = response.data.data || response.data;
 
     return {
       success: true,
-      data: response.data
+      data: {
+        ...orderData,
+        status: orderData.status, // ✅ This will be "COMPLETED" when done
+      }
     };
   } catch (error) {
     console.error('❌ Lalamove get order error:', error.response?.status);
