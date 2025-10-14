@@ -2,6 +2,7 @@
 import express from 'express';
 import lalamoveService from '../services/lalamoveService.js';
 import authMiddleware, { requireRole } from '../middleware/authMiddleware.js';
+import Delivery from '../models/Delivery.js'; // ✅ ADD THIS IMPORT
 
 const router = express.Router();
 
