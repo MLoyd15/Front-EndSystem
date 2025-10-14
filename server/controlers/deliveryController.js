@@ -99,6 +99,7 @@ export async function updateDelivery(req, res) {
       "deliveryFee",
       "estimatedDeliveryTime",
       "notes",
+      "deliveredAt", // ✅ Add this
       "lalamove.status",        // ✅ Allow nested updates
       "lalamove.driver",        // ✅ Allow nested updates
       "lalamove.orderId",
@@ -118,9 +119,14 @@ export async function updateDelivery(req, res) {
       updates.lalamove.driver = req.body['lalamove.driver'];
     }
     
+  // ✅ Handle deliveredAt timestamp
+    if (req.body.deliveredAt) {
+      updates.deliveredAt = req.body.deliveredAt;
+    }
+    
     // Handle other updates
     for (const k of allowed) {
-      if (k.includes('lalamove.')) continue; // Skip, already handled
+      if (k.includes('lalamove.') || k === 'status' || k === 'deliveredAt') continue;
       if (k in req.body) updates[k] = req.body[k];
     }
 

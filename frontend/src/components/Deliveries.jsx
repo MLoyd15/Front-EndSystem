@@ -252,30 +252,31 @@ const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
   setSyncing(deliveryId);
   try {
     console.log('🔄 Syncing Lalamove status for delivery:', deliveryId);
-    console.log('📋 Lalamove Order ID:', lalamoveOrderId);
     
     const response = await axios.get(
       `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
       { headers: auth() }
     );
     
-    console.log('📥 Lalamove sync response:', response.data);
-    
     if (response.data.success) {
       const lalamoveData = response.data.data;
+      const lalamoveStatus = lalamoveData.status;
       
-      console.log('📊 Extracted Lalamove data:', {
-        status: lalamoveData.status,
-        driver: lalamoveData.driver,
-        driverId: lalamoveData.driverId
+      // ✅ Map Lalamove status to your system status
+      const systemStatus = mapLalamoveStatus(lalamoveStatus);
+      
+      console.log('📊 Status mapping:', {
+        lalamove: lalamoveStatus,
+        system: systemStatus
       });
       
-      // Update delivery with latest status
+      // ✅ Update BOTH lalamove.status AND delivery.status
       const updatePayload = {
-        'lalamove.status': lalamoveData.status,
+        status: systemStatus, // ✅ Update main status
+        'lalamove.status': lalamoveStatus,
       };
       
-      // Only update driver if it exists
+      // Update driver if available
       if (lalamoveData.driver || lalamoveData.driverId) {
         updatePayload['lalamove.driver'] = {
           name: lalamoveData.driver?.name || lalamoveData.driverName || '',
@@ -285,35 +286,38 @@ const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
         };
       }
       
-      console.log('🔼 Updating delivery with:', updatePayload);
+      // ✅ If completed, set deliveredAt timestamp
+      if (systemStatus === 'completed') {
+        updatePayload.deliveredAt = new Date();
+      }
       
-      const updateResponse = await axios.put(
+      await axios.put(
         `${API}/${deliveryId}`,
         updatePayload,
         { headers: auth() }
       );
       
-      console.log('✅ Delivery updated successfully');
-      
-      // Show success message
-      alert(`Status synced successfully! Current status: ${lalamoveData.status}`);
-      
+      alert(`✅ Status synced! Lalamove: ${lalamoveStatus} → System: ${systemStatus}`);
       load(); // Reload deliveries
-    } else {
-      throw new Error(response.data.error || 'Sync failed');
     }
   } catch (error) {
-    console.error('❌ Failed to sync Lalamove status:', error);
-    console.error('Error response:', error.response?.data);
-    
-    alert(
-      error.response?.data?.message || 
-      error.message || 
-      'Failed to sync status from Lalamove. Please try again.'
-    );
+    console.error('❌ Sync failed:', error);
+    alert('Failed to sync status. Please try again.');
   } finally {
     setSyncing(null);
   }
+};
+
+const mapLalamoveStatus = (lalamoveStatus) => {
+  const statusMap = {
+    'ASSIGNING_DRIVER': 'assigned',
+    'ON_GOING': 'in-transit',
+    'PICKED_UP': 'in-transit',
+    'COMPLETED': 'completed', // ✅ This is the key mapping
+    'CANCELLED': 'cancelled',
+    'EXPIRED': 'cancelled'
+  };
+  return statusMap[lalamoveStatus] || 'pending';
 };
   // ✅ Render sync button
   const renderSyncButton = (delivery) => {
