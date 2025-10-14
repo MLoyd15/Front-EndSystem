@@ -94,7 +94,7 @@ router.post('/order', async (req, res) => {
 
 // Get order status
 // This should already exist from earlier
-router.get('/order/:orderId', protect, async (req, res) => {
+router.get('/order/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
     const result = await lalamoveService.getOrderDetails(orderId);
