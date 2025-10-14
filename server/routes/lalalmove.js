@@ -1,8 +1,8 @@
 // backend/routes/lalamove.js
 import express from 'express';
 import lalamoveService from '../services/lalamoveService.js';
-import authMiddleware, { requireRole } from '../middleware/authMiddleware.js';
 import Delivery from '../models/Delivery.js'; // ✅ ADD THIS IMPORT
+import authMiddleware, { requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -66,10 +66,10 @@ router.post('/order', async (req, res) => {
               'lalamove.pickupStopId': orderData.pickupStopId,
               'lalamove.deliveryStopId': orderData.deliveryStopId,
               'lalamove.shareLink': lalamoveData.shareLink,
-              'lalamove.status': lalamoveData.status,
+              'lalamove.status': lalamoveData.status, // ✅ This is "ASSIGNING_DRIVER"
               'lalamove.priceBreakdown': lalamoveData.priceBreakdown,
               'lalamove.serviceType': lalamoveData.serviceType || 'MOTORCYCLE',
-              status: 'assigned',
+              status: 'assigned', // ✅ Change from "pending" to "assigned"
               thirdPartyProvider: 'Lalamove',
             }
           },
@@ -77,6 +77,8 @@ router.post('/order', async (req, res) => {
         );
         
         console.log('✅ Delivery record updated:', updatedDelivery._id);
+        console.log('📊 Status changed from pending to:', updatedDelivery.status);
+        console.log('🚚 Lalamove status:', updatedDelivery.lalamove?.status);
       } catch (updateError) {
         console.error('❌ Failed to update delivery record:', updateError);
         // Don't fail the whole request, just log it
@@ -92,10 +94,6 @@ router.post('/order', async (req, res) => {
     });
   }
 });
-
-// Get order status
-// This should already exist from earlier
-// routes/lalamove.js
 
 // Get order status
 router.get('/order/:orderId', async (req, res) => {
@@ -130,7 +128,7 @@ router.get('/order/:orderId', async (req, res) => {
       message: 'Failed to get order details',
     });
   }
-});;
+});
 
 // Get driver location
 router.get('/order/:orderId/driver', async (req, res) => {
