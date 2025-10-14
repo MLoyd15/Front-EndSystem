@@ -50,6 +50,50 @@ const statusPill = (status) => {
   return chip(c, label);
 };
 
+// Add near the top of the component
+const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
+  try {
+    const response = await axios.get(
+      `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
+      { headers: auth() }
+    );
+    
+    if (response.data.success) {
+      const lalamoveData = response.data.data.data || response.data.data;
+      
+      // Update the delivery with latest Lalamove status
+      await axios.put(
+        `${API}/${deliveryId}`,
+        {
+          'lalamove.status': lalamoveData.status,
+          'lalamove.driver': lalamoveData.driver,
+        },
+        { headers: auth() }
+      );
+      
+      load(); // Reload deliveries
+    }
+  } catch (error) {
+    console.error('Failed to sync Lalamove status:', error);
+  }
+};
+
+// Add a refresh button for Lalamove deliveries
+const renderSyncButton = (delivery) => {
+  if (!delivery.lalamove?.orderId) return null;
+  
+  return (
+    <button
+      onClick={() => syncLalamoveStatus(delivery._id, delivery.lalamove.orderId)}
+      className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-pink-300 text-pink-700 hover:bg-pink-50 inline-flex items-center gap-2"
+      title="Sync Lalamove Status"
+    >
+      <RefreshCcw className="w-3 h-3" />
+      Sync
+    </button>
+  );
+};
+
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString() : "—");
 const last6 = (id = "") => `#${String(id).slice(-6)}`;
 
@@ -376,20 +420,29 @@ const renderSyncButton = (delivery) => {
                   <div className="space-y-3">
                     <AnimatePresence>
                       {paged.map((d) => (
-                        <motion.div
-                          key={d._id}
-                          layout
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -8 }}
-                          className="p-4 rounded-2xl ring-1 ring-slate-200 bg-white hover:shadow-lg transition"
-                        >
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center gap-2 min-w-[8rem]">
-                              <span className="font-semibold text-slate-800">{last6(d.order?._id || d.order || d._id)}</span>
-                              {statusPill(d.status)}
-                              {lalamoveBadge(d)} {/* ✅ Show Lalamove badge */}
-                            </div>
+                          <motion.div
+                            key={d._id}
+                            layout
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            className="p-4 rounded-2xl ring-1 ring-slate-200 bg-white hover:shadow-lg transition"
+                          >
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex items-center gap-2 min-w-[8rem]">
+                                <span className="font-semibold text-slate-800">
+                                  {last6(d.order?._id || d.order || d._id)}
+                                </span>
+                                {/* ✅ Show Lalamove status if available, otherwise show regular status */}
+                                {d.lalamove?.orderId ? (
+                                  <>
+                                    {statusPill(d.lalamove.status || d.status)}
+                                    {lalamoveBadge(d)}
+                                  </>
+                                ) : (
+                                  statusPill(d.status)
+                                )}
+                              </div>
 
                             <div className="flex items-center gap-2 text-slate-600 min-w-[13rem]">
                               <User className="w-4 h-4" />
@@ -415,16 +468,17 @@ const renderSyncButton = (delivery) => {
                               <span>{d.order?.totalWeightKg || d.weight || 0} kg</span>
                             </div>
 
-                            <div className="ml-auto flex items-center gap-2">
+                           <div className="ml-auto flex items-center gap-2">
                               {vehiclePill(d)}
-
+                              {renderSyncButton(d)} {/* ✅ Add sync button */}
+                              
                               <button
                                 onClick={() => handleDrawerOpen(d)}
                                 className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50 inline-flex items-center gap-2"
                               >
                                 Details <ChevronRight className="w-4 h-4" />
                               </button>
-
+                              
                               {!["completed", "cancelled"].includes(d.status) && (
                                 <button
                                   onClick={() => setEditing(d)}
@@ -557,32 +611,36 @@ const renderSyncButton = (delivery) => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Order Information */}
                   <div className="bg-slate-50 rounded-xl p-4">
-                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4" />
-                      Order Information
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Order ID:</span>
-                        <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Delivery Type:</span>
-                        <span className="font-medium capitalize">{drawer.type || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Status:</span>
-                        <div>{statusPill(drawer.status)}</div>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Weight:</span>
-                        <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
+                      <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                        <ShoppingCart className="w-4 h-4" />
+                        Order Information
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Order ID:</span>
+                          <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Delivery Type:</span>
+                          <span className="font-medium capitalize">{drawer.type || "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Status:</span>
+                          {/* ✅ Show Lalamove status if available */}
+                          <div>
+                            {drawer.lalamove?.orderId 
+                              ? statusPill(drawer.lalamove.status || drawer.status)
+                              : statusPill(drawer.status)
+                            }
+                          </div>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Weight:</span>
+                          <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
                   {/* Customer Information */}
                   {(drawerDetails?.order?.user || drawer?.order?.user) && (
                     <div className="bg-slate-50 rounded-xl p-4">
