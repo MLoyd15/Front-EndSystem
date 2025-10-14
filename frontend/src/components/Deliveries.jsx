@@ -4,10 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Bike, Search, Filter, Clock, MapPin, User, Weight,
   ChevronRight, X, CheckCircle2, ShoppingCart, Phone, CheckCircle, XCircle,
-  Truck,  RefreshCcw // ✅ Added for Lalamove
+  Truck, RefreshCcw // ✅ Added RefreshCcw import
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
-import LalamoveIntegration from "../components/LalamoveIntegration"; // ✅ Import Lalamove component
+import LalamoveIntegration from "../components/LalamoveIntegration";
 
 /* ----------------------------- API ----------------------------- */
 const API = `${VITE_API_BASE}/delivery`;
@@ -24,7 +24,7 @@ const chip = (color, text) => {
     sky: "bg-sky-100 text-sky-700 ring-sky-200",
     gray: "bg-gray-100 text-gray-700 ring-gray-200",
     red: "bg-red-100 text-red-700 ring-red-200",
-    pink: "bg-pink-100 text-pink-700 ring-pink-200", // ✅ Added for Lalamove
+    pink: "bg-pink-100 text-pink-700 ring-pink-200",
   };
   return <span className={`px-2 py-0.5 text-xs rounded-full ring-1 ${colors[color]}`}>{text}</span>;
 };
@@ -35,63 +35,18 @@ const statusPill = (status) => {
     assigned: ["sky", "Assigned"],
     "in-transit": ["amber", "In transit"],
     completed: ["green", "Completed"],
-      cancelled: ["red", "Cancelled"],
+    cancelled: ["red", "Cancelled"],
     
-    // ✅ Lalamove statuses
+    // Lalamove statuses
     "ASSIGNING_DRIVER": ["amber", "Finding Driver"],
     "ON_GOING": ["sky", "On Going"],
     "PICKED_UP": ["amber", "Picked Up"],
     "COMPLETED": ["green", "Delivered"],
     "CANCELLED": ["red", "Cancelled"],
     "EXPIRED": ["gray", "Expired"],
-    
   };
   const [c, label] = map[status] || ["gray", status || "Pending"];
   return chip(c, label);
-};
-
-// Add near the top of the component
-const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
-  try {
-    const response = await axios.get(
-      `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
-      { headers: auth() }
-    );
-    
-    if (response.data.success) {
-      const lalamoveData = response.data.data.data || response.data.data;
-      
-      // Update the delivery with latest Lalamove status
-      await axios.put(
-        `${API}/${deliveryId}`,
-        {
-          'lalamove.status': lalamoveData.status,
-          'lalamove.driver': lalamoveData.driver,
-        },
-        { headers: auth() }
-      );
-      
-      load(); // Reload deliveries
-    }
-  } catch (error) {
-    console.error('Failed to sync Lalamove status:', error);
-  }
-};
-
-// Add a refresh button for Lalamove deliveries
-const renderSyncButton = (delivery) => {
-  if (!delivery.lalamove?.orderId) return null;
-  
-  return (
-    <button
-      onClick={() => syncLalamoveStatus(delivery._id, delivery.lalamove.orderId)}
-      className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-pink-300 text-pink-700 hover:bg-pink-50 inline-flex items-center gap-2"
-      title="Sync Lalamove Status"
-    >
-      <RefreshCcw className="w-3 h-3" />
-      Sync
-    </button>
-  );
 };
 
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString() : "—");
@@ -104,7 +59,6 @@ const vehiclePill = (row) => {
   return label ? chip("sky", label) : null;
 };
 
-// ✅ Helper to show Lalamove badge
 const lalamoveBadge = (row) => {
   if (row?.lalamove?.orderId) {
     return chip("pink", "Lalamove");
@@ -125,8 +79,8 @@ export default function Deliveries() {
   const [drawerDetails, setDrawerDetails] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [syncing, setSyncing] = useState(null); // ✅ Track which delivery is syncing
   
-  // ✅ Lalamove modal state
   const [lalamoveModal, setLalamoveModal] = useState(false);
   const [lalamoveDelivery, setLalamoveDelivery] = useState(null);
 
@@ -165,7 +119,7 @@ export default function Deliveries() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab, status]);
+  useEffect(() => { load(); }, [tab, status]);
   useEffect(() => { setPage(1); }, [tab, status, query]);
 
   const filtered = useMemo(() => {
@@ -274,11 +228,10 @@ export default function Deliveries() {
     }
   };
 
-  // ✅ Open Lalamove modal
   const openLalamove = (delivery) => {
     setLalamoveDelivery(delivery);
     setLalamoveModal(true);
-    setEditing(null); // Close the editor
+    setEditing(null);
   };
 
   const handleDrawerOpen = (delivery) => {
@@ -292,48 +245,55 @@ export default function Deliveries() {
     return delivery.deliveryAddress || "Set delivery address";
   };
 
-const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
-  try {
-    const response = await axios.get(
-      `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
-      { headers: auth() }
-    );
-    
-    if (response.data.success) {
-      const lalamoveData = response.data.data.data || response.data.data;
-      
-      // Update the delivery with latest Lalamove status
-      await axios.put(
-        `${API}/${deliveryId}`,
-        {
-          'lalamove.status': lalamoveData.status,
-          'lalamove.driver': lalamoveData.driver,
-        },
+  // ✅ Sync Lalamove status function
+  const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
+    setSyncing(deliveryId);
+    try {
+      const response = await axios.get(
+        `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
         { headers: auth() }
       );
       
-      load(); // Reload deliveries
+      if (response.data.success) {
+        const lalamoveData = response.data.data.data || response.data.data;
+        
+        await axios.put(
+          `${API}/${deliveryId}`,
+          {
+            'lalamove.status': lalamoveData.status,
+            'lalamove.driver': lalamoveData.driver,
+          },
+          { headers: auth() }
+        );
+        
+        load();
+      }
+    } catch (error) {
+      console.error('Failed to sync Lalamove status:', error);
+      alert('Failed to sync status from Lalamove');
+    } finally {
+      setSyncing(null);
     }
-  } catch (error) {
-    console.error('Failed to sync Lalamove status:', error);
-  }
-};
+  };
 
-// Add a refresh button for Lalamove deliveries
-const renderSyncButton = (delivery) => {
-  if (!delivery.lalamove?.orderId) return null;
-  
-  return (
-    <button
-      onClick={() => syncLalamoveStatus(delivery._id, delivery.lalamove.orderId)}
-      className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-pink-300 text-pink-700 hover:bg-pink-50 inline-flex items-center gap-2"
-      title="Sync Lalamove Status"
-    >
-      <RefreshCcw className="w-3 h-3" />
-      Sync
-    </button>
-  );
-};
+  // ✅ Render sync button
+  const renderSyncButton = (delivery) => {
+    if (!delivery.lalamove?.orderId) return null;
+    
+    const isSyncing = syncing === delivery._id;
+    
+    return (
+      <button
+        onClick={() => syncLalamoveStatus(delivery._id, delivery.lalamove.orderId)}
+        disabled={isSyncing}
+        className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-pink-300 text-pink-700 hover:bg-pink-50 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Sync Lalamove Status"
+      >
+        <RefreshCcw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+        {isSyncing ? 'Syncing...' : 'Sync'}
+      </button>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
