@@ -83,6 +83,8 @@ export async function getDeliveryById(req, res) {
 }
 
 // -------------------- Update (pickup / 3rd-party only) --------------------
+// controllers/deliveryController.js
+
 export async function updateDelivery(req, res) {
   try {
     const allowed = [
@@ -91,22 +93,42 @@ export async function updateDelivery(req, res) {
       "pickupLocation", 
       "thirdPartyProvider",
       "deliveryAddress",
-      "pickupCoordinates",      // ✅ NEW
-      "deliveryCoordinates",    // ✅ NEW
-      "customer",               // ✅ NEW
-      "deliveryFee",            // ✅ NEW
-      "estimatedDeliveryTime",  // ✅ NEW
-      "notes"                   // ✅ NEW
+      "pickupCoordinates",
+      "deliveryCoordinates",
+      "customer",
+      "deliveryFee",
+      "estimatedDeliveryTime",
+      "notes",
+      "lalamove.status",        // ✅ Allow nested updates
+      "lalamove.driver",        // ✅ Allow nested updates
+      "lalamove.orderId",
+      "lalamove.shareLink"
     ];
     
     const updates = {};
+    
+    // Handle nested lalamove updates
+    if (req.body['lalamove.status']) {
+      if (!updates.lalamove) updates.lalamove = {};
+      updates.lalamove.status = req.body['lalamove.status'];
+    }
+    
+    if (req.body['lalamove.driver']) {
+      if (!updates.lalamove) updates.lalamove = {};
+      updates.lalamove.driver = req.body['lalamove.driver'];
+    }
+    
+    // Handle other updates
     for (const k of allowed) {
+      if (k.includes('lalamove.')) continue; // Skip, already handled
       if (k in req.body) updates[k] = req.body[k];
     }
 
+    console.log('🔄 Updating delivery with:', updates);
+
     const updated = await Delivery.findByIdAndUpdate(
       req.params.id,
-      updates,
+      { $set: updates },
       { new: true, runValidators: true }
     )
     .populate("order")
@@ -117,8 +139,11 @@ export async function updateDelivery(req, res) {
       return res.status(404).json({ success: false, message: "Not found" });
     }
 
+    console.log('✅ Delivery updated:', updated._id);
+
     res.json({ success: true, delivery: updated });
   } catch (e) {
+    console.error('❌ Update failed:', e);
     res.status(400).json({ success: false, message: "Update failed", error: e.message });
   }
 }

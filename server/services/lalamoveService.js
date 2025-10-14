@@ -195,34 +195,43 @@ class LalamoveService {
     }
   }
 
-  async getOrderDetails(orderId) {
-    const path = `/v3/orders/${orderId}`;
-    const url = `${this.baseUrl}${path}`;
-    const method = 'GET';
-    const timestamp = new Date().getTime().toString();
-    const signature = this.generateSignature(method, path, timestamp, '');
+ // services/lalamoveService.js
 
-    try {
-      const response = await axios.get(url, {
-        headers: {
-          'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
-          'Accept': 'application/json',
-          'Market': this.market
-        }
-      });
+async getOrderDetails(orderId) {
+  const path = `/v3/orders/${orderId}`;
+  const url = `${this.baseUrl}${path}`;
+  const method = 'GET';
+  const timestamp = new Date().getTime().toString();
 
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('❌ Get order error:', error.response?.data || error);
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Failed to get order details'
-      };
-    }
+  const signature = this.generateSignature(method, path, timestamp, '');
+
+  console.log('🔍 Fetching Lalamove order details:', orderId);
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `hmac ${this.apiKey}:${timestamp}:${signature}`,
+        'Accept': 'application/json',
+        'Market': this.market
+      }
+    });
+
+    console.log('✅ Lalamove order details response:', JSON.stringify(response.data, null, 2));
+
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    console.error('❌ Lalamove get order error:', error.response?.status);
+    console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
+    
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to get order details',
+    };
   }
+}
 
   async cancelOrder(orderId) {
     const path = `/v3/orders/${orderId}`;

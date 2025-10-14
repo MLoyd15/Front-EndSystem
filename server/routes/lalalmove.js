@@ -94,11 +94,34 @@ router.post('/order', async (req, res) => {
 
 // Get order status
 // This should already exist from earlier
+// routes/lalamove.js
+
+// Get order status
 router.get('/order/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
+    
+    console.log('📡 Getting order details for:', orderId);
+    
     const result = await lalamoveService.getOrderDetails(orderId);
-    res.json(result);
+    
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    
+    // Extract the actual order data
+    const orderData = result.data.data || result.data;
+    
+    console.log('📦 Order data extracted:', {
+      orderId: orderData.orderId,
+      status: orderData.status,
+      hasDriver: !!orderData.driver
+    });
+    
+    res.json({
+      success: true,
+      data: orderData
+    });
   } catch (error) {
     console.error('Get order route error:', error);
     res.status(500).json({
@@ -106,7 +129,7 @@ router.get('/order/:orderId', async (req, res) => {
       message: 'Failed to get order details',
     });
   }
-});
+});;
 
 // Get driver location
 router.get('/order/:orderId/driver', async (req, res) => {

@@ -246,36 +246,75 @@ export default function Deliveries() {
   };
 
   // ✅ Sync Lalamove status function
-  const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
-    setSyncing(deliveryId);
-    try {
-      const response = await axios.get(
-        `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
+// In Deliveries.jsx - Update syncLalamoveStatus function
+
+const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
+  setSyncing(deliveryId);
+  try {
+    console.log('🔄 Syncing Lalamove status for delivery:', deliveryId);
+    console.log('📋 Lalamove Order ID:', lalamoveOrderId);
+    
+    const response = await axios.get(
+      `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
+      { headers: auth() }
+    );
+    
+    console.log('📥 Lalamove sync response:', response.data);
+    
+    if (response.data.success) {
+      const lalamoveData = response.data.data;
+      
+      console.log('📊 Extracted Lalamove data:', {
+        status: lalamoveData.status,
+        driver: lalamoveData.driver,
+        driverId: lalamoveData.driverId
+      });
+      
+      // Update delivery with latest status
+      const updatePayload = {
+        'lalamove.status': lalamoveData.status,
+      };
+      
+      // Only update driver if it exists
+      if (lalamoveData.driver || lalamoveData.driverId) {
+        updatePayload['lalamove.driver'] = {
+          name: lalamoveData.driver?.name || lalamoveData.driverName || '',
+          phone: lalamoveData.driver?.phone || lalamoveData.driverPhone || '',
+          plateNumber: lalamoveData.driver?.plateNumber || '',
+          photo: lalamoveData.driver?.photo || ''
+        };
+      }
+      
+      console.log('🔼 Updating delivery with:', updatePayload);
+      
+      const updateResponse = await axios.put(
+        `${API}/${deliveryId}`,
+        updatePayload,
         { headers: auth() }
       );
       
-      if (response.data.success) {
-        const lalamoveData = response.data.data.data || response.data.data;
-        
-        await axios.put(
-          `${API}/${deliveryId}`,
-          {
-            'lalamove.status': lalamoveData.status,
-            'lalamove.driver': lalamoveData.driver,
-          },
-          { headers: auth() }
-        );
-        
-        load();
-      }
-    } catch (error) {
-      console.error('Failed to sync Lalamove status:', error);
-      alert('Failed to sync status from Lalamove');
-    } finally {
-      setSyncing(null);
+      console.log('✅ Delivery updated successfully');
+      
+      // Show success message
+      alert(`Status synced successfully! Current status: ${lalamoveData.status}`);
+      
+      load(); // Reload deliveries
+    } else {
+      throw new Error(response.data.error || 'Sync failed');
     }
-  };
-
+  } catch (error) {
+    console.error('❌ Failed to sync Lalamove status:', error);
+    console.error('Error response:', error.response?.data);
+    
+    alert(
+      error.response?.data?.message || 
+      error.message || 
+      'Failed to sync status from Lalamove. Please try again.'
+    );
+  } finally {
+    setSyncing(null);
+  }
+};
   // ✅ Render sync button
   const renderSyncButton = (delivery) => {
     if (!delivery.lalamove?.orderId) return null;
