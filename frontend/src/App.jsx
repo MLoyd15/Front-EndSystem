@@ -40,13 +40,14 @@ function App() {
           >
             <Route index element={<AdminKpi />} />
             <Route path="categories" element={<Categories />} />
+            <Route path="maintenance" element={<Maintenance />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="delivery" element={<Deliveries />} />
             <Route path="inventory" element={<h1>inventory</h1>} />
             <Route path="review" element={<Review />} />
             <Route path="promo" element={<Promo />} />
             <Route path="Sales" element={<Sales />} />
-            <Route path="maintenance" element={<Maintenance />} />
+            
             <Route path="logout" element={<Logout />} />
           </Route>
 
