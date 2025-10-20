@@ -6,7 +6,6 @@ import { VITE_API_BASE } from '../config';
 // ─── Config ────────────────────────────────────────────────────────────────────
 const API = VITE_API_BASE;
 
-// Helper function for star rating
 const StarRating = ({ rating = 0, size = "sm", showNumber = false }) => {
   const sizeClasses = { sm: "w-4 h-4", md: "w-5 h-5", lg: "w-6 h-6" };
   return (
@@ -37,12 +36,17 @@ const firstImage = (p) => {
 
 const GoAgriLanding = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cart, setCart] = useState([]);
   const [products, setProducts] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Pagination states
+  const [currentProductPage, setCurrentProductPage] = useState(1);
+  const [currentReviewPage, setCurrentReviewPage] = useState(1);
+  const productsPerPage = 9;
+  const reviewsPerPage = 6;
 
   useEffect(() => {
     fetchData();
@@ -53,20 +57,17 @@ const GoAgriLanding = () => {
       setLoading(true);
       
       // Fetch products using the same endpoint as ProductsPage
-      const productsRes = await axios.get(`${API}/products`, {
-        params: {
-          catalog: 'true', // Only get catalog products for landing page
-          limit: 50 // Get more products for display
-        }
-      });
+      const productsRes = await fetch(`${API}/products?catalog=true&limit=50`);
+      const productsJson = await productsRes.json();
       
-      const productsData = productsRes.data.items || productsRes.data.products || [];
+      const productsData = productsJson.items || productsJson.products || [];
       
       setProducts(productsData);
       
-      // Fetch all products with reviews (using flat endpoint like Review component)
-      const allProductsRes = await axios.get(`${API}/products/flat`);
-      const allProductsData = Array.isArray(allProductsRes.data) ? allProductsRes.data : [];
+      // Fetch all products with reviews
+      const allProductsRes = await fetch(`${API}/products/flat`);
+      const allProductsJson = await allProductsRes.json();
+      const allProductsData = Array.isArray(allProductsJson) ? allProductsJson : [];
       
       // Map products with their reviews
       const mappedProducts = allProductsData.map((p) => ({
@@ -98,11 +99,6 @@ const GoAgriLanding = () => {
     }
   };
 
-  const addToCart = (product) => {
-    setCart([...cart, product]);
-    alert(`${product.name} added to cart!`);
-  };
-
   const getProductImage = (product) => {
     return firstImage(product) || 
            'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop';
@@ -119,8 +115,82 @@ const GoAgriLanding = () => {
       day: "numeric"
     });
   };
-    const handleLogoClick = () => {
+
+  const handleLogoClick = () => {
     window.location.href = '/Superlogin';
+  };
+
+  // Pagination logic for products
+  const indexOfLastProduct = currentProductPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalProductPages = Math.ceil(products.length / productsPerPage);
+
+  // Pagination logic for reviews
+  const indexOfLastReview = currentReviewPage * reviewsPerPage;
+  const indexOfFirstReview = indexOfLastReview - reviewsPerPage;
+  const currentReviews = reviews.slice(indexOfFirstReview, indexOfLastReview);
+  const totalReviewPages = Math.ceil(reviews.length / reviewsPerPage);
+
+  const paginateProducts = (pageNumber) => {
+    setCurrentProductPage(pageNumber);
+    document.getElementById('marketplace')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const paginateReviews = (pageNumber) => {
+    setCurrentReviewPage(pageNumber);
+    document.getElementById('reviews')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex justify-center items-center gap-2 mt-8">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="p-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        
+        {[...Array(totalPages)].map((_, i) => {
+          const pageNum = i + 1;
+          // Show first page, last page, current page, and pages around current
+          if (
+            pageNum === 1 ||
+            pageNum === totalPages ||
+            (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+          ) {
+            return (
+              <button
+                key={pageNum}
+                onClick={() => onPageChange(pageNum)}
+                className={`px-4 py-2 rounded-lg transition ${
+                  currentPage === pageNum
+                    ? 'bg-green-600 text-white'
+                    : 'border hover:bg-gray-50'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+            return <span key={pageNum} className="px-2">...</span>;
+          }
+          return null;
+        })}
+        
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="p-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+        >
+          <ChevronRight size={20} />
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -131,16 +201,17 @@ const GoAgriLanding = () => {
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
             <div 
-              className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity group"
+              className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={handleLogoClick}
               title="Click to access admin login"
             >
-              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
-                <span className="text-white font-bold text-sm">GO</span>
-              </div>
+              <img 
+                src="https://res.cloudinary.com/dx9cjcodr/image/upload/v1759537836/logoAgriTrading_l1hp4e.png" 
+                alt="GO AGRI TRADING"
+                className="h-16 w-auto"
+              />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">GO AGRI TRADING</h1>
-                <p className="text-xs text-green-600 font-medium">Jesus Saves - John 3:16</p>
               </div>
             </div>
 
@@ -150,20 +221,20 @@ const GoAgriLanding = () => {
               <a href="#reviews" className="text-gray-700 hover:text-green-600 font-medium transition">Reviews</a>
               
               <a 
+                href="#" 
+                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download App</span>
+              </a>
+              
+              <a 
                 href="/login" 
                 className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
               >
                 <User className="w-4 h-4" />
                 <span>Admin Login</span>
               </a>
-              <button className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                <ShoppingCart className="w-6 h-6 text-gray-700" />
-                {cart.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {cart.length}
-                  </span>
-                )}
-              </button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -182,7 +253,10 @@ const GoAgriLanding = () => {
             <div className="px-4 py-4 space-y-3">
               <a href="#marketplace" className="block text-gray-700 hover:text-green-600 font-medium">Marketplace</a>
               <a href="#reviews" className="block text-gray-700 hover:text-green-600 font-medium">Reviews</a>
-              <a href="#contact" className="block text-gray-700 hover:text-green-600 font-medium">Contact</a>
+              <a href="#" className="flex items-center space-x-2 text-green-600 hover:text-green-700 font-medium">
+                <Download className="w-4 h-4" />
+                <span>Download App</span>
+              </a>
               <a href="/login" className="block text-blue-600 hover:text-blue-700 font-medium">Admin Login</a>
             </div>
           </div>
@@ -199,12 +273,21 @@ const GoAgriLanding = () => {
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               Quality agricultural products and equipment for every Filipino farmer
             </p>
-            <a 
-              href="#marketplace" 
-              className="inline-block bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-700 transition shadow-lg"
-            >
-              Shop Now
-            </a>
+            <div className="flex gap-4 justify-center flex-wrap">
+              <a 
+                href="#marketplace" 
+                className="inline-block bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-700 transition shadow-lg"
+              >
+                Shop Now
+              </a>
+              <a 
+                href="#" 
+                className="inline-flex items-center space-x-2 bg-white text-green-600 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-50 transition shadow-lg border-2 border-green-600"
+              >
+                <Download className="w-5 h-5" />
+                <span>Get Mobile App</span>
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -233,49 +316,56 @@ const GoAgriLanding = () => {
               <p className="text-gray-600">No products available at the moment.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {products.map((product) => (
-                <div key={product._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
-                  <img 
-                    src={getProductImage(product)} 
-                    alt={product.name}
-                    className="w-full h-56 object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop';
-                    }}
-                  />
-                  <div className="p-6">
-                    {product.category && (
-                      <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                        {typeof product.category === 'string' 
-                          ? product.category 
-                          : product.category?.categoryName || 'General'}
-                      </span>
-                    )}
-                    <h3 className="text-xl font-bold text-gray-900 mt-3 mb-2">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-2xl font-bold text-green-600">
-                        {formatPrice(product.price)}
-                      </span>
-                      {product.reviews && product.reviews.length > 0 && (
-                        <StarRating 
-                          rating={Math.round(
-                            product.reviews.reduce((s, r) => s + (r.rating || 0), 0) / product.reviews.length
-                          )} 
-                          size="sm"
-                        />
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {currentProducts.map((product) => (
+                  <div key={product._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
+                    <img 
+                      src={getProductImage(product)} 
+                      alt={product.name}
+                      className="w-full h-56 object-cover"
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop';
+                      }}
+                    />
+                    <div className="p-6">
+                      {product.category && (
+                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                          {typeof product.category === 'string' 
+                            ? product.category 
+                            : product.category?.categoryName || 'General'}
+                        </span>
                       )}
+                      <h3 className="text-xl font-bold text-gray-900 mt-3 mb-2">
+                        {product.name}
+                      </h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-2xl font-bold text-green-600">
+                          {formatPrice(product.price)}
+                        </span>
+                        {product.reviews && product.reviews.length > 0 && (
+                          <StarRating 
+                            rating={Math.round(
+                              product.reviews.reduce((s, r) => s + (r.rating || 0), 0) / product.reviews.length
+                            )} 
+                            size="sm"
+                          />
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Stock: {product.stock ?? 0} available
+                      </p>
                     </div>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Stock: {product.stock ?? 0} available
-                    </p>
-                 
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              
+              <Pagination 
+                currentPage={currentProductPage}
+                totalPages={totalProductPages}
+                onPageChange={paginateProducts}
+              />
+            </>
           )}
         </div>
       </section>
@@ -294,45 +384,56 @@ const GoAgriLanding = () => {
               <p className="text-gray-600">No reviews yet. Be the first to leave a review!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {reviews.slice(0, 6).map((review) => (
-                <div key={review._id} className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition">
-                  <div className="flex items-center space-x-4 mb-4">
-                    <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
-                      {getReviewerName(review).substring(0, 2).toUpperCase()}
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {currentReviews.map((review) => (
+                  <div key={review._id} className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {getReviewerName(review).substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">
+                          {getReviewerName(review)}
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          {review.createdAt ? formatDate(review.createdAt) : ''}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">
-                        {getReviewerName(review)}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        {review.createdAt ? formatDate(review.createdAt) : ''}
+                    <StarRating rating={review.rating || 5} size="sm" />
+                    {review.productName && (
+                      <p className="text-xs text-green-600 font-medium mt-2">
+                        Product: {review.productName}
                       </p>
-                    </div>
-                  </div>
-                  <StarRating rating={review.rating || 5} size="sm" />
-                  {review.productName && (
-                    <p className="text-xs text-green-600 font-medium mt-2">
-                      Product: {review.productName}
+                    )}
+                    <p className="text-gray-700 mt-3">
+                      {review.comment || review.reviewText || review.feedback || 'Great product!'}
                     </p>
-                  )}
-                  <p className="text-gray-700 mt-3">
-                    {review.comment || review.reviewText || review.feedback || 'Great product!'}
-                  </p>
-                </div>
-              ))}
-            </div>
+                  </div>
+                ))}
+              </div>
+              
+              <Pagination 
+                currentPage={currentReviewPage}
+                totalPages={totalReviewPages}
+                onPageChange={paginateReviews}
+              />
+            </>
           )}
         </div>
       </section>
 
-     
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
+            <img 
+              src="https://res.cloudinary.com/dx9cjcodr/image/upload/v1759537836/logoAgriTrading_l1hp4e.png" 
+              alt="GO AGRI TRADING"
+              className="h-16 w-auto mx-auto mb-4 brightness-0 invert"
+            />
             <h3 className="text-2xl font-bold mb-2">GO AGRI TRADING</h3>
-            <p className="text-gray-400 mb-4">Jesus Saves - John 3:16</p>
             <p className="text-gray-500 text-sm">
               © {new Date().getFullYear()} Go Agri Trading. All rights reserved.
             </p>
