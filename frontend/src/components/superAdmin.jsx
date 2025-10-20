@@ -19,7 +19,7 @@ const SuperAdminLogin = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
-    setError(''); // Clear error when user types
+    setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -28,45 +28,36 @@ const SuperAdminLogin = () => {
     setLoading(true);
 
     try {
-      // Use your API endpoint for super admin login
-      const response = await axios.post(`${API}/auth/login`, formData, {
+      const response = await fetch(`${API}/auth/login`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(formData)
       });
 
-      const data = response.data;
+      const data = await response.json();
 
-      // Check if login was successful
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid email or password');
+      }
+
       if (!data.token || !data.user) {
         throw new Error('Invalid response from server');
       }
 
-      // Verify user is super admin
       if (data.user.role !== 'superadmin') {
         throw new Error('Access denied. Super admin privileges required.');
       }
 
-      // Store token and user data
       localStorage.setItem('pos-token', data.token);
       localStorage.setItem('pos-user', JSON.stringify(data.user));
 
-      // Redirect to super admin dashboard
       window.location.href = '/admin-dashboard';
       
     } catch (err) {
       console.error('Login error:', err);
-      
-      if (err.response) {
-        // Server responded with error
-        setError(err.response.data?.message || 'Invalid email or password');
-      } else if (err.request) {
-        // Request made but no response
-        setError('Unable to connect to server. Please try again.');
-      } else {
-        // Other errors
-        setError(err.message || 'An error occurred during login');
-      }
+      setError(err.message || 'An error occurred during login');
     } finally {
       setLoading(false);
     }
@@ -78,16 +69,15 @@ const SuperAdminLogin = () => {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
-            <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300">
-              <span className="text-white font-bold text-3xl">GO</span>
-            </div>
+            <img 
+              src="https://res.cloudinary.com/dx9cjcodr/image/upload/v1759537836/logoAgriTrading_l1hp4e.png" 
+              alt="GO AGRI TRADING"
+              className="h-24 w-auto transform hover:scale-105 transition-transform duration-300"
+            />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             GO AGRI TRADING
           </h1>
-          <p className="text-sm text-green-600 font-medium mb-1">
-            Jesus Saves - John 3:16
-          </p>
           <p className="text-gray-600 text-sm">
             Super Admin Access Portal
           </p>
@@ -163,8 +153,6 @@ const SuperAdminLogin = () => {
                 </button>
               </div>
             </div>
-
-         
 
             {/* Submit Button */}
             <button
