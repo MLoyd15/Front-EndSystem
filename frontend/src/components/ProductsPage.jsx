@@ -144,6 +144,59 @@ export default function ProductsPage() {
     setLocalFiles([]);
   };
 
+  
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      auth: { token: localStorage.getItem("pos-token") },
+    });
+    socket.on("connect", () => {
+      console.log("✅ Connected to socket server:", socket.id);
+    });
+
+    socket.on("inventory:update", ({ productId, stock, price, minStock, sold, catalog }) => {
+      setItems((prev) =>
+        prev.map((p) =>
+          p._id === productId
+            ? {
+                ...p,
+                stock: stock ?? p.stock,
+                price: price ?? p.price,
+                minStock: minStock ?? p.minStock,
+                sold: sold ?? p.sold,
+                catalog: typeof catalog === "boolean" ? catalog : p.catalog,
+              }
+            : p
+        )
+      );
+      showModal("Success", "Stock updated!", "success");
+    });
+
+    socket.on("inventory:bulk", (updates) => {
+      setItems((prev) => {
+        const map = new Map(prev.map((p) => [p._id, p]));
+        for (const u of updates) {
+          if (map.has(u.productId)) {
+            const old = map.get(u.productId);
+            map.set(u.productId, { ...old, stock: u.stock ?? old.stock });
+          }
+        }
+        return Array.from(map.values());
+      });
+    });
+
+    socket.on("inventory:created", (p) => {
+      setItems((prev) => [p, ...prev]);
+      setTotal((t) => t + 1);
+    });
+
+    socket.on("inventory:deleted", ({ productId }) => {
+      setItems((prev) => prev.filter((p) => p._id !== productId));
+      setTotal((t) => Math.max(0, t - 1));
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
   const query = useMemo(() => {
     const p = new URLSearchParams();
     if (search) p.set("search", search);
@@ -194,22 +247,30 @@ export default function ProductsPage() {
 
     try {
       const res = await axios.post(
-        `${API}/category`,
+        `${API}/category/add`,
         { categoryName: newCategoryName.trim() },
         { headers: { ...authHeader(), "Content-Type": "application/json" } }
       );
       
-      const newCategory = res.data.category || res.data;
-      
-      // Add to categories list
-      setCategories((prev) => [...prev, newCategory]);
-      
-      // Auto-select the new category in the form
-      setCatForForm(newCategory._id);
-      
-      showModal("Success", "Category added successfully!", "success");
-      setShowAddCategory(false);
-      setNewCategoryName("");
+      // Check for success response
+      if (res.data.success) {
+        const newCategory = res.data.category || res.data;
+        
+        // Add to categories list
+        setCategories((prev) => [...prev, newCategory]);
+        
+        // Auto-select the new category in the form
+        setCatForForm(newCategory._id);
+        
+        showModal("Success", "Category added successfully!", "success");
+        setShowAddCategory(false);
+        setNewCategoryName("");
+        
+        // Refresh categories list to be safe
+        fetchCategories();
+      } else {
+        showModal("Error", res.data.message || "Failed to add category", "error");
+      }
     } catch (e) {
       console.error("Add category error:", e);
       showModal("Error", e?.response?.data?.message || "Failed to add category", "error");
