@@ -14,7 +14,6 @@ const authHeader = () => ({
 
 
 
-// data-URI tiny placeholder (no network call)
 const DATA_PLACEHOLDER_48 =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -76,21 +75,18 @@ const Modal = ({ isOpen, onClose, title, message, type = "info" }) => {
   );
 };
 
-// helper: turn comma/newline-separated text into array of URLs
 const toUrlArray = (text) =>
   String(text || "")
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter(Boolean);
 
-// helper: first image URL (tolerate string or { url })
 const firstImage = (p) => {
   const x = p?.images?.[0];
   return typeof x === "string" ? x : x?.url || null;
 };
 
 export default function ProductsPage() {
-  // Modal notification state
   const [modal, setModal] = useState(null);
 
   const showModal = (title, message, type = "success") => {
@@ -101,7 +97,6 @@ export default function ProductsPage() {
     setModal(null);
   };
 
-  // list & filters
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -111,10 +106,12 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
-  // categories
   const [categories, setCategories] = useState([]);
 
-  // add/edit product modal
+  // NEW: Add category modal state
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState(null);
   const [name, setName] = useState("");
@@ -126,11 +123,9 @@ export default function ProductsPage() {
   const [catalog, setCatalog] = useState(true);
   const [imageUrlsText, setImageUrlsText] = useState("");
 
-  // choose between URLs and local file upload
   const [imageMode, setImageMode] = useState("urls");
   const [localFiles, setLocalFiles] = useState([]);
 
-  // stock-only modal
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockProduct, setStockProduct] = useState(null);
   const [newStock, setNewStock] = useState(0);
@@ -189,6 +184,38 @@ export default function ProductsPage() {
     }
   };
 
+  // NEW: Function to add a new category
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      showModal("Error", "Category name cannot be empty", "error");
+      return;
+    }
+
+    try {
+      const res = await axios.post(
+        `${API}/category`,
+        { categoryName: newCategoryName.trim() },
+        { headers: { ...authHeader(), "Content-Type": "application/json" } }
+      );
+      
+      const newCategory = res.data.category || res.data;
+      
+      // Add to categories list
+      setCategories((prev) => [...prev, newCategory]);
+      
+      // Auto-select the new category in the form
+      setCatForForm(newCategory._id);
+      
+      showModal("Success", "Category added successfully!", "success");
+      setShowAddCategory(false);
+      setNewCategoryName("");
+    } catch (e) {
+      console.error("Add category error:", e);
+      showModal("Error", e?.response?.data?.message || "Failed to add category", "error");
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -196,58 +223,6 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts();
   }, [query]);
-
-  useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      auth: { token: localStorage.getItem("pos-token") },
-    });
-    socket.on("connect", () => {
-      console.log("✅ Connected to socket server:", socket.id);
-    });
-
-    socket.on("inventory:update", ({ productId, stock, price, minStock, sold, catalog }) => {
-      setItems((prev) =>
-        prev.map((p) =>
-          p._id === productId
-            ? {
-                ...p,
-                stock: stock ?? p.stock,
-                price: price ?? p.price,
-                minStock: minStock ?? p.minStock,
-                sold: sold ?? p.sold,
-                catalog: typeof catalog === "boolean" ? catalog : p.catalog,
-              }
-            : p
-        )
-      );
-      showModal("Success", "Stock updated!", "success");
-    });
-
-    socket.on("inventory:bulk", (updates) => {
-      setItems((prev) => {
-        const map = new Map(prev.map((p) => [p._id, p]));
-        for (const u of updates) {
-          if (map.has(u.productId)) {
-            const old = map.get(u.productId);
-            map.set(u.productId, { ...old, stock: u.stock ?? old.stock });
-          }
-        }
-        return Array.from(map.values());
-      });
-    });
-
-    socket.on("inventory:created", (p) => {
-      setItems((prev) => [p, ...prev]);
-      setTotal((t) => t + 1);
-    });
-
-    socket.on("inventory:deleted", ({ productId }) => {
-      setItems((prev) => prev.filter((p) => p._id !== productId));
-      setTotal((t) => Math.max(0, t - 1));
-    });
-
-    return () => socket.disconnect();
-  }, []);
 
   const toggleCatalog = async (id, value) => {
     const prev = items.slice();
@@ -385,7 +360,6 @@ export default function ProductsPage() {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      {/* Modal Notification */}
       {modal && (
         <Modal
           isOpen={!!modal}
@@ -619,6 +593,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {/* Add/Edit Product Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -738,8 +713,18 @@ export default function ProductsPage() {
                 </div>
               </div>
 
+              {/* UPDATED: Category section with add button */}
               <div>
-                <label className="block text-sm font-medium mb-1">Category</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium">Category</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCategory(true)}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    + Add New Category
+                  </button>
+                </div>
                 <select
                   className="w-full border rounded-lg px-3 py-2"
                   value={catForForm}
@@ -832,6 +817,62 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* NEW: Add Category Modal */}
+      {showAddCategory && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowAddCategory(false)}
+          />
+          <div className="relative bg-white w-full max-w-md rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Add New Category</h3>
+              <button 
+                onClick={() => setShowAddCategory(false)} 
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCategory} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter category name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                >
+                  Add Category
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCategory(false);
+                    setNewCategoryName("");
+                  }}
+                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Adjustment Modal */}
       {showStockModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
