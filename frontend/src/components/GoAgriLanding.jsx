@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Star, User, Menu, X, Phone, Mail, MapPin, Loader } from 'lucide-react';
+import { Star, User, Menu, X, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
 
