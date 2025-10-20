@@ -122,6 +122,7 @@ export default function ProductsPage() {
   const [catForForm, setCatForForm] = useState("");
   const [catalog, setCatalog] = useState(true);
   const [imageUrlsText, setImageUrlsText] = useState("");
+  const [description, setDescription] = useState("");
 
   const [imageMode, setImageMode] = useState("urls");
   const [localFiles, setLocalFiles] = useState([]);
@@ -130,20 +131,20 @@ export default function ProductsPage() {
   const [stockProduct, setStockProduct] = useState(null);
   const [newStock, setNewStock] = useState(0);
 
-  const resetForm = () => {
-    setEditId(null);
-    setName("");
-    setPrice("");
-    setStock("");
-    setMinStock("");
-    setWeightKg("");
-    setCatForForm("");
-    setCatalog(true);
-    setImageUrlsText("");
-    setImageMode("urls");
-    setLocalFiles([]);
-  };
-
+const resetForm = () => {
+  setEditId(null);
+  setName("");
+  setDescription(""); // 🆕 ADD THIS
+  setPrice("");
+  setStock("");
+  setMinStock("");
+  setWeightKg("");
+  setCatForForm("");
+  setCatalog(true);
+  setImageUrlsText("");
+  setImageMode("urls");
+  setLocalFiles([]);
+};
   
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -319,15 +320,16 @@ export default function ProductsPage() {
       const images = [...toUrlArray(imageUrlsText), ...uploadedUrls];
 
       const payload = {
-        name,
-        price: Number(price),
-        stock: Number(stock || 0),
-        minStock: minStock === "" ? 0 : Number(minStock),
-        weightKg: weightKg === "" ? null : Number(weightKg),
-        category: catForForm,
-        catalog: !!catalog,
-        images,
-      };
+      name,
+      description, // 🆕 ADD THIS
+      price: Number(price),
+      stock: Number(stock || 0),
+      minStock: minStock === "" ? 0 : Number(minStock),
+      weightKg: weightKg === "" ? null : Number(weightKg),
+      category: catForForm,
+      catalog: !!catalog,
+      images,
+    };
 
       if (editId) {
         await axios.patch(`${API}/products/${editId}`, payload, {
@@ -350,27 +352,28 @@ export default function ProductsPage() {
     }
   };
 
-  const onEdit = (p) => {
-    setEditId(p._id);
-    setName(p.name || "");
-    setPrice(p.price ?? "");
-    setStock(p.stock ?? "");
-    setMinStock(p.minStock ?? "");
-    setWeightKg(p.weightKg ?? "");
-    setCatForForm(p.category?._id || "");
-    setCatalog(!!p.catalog);
-    setImageUrlsText(
-      Array.isArray(p.images)
-        ? p.images
-            .map((x) => (typeof x === "string" ? x : x?.url || ""))
-            .filter(Boolean)
-            .join(", ")
-        : ""
-    );
-    setImageMode("urls");
-    setLocalFiles([]);
-    setShowAdd(true);
-  };
+const onEdit = (p) => {
+  setEditId(p._id);
+  setName(p.name || "");
+  setDescription(p.description || ""); // 🆕 ADD THIS
+  setPrice(p.price ?? "");
+  setStock(p.stock ?? "");
+  setMinStock(p.minStock ?? "");
+  setWeightKg(p.weightKg ?? "");
+  setCatForForm(p.category?._id || "");
+  setCatalog(!!p.catalog);
+  setImageUrlsText(
+    Array.isArray(p.images)
+      ? p.images
+          .map((x) => (typeof x === "string" ? x : x?.url || ""))
+          .filter(Boolean)
+          .join(", ")
+      : ""
+  );
+  setImageMode("urls");
+  setLocalFiles([]);
+  setShowAdd(true);
+};
 
   const onDelete = async (id) => {
     if (!window.confirm("Delete this product?")) return;
@@ -681,6 +684,19 @@ export default function ProductsPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows="4"
+                  placeholder="Describe your product features, specifications, or any additional details..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {description.length} characters
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
