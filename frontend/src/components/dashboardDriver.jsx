@@ -1,4 +1,3 @@
-// src/components/dashboardDriver.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,6 +8,7 @@ import {
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
 
+/* ----------------------------- API ----------------------------- */
 const API = `${VITE_API_BASE}/delivery`;
 const auth = () => {
   const t = localStorage.getItem("pos-token");
@@ -220,8 +220,16 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 const DetailSheet = ({ open, job, onClose }) => {
   if (!open || !job) return null;
   const tone = STATUS_COLORS[job?.status] || STATUS_COLORS.gray;
-  const address = job?.deliveryAddress || job?.dropoff?.address || job?.pickupLocation || "—";
-  const name = job?.order?.user?.name || job?.order?.name || job?.assignedDriver?.name || "Customer";
+  const orderCode = job?.order?.code || job?.order?._id || "—";
+  const deliveryType = job?.deliveryType || job?.type || "In-House";
+  const pickupLocation = job?.pickupLocation || "—";
+  const deliveryAddress = job?.deliveryAddress || job?.dropoff?.address || "—";
+  const scheduledTime = job?.scheduledTime || job?.eta;
+  const driverName = job?.assignedDriver?.name || job?.driver?.name || "Sample Driver";
+  const driverPhone = job?.assignedDriver?.phone || job?.driver?.phone || "";
+  const vehicleInfo = job?.vehicle?.plateNumber || job?.vehicle?.name || "—";
+  const vehicleCapacity = job?.vehicle?.capacity || job?.weightKg || "—";
+  const weightKg = job?.weightKg || job?.order?.weightKg || "—";
   const items = job?.order?.products || job?.order?.items || job?.items || [];
 
   return (
@@ -242,46 +250,120 @@ const DetailSheet = ({ open, job, onClose }) => {
           className="absolute inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white p-6 shadow-2xl max-h-[85vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-gray-900">
-                  {job?.order?.code || job?._id?.slice(-6).toUpperCase()}
-                </h3>
-                <Pill tone={tone}>{job?.status}</Pill>
-              </div>
-              <p className="text-sm text-gray-600 mt-2 flex items-center gap-2">
-                <User className="w-4 h-4" /> {name}
-              </p>
-              <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                <MapPin className="w-4 h-4" /> {address}
-              </p>
-            </div>
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">
+              Order #{orderCode}
+            </h3>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
 
-          <div className="mt-6">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Order Items</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {items.length === 0 && <p className="text-sm text-gray-500">No items attached.</p>}
-              {items.map((it, idx) => (
-                <div key={idx} className="flex items-center justify-between rounded-xl border border-gray-200 p-3 bg-gray-50">
-                  <span className="text-sm text-gray-700 line-clamp-1 font-medium">
-                    {it?.name || it?.product?.name || `Item ${idx + 1}`}
-                  </span>
-                  <span className="text-sm text-gray-600 ml-2">×{it?.qty || it?.quantity || 1}</span>
-                </div>
-              ))}
+          {/* Order Information */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="w-5 h-5 text-gray-700" />
+              <h4 className="font-semibold text-gray-900">Order Information</h4>
+            </div>
+            <div className="space-y-2 pl-7">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Order ID:</span>
+                <span className="font-medium text-gray-900">{orderCode}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Delivery Type:</span>
+                <span className="font-medium text-emerald-600">{deliveryType}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Status:</span>
+                <Pill tone={tone}>{job?.status}</Pill>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Weight:</span>
+                <span className="font-medium text-gray-900">{weightKg} kg</span>
+              </div>
             </div>
           </div>
 
+          {/* Location Details */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin className="w-5 h-5 text-gray-700" />
+              <h4 className="font-semibold text-gray-900">Location Details</h4>
+            </div>
+            <div className="space-y-2 pl-7">
+              <div className="text-sm">
+                <span className="text-gray-600 block mb-1">Pickup Location:</span>
+                <span className="font-medium text-gray-900">{pickupLocation}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block mb-1">Delivery Address:</span>
+                <span className="font-medium text-gray-900">{deliveryAddress}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Scheduled Time:</span>
+                <span className="font-medium text-gray-900">{scheduledTime ? when(scheduledTime) : "—"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Assignment Details */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Truck className="w-5 h-5 text-gray-700" />
+              <h4 className="font-semibold text-gray-900">Assignment Details</h4>
+            </div>
+            <div className="space-y-2 pl-7">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Driver:</span>
+                <span className="font-medium text-gray-900">{driverName}</span>
+              </div>
+              {driverPhone && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Driver Phone:</span>
+                  <a href={`tel:${driverPhone}`} className="font-medium text-sky-600 hover:text-sky-700 flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> {driverPhone}
+                  </a>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Vehicle:</span>
+                <span className="font-medium text-gray-900">{vehicleInfo}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Vehicle Capacity:</span>
+                <span className="font-medium text-gray-900">{vehicleCapacity} kg</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Order Items */}
+          {items.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="w-5 h-5 text-gray-700" />
+                <h4 className="font-semibold text-gray-900">Order Items</h4>
+              </div>
+              <div className="grid grid-cols-1 gap-2 pl-7">
+                {items.map((it, idx) => (
+                  <div key={idx} className="flex items-center justify-between rounded-xl border border-gray-200 p-3 bg-gray-50">
+                    <span className="text-sm text-gray-700 line-clamp-1 font-medium">
+                      {it?.name || it?.product?.name || `Item ${idx + 1}`}
+                    </span>
+                    <span className="text-sm text-gray-600 ml-2">×{it?.qty || it?.quantity || 1}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Call Button */}
           {job?.customer?.phone && (
             <div className="mt-6">
               <a
                 href={`tel:${job.customer.phone}`}
-                className="flex items-center justify-center gap-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-4 py-3 text-sm font-medium hover:from-sky-700 hover:to-blue-700 transition-all shadow-sm"
               >
                 <Phone className="w-4 h-4" /> Call customer
               </a>
