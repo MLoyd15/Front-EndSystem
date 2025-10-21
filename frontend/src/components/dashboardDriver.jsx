@@ -1,3 +1,4 @@
+// src/components/dashboardDriver.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
@@ -203,8 +204,10 @@ const DetailSheet = ({ open, job, onClose }) => {
   if (!open || !job) return null;
   const tone = STATUS_COLORS[job?.status] || STATUS_COLORS.gray;
   
-  // Generate order code (full ID, not shortened)
-  const orderCode = job?.order?.code || job?.order?._id || job?._id || "—";
+  // Generate short order code (6 characters) - same as JobCard
+  const orderCode = job?.order?.code 
+    ? job.order.code.slice(-6).toUpperCase() 
+    : job?._id?.slice(-6).toUpperCase();
   const items = job?.order?.products || job?.order?.items || job?.items || [];
 
   return (
