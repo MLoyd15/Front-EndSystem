@@ -65,8 +65,11 @@ function JobCard({ job, onStart, onDeliver, onView }) {
   const address = job?.deliveryAddress || job?.dropoff?.address || job?.pickupLocation || "—";
   const name = job?.customer?.name || job?.order?.customerName || job?.assignedDriver?.name || "Customer";
   const items = job?.order?.products?.length || job?.order?.items?.length || job?.items?.length || 0;
-  const weightKg = job?.weightKg || job?.order?.weightKg || null;
-  const eta = job?.eta || job?.order?.eta;
+  
+  // Generate short order code (6 characters)
+  const orderCode = job?.order?.code 
+    ? job.order.code.slice(-6).toUpperCase() 
+    : job?._id?.slice(-6).toUpperCase();
 
   return (
     <Card onClick={() => onView?.(job)}>
@@ -78,60 +81,39 @@ function JobCard({ job, onStart, onDeliver, onView }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-bold text-gray-900 text-lg">
-                {job?.order?.code || job?._id?.slice(-6).toUpperCase()}
+                {orderCode}
               </p>
               <Pill tone={tone}>{job?.status}</Pill>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-600">
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600">
               <span className="flex items-center gap-1.5">
                 <User className="w-4 h-4 text-gray-400" />
                 <span className="font-medium">{name}</span>
               </span>
-              {weightKg ? (
-                <span className="flex items-center gap-1.5">
-                  <Weight className="w-4 h-4 text-gray-400" />
-                  <span>{weightKg} kg</span>
-                </span>
-              ) : null}
               {items ? (
                 <span className="flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-gray-400" />
+                  <Clock className="w-4 h-4 text-gray-400" />
                   <span>{items} item{items > 1 ? "s" : ""}</span>
                 </span>
               ) : null}
             </div>
-            <div className="mt-3 flex items-start gap-2 text-gray-700">
+            <div className="mt-2 flex items-start gap-2 text-gray-600 text-sm">
               <MapPin className="w-4 h-4 mt-0.5 text-gray-400 flex-shrink-0" />
-              <span className="line-clamp-2 text-sm">{address}</span>
+              <span className="line-clamp-2">{address}</span>
             </div>
-            {eta && (
-              <div className="mt-2 flex items-center gap-2 text-gray-500 text-xs bg-gray-50 rounded-lg px-2 py-1 w-fit">
-                <Clock className="w-3.5 h-3.5" /> ETA {when(eta)}
-              </div>
-            )}
           </div>
         </div>
-        <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />
       </div>
 
       {/* Actions */}
-      <div className="mt-5 flex gap-2 flex-wrap">
-        {job?.customer?.phone && (
-          <a
-            href={`tel:${job.customer.phone}`}
-            className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Phone className="w-4 h-4" /> Call
-          </a>
-        )}
+      <div className="mt-4 flex gap-2 flex-wrap">
         {job?.status === "assigned" && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onStart?.(job);
             }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-4 py-2.5 text-sm font-medium hover:from-sky-700 hover:to-blue-700 transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-5 py-2.5 text-sm font-medium hover:from-sky-700 hover:to-blue-700 transition-all shadow-sm"
           >
             <Truck className="w-4 h-4" /> Start Trip
           </button>
@@ -142,7 +124,7 @@ function JobCard({ job, onStart, onDeliver, onView }) {
               e.stopPropagation();
               onDeliver?.(job);
             }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-2.5 text-sm font-medium hover:from-emerald-700 hover:to-green-700 transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 text-white px-5 py-2.5 text-sm font-medium hover:from-emerald-700 hover:to-green-700 transition-all shadow-sm"
           >
             <CheckCircle2 className="w-4 h-4" /> Mark Delivered
           </button>
@@ -220,7 +202,9 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 const DetailSheet = ({ open, job, onClose }) => {
   if (!open || !job) return null;
   const tone = STATUS_COLORS[job?.status] || STATUS_COLORS.gray;
-  const orderCode = job?.order?.code || job?.order?._id || "—";
+  
+  // Generate order code (full ID, not shortened)
+  const orderCode = job?.order?.code || job?.order?._id || job?._id || "—";
   const items = job?.order?.products || job?.order?.items || job?.items || [];
 
   return (
@@ -247,7 +231,9 @@ const DetailSheet = ({ open, job, onClose }) => {
               <h3 className="text-xl font-bold text-gray-900">
                 Order #{orderCode}
               </h3>
-              <Pill tone={tone}>{job?.status}</Pill>
+              <div className="mt-2">
+                <Pill tone={tone}>{job?.status}</Pill>
+              </div>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
               <X className="w-5 h-5 text-gray-500" />
@@ -256,37 +242,24 @@ const DetailSheet = ({ open, job, onClose }) => {
 
           {/* Order Items */}
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-4">
               <Package className="w-5 h-5 text-gray-700" />
               <h4 className="font-semibold text-gray-900">Order Items</h4>
             </div>
             <div className="space-y-3">
               {items.length === 0 && (
-                <p className="text-sm text-gray-500 pl-7">No items attached.</p>
+                <p className="text-sm text-gray-500">No items attached.</p>
               )}
               {items.map((it, idx) => (
-                <div key={idx} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                <div key={idx} className="rounded-lg border border-gray-200 p-4 bg-white">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-gray-900">
                         {it?.name || it?.product?.name || `Item ${idx + 1}`}
                       </p>
-                      {it?.description && (
-                        <p className="text-xs text-gray-500 mt-1">{it.description}</p>
-                      )}
                       {it?.price && (
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-sm text-gray-600 mt-1">
                           ₱{Number(it.price).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="ml-4 text-right">
-                      <p className="text-sm font-semibold text-gray-900">
-                        ×{it?.qty || it?.quantity || 1}
-                      </p>
-                      {it?.price && (
-                        <p className="text-xs text-gray-600 mt-1">
-                          ₱{(Number(it.price) * (it?.qty || it?.quantity || 1)).toLocaleString()}
                         </p>
                       )}
                     </div>
@@ -297,28 +270,17 @@ const DetailSheet = ({ open, job, onClose }) => {
           </div>
 
           {/* Total */}
-          {items.length > 0 && items.some(it => it?.price) && (
-            <div className="mb-6 pt-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-base font-semibold text-gray-900">Total</span>
-                <span className="text-lg font-bold text-gray-900">
-                  ₱{items.reduce((sum, it) => sum + (Number(it?.price || 0) * (it?.qty || it?.quantity || 1)), 0).toLocaleString()}
-                </span>
-              </div>
+          <div className="pt-4 border-t border-gray-200">
+            <div className="flex justify-between items-center">
+              <span className="text-base font-semibold text-gray-900">Total</span>
+              <span className="text-lg font-bold text-gray-900">
+                {items.length > 0 && items.some(it => it?.price) 
+                  ? `₱${items.reduce((sum, it) => sum + (Number(it?.price || 0) * (it?.qty || it?.quantity || 1)), 0).toLocaleString()}`
+                  : "—"
+                }
+              </span>
             </div>
-          )}
-
-          {/* Call Button */}
-          {job?.customer?.phone && (
-            <div className="mt-6">
-              <a
-                href={`tel:${job.customer.phone}`}
-                className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-4 py-3 text-sm font-medium hover:from-sky-700 hover:to-blue-700 transition-all shadow-sm"
-              >
-                <Phone className="w-4 h-4" /> Call customer
-              </a>
-            </div>
-          )}
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -582,7 +544,7 @@ export default function DriverHome() {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-gray-900">
-                        {j?.order?.code || j?._id?.slice(-6).toUpperCase()}
+                        {j?.order?.code?.slice(-6).toUpperCase() || j?._id?.slice(-6).toUpperCase()}
                       </p>
                       <Pill tone={STATUS_COLORS.completed}>completed</Pill>
                     </div>
