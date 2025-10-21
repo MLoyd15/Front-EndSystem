@@ -707,7 +707,7 @@ export default function Deliveries() {
 
                   <div className="bg-slate-50 rounded-xl p-4">
                     <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
-                      <Bike className="w-4 h-4" />
+                      <Truck className="w-4 h-4" />
                       Assignment Details
                     </h4>
                     <div className="space-y-2 text-sm">
@@ -715,6 +715,10 @@ export default function Deliveries() {
                         <div className="flex justify-between">
                           <span className="text-slate-600">3rd Party Provider:</span>
                           <span className="font-medium">{drawer.thirdPartyProvider}</span>
+                        </div>
+                      ) : drawer.type === "pickup" ? (
+                        <div className="text-center text-slate-500 py-2">
+                          No assignment needed for pickup orders
                         </div>
                       ) : (
                         <>
