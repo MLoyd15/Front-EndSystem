@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Bike, Search, Filter, Clock, MapPin, User, Weight,
   ChevronRight, X, CheckCircle2, ShoppingCart, Phone, CheckCircle, XCircle,
-  Truck, RefreshCcw // ✅ Added RefreshCcw import
+  Truck, RefreshCcw
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
 import LalamoveIntegration from "../components/LalamoveIntegration";
@@ -29,7 +29,8 @@ const chip = (color, text) => {
   return <span className={`px-2 py-0.5 text-xs rounded-full ring-1 ${colors[color]}`}>{text}</span>;
 };
 
-const statusPill = (status) => {
+// ✅ UPDATED: Custom status labels for pickup deliveries
+const statusPill = (status, deliveryType = null) => {
   const map = {
     pending: ["gray", "Pending"],
     assigned: ["sky", "Assigned"],
@@ -45,6 +46,19 @@ const statusPill = (status) => {
     "CANCELLED": ["red", "Cancelled"],
     "EXPIRED": ["gray", "Expired"],
   };
+  
+  // ✅ Override labels for pickup deliveries only
+  if (deliveryType === "pickup") {
+    const pickupMap = {
+      assigned: ["sky", "Preparing"],
+      "in-transit": ["amber", "Ready to Pickup"],
+    };
+    if (pickupMap[status]) {
+      const [c, label] = pickupMap[status];
+      return chip(c, label);
+    }
+  }
+  
   const [c, label] = map[status] || ["gray", status || "Pending"];
   return chip(c, label);
 };
@@ -66,11 +80,10 @@ const lalamoveBadge = (row) => {
   return null;
 };
 
-const QUICK_STATUSES = ["completed", "in-transit", "cancelled"];
 const PAGE_SIZE = 5;
 
 export default function Deliveries() {
-  const [tab, setTab] = useState("in-house");
+  const [tab, setTab] = useState("pickup");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [rows, setRows] = useState([]);
@@ -79,7 +92,7 @@ export default function Deliveries() {
   const [drawerDetails, setDrawerDetails] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [syncing, setSyncing] = useState(null); // ✅ Track which delivery is syncing
+  const [syncing, setSyncing] = useState(null);
   
   const [lalamoveModal, setLalamoveModal] = useState(false);
   const [lalamoveDelivery, setLalamoveDelivery] = useState(null);
@@ -122,40 +135,37 @@ export default function Deliveries() {
   useEffect(() => { load(); }, [tab, status]);
   useEffect(() => { setPage(1); }, [tab, status, query]);
 
-const filtered = useMemo(() => {
-  const typeKey = String(tab).toLowerCase();
-  let byTab = [];
+  const filtered = useMemo(() => {
+    const typeKey = String(tab).toLowerCase();
+    let byTab = [];
 
-  if (tab === "completed") {
-    // ✅ Show ALL completed deliveries regardless of type
-    byTab = rows.filter((r) => r.status === "completed");
-    console.log('📊 Completed deliveries:', byTab.length);
-  } else if (tab === "cancelled") {
-    byTab = rows.filter((r) => r.status === "cancelled");
-  } else {
-    // Show active deliveries by type
-    byTab = rows.filter(
-      (r) =>
-        String(r.type || "").toLowerCase() === typeKey &&
-        !["completed", "cancelled"].includes(r.status)
-    );
-  }
+    if (tab === "completed") {
+      byTab = rows.filter((r) => r.status === "completed");
+    } else if (tab === "cancelled") {
+      byTab = rows.filter((r) => r.status === "cancelled");
+    } else {
+      byTab = rows.filter(
+        (r) =>
+          String(r.type || "").toLowerCase() === typeKey &&
+          !["completed", "cancelled"].includes(r.status)
+      );
+    }
 
-  if (!query) return byTab;
+    if (!query) return byTab;
 
-  const q = query.toLowerCase();
-  return byTab.filter((r) => {
-    const addr = String(r.deliveryAddress || "").toLowerCase();
-    const pick = String(r.pickupLocation || "").toLowerCase();
-    const prov = String(r.thirdPartyProvider || "").toLowerCase();
-    const drv = String(driverLabel(r)).toLowerCase();
-    const veh = String(vehicleLabel(r)).toLowerCase();
-    const id = String(r._id || "").toLowerCase();
-    const orderId = String(r.orderId || "").toLowerCase();
-    const lalamoveId = String(r.lalamove?.orderId || "").toLowerCase();
-    return [addr, pick, prov, drv, veh, id, orderId, lalamoveId].some((t) => t.includes(q));
-  });
-}, [rows, query, tab]);
+    const q = query.toLowerCase();
+    return byTab.filter((r) => {
+      const addr = String(r.deliveryAddress || "").toLowerCase();
+      const pick = String(r.pickupLocation || "").toLowerCase();
+      const prov = String(r.thirdPartyProvider || "").toLowerCase();
+      const drv = String(driverLabel(r)).toLowerCase();
+      const veh = String(vehicleLabel(r)).toLowerCase();
+      const id = String(r._id || "").toLowerCase();
+      const orderId = String(r.orderId || "").toLowerCase();
+      const lalamoveId = String(r.lalamove?.orderId || "").toLowerCase();
+      return [addr, pick, prov, drv, veh, id, orderId, lalamoveId].some((t) => t.includes(q));
+    });
+  }, [rows, query, tab]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   useEffect(() => {
@@ -185,25 +195,39 @@ const filtered = useMemo(() => {
     cancelled: "bg-red-600",
   };
 
-  const onQuickStatus = async (id, st) => {
-    if (!QUICK_STATUSES.includes(st)) return;
+  // ✅ UPDATED: Auto-fill pickup location when updating status
+  const onQuickStatus = async (id, st, isPickup = false) => {
     if (st === "cancelled") {
       const ok = window.confirm("Cancel this delivery?");
       if (!ok) return;
     }
     try {
-      await axios.put(`${API}/${id}`, { status: st }, { headers: auth() });
+      const updateData = { status: st };
+      
+      // ✅ Auto-fill pickup location for pickup deliveries when status is updated
+      if (isPickup && st !== "cancelled") {
+        updateData.pickupLocation = "Poblacion 1, Moncada Tarlac, Philippines";
+      }
+      
+      await axios.put(`${API}/${id}`, updateData, { headers: auth() });
       load();
     } catch (e) {
       console.error('Error updating status:', e?.response?.data || e.message);
     }
   };
 
+  // ✅ UPDATED: Auto-fill pickup location when saving
   const onSavePickup = async (id, values) => {
     try {
       const body = {};
       if ("scheduledDate" in values) body.scheduledDate = values.scheduledDate ? new Date(values.scheduledDate) : null;
       if ("pickupLocation" in values) body.pickupLocation = values.pickupLocation;
+      
+      // ✅ If pickup location is empty, auto-fill with default address
+      if (!values.pickupLocation || values.pickupLocation.trim() === "") {
+        body.pickupLocation = "Poblacion 1, Moncada Tarlac, Philippines";
+      }
+      
       await axios.put(`${API}/${id}`, body, { headers: auth() });
       setEditing(null);
       load();
@@ -249,106 +273,73 @@ const filtered = useMemo(() => {
     return delivery.deliveryAddress || "Set delivery address";
   };
 
-  // ✅ Sync Lalamove status function
-// In Deliveries.jsx - Update syncLalamoveStatus function
-
-const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
-  setSyncing(deliveryId);
-  try {
-    console.log('🔄 Syncing Lalamove status for delivery:', deliveryId);
-    console.log('📋 Lalamove Order ID:', lalamoveOrderId);
-    
-    // Get latest status from Lalamove
-    const response = await axios.get(
-      `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
-      { headers: auth() }
-    );
-    
-    console.log('📥 Lalamove sync response:', response.data);
-    
-    if (response.data.success) {
-      const lalamoveData = response.data.data;
-      const lalamoveStatus = lalamoveData.status;
-      
-      // ✅ Map Lalamove status to system status
-      const systemStatus = mapLalamoveStatus(lalamoveStatus);
-      
-      console.log('📊 Status mapping:', {
-        lalamoveStatus,
-        systemStatus,
-        willMoveToCompleted: systemStatus === 'completed'
-      });
-      
-      // Build update payload
-      const updatePayload = {
-        status: systemStatus, // ✅ Update main delivery status
-        'lalamove.status': lalamoveStatus, // Keep Lalamove status for reference
-      };
-      
-      // Update driver info if available
-      if (lalamoveData.driver || lalamoveData.driverId) {
-        updatePayload['lalamove.driver'] = {
-          name: lalamoveData.driver?.name || lalamoveData.driverName || '',
-          phone: lalamoveData.driver?.phone || lalamoveData.driverPhone || '',
-          plateNumber: lalamoveData.driver?.plateNumber || '',
-          photo: lalamoveData.driver?.photo || ''
-        };
-      }
-      
-      // ✅ If completed, set deliveredAt timestamp
-      if (systemStatus === 'completed') {
-        updatePayload.deliveredAt = new Date().toISOString();
-        console.log('✅ Setting deliveredAt timestamp');
-      }
-      
-      console.log('🔼 Updating delivery with:', updatePayload);
-      
-      // Update delivery in database
-      await axios.put(
-        `${API}/${deliveryId}`,
-        updatePayload,
+  const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
+    setSyncing(deliveryId);
+    try {
+      const response = await axios.get(
+        `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
         { headers: auth() }
       );
       
-      console.log('✅ Delivery updated successfully');
-      
-      // Show success message
-      if (systemStatus === 'completed') {
-        alert(`✅ Delivery completed! Moving to Completed tab.\n\nLalamove Status: ${lalamoveStatus}\nSystem Status: ${systemStatus}`);
+      if (response.data.success) {
+        const lalamoveData = response.data.data;
+        const lalamoveStatus = lalamoveData.status;
+        const systemStatus = mapLalamoveStatus(lalamoveStatus);
+        
+        const updatePayload = {
+          status: systemStatus,
+          'lalamove.status': lalamoveStatus,
+        };
+        
+        if (lalamoveData.driver || lalamoveData.driverId) {
+          updatePayload['lalamove.driver'] = {
+            name: lalamoveData.driver?.name || lalamoveData.driverName || '',
+            phone: lalamoveData.driver?.phone || lalamoveData.driverPhone || '',
+            plateNumber: lalamoveData.driver?.plateNumber || '',
+            photo: lalamoveData.driver?.photo || ''
+          };
+        }
+        
+        if (systemStatus === 'completed') {
+          updatePayload.deliveredAt = new Date().toISOString();
+        }
+        
+        await axios.put(
+          `${API}/${deliveryId}`,
+          updatePayload,
+          { headers: auth() }
+        );
+        
+        if (systemStatus === 'completed') {
+          alert(`✅ Delivery completed! Moving to Completed tab.`);
+        } else {
+          alert(`Status synced successfully!`);
+        }
+        
+        load();
       } else {
-        alert(`Status synced successfully!\n\nLalamove: ${lalamoveStatus}\nSystem: ${systemStatus}`);
+        throw new Error(response.data.error || 'Sync failed');
       }
-      
-      load(); // Reload deliveries to reflect changes
-    } else {
-      throw new Error(response.data.error || 'Sync failed');
+    } catch (error) {
+      console.error('Failed to sync Lalamove status:', error);
+      alert('Failed to sync status from Lalamove. Please try again.');
+    } finally {
+      setSyncing(null);
     }
-  } catch (error) {
-    console.error('❌ Failed to sync Lalamove status:', error);
-    console.error('Error response:', error.response?.data);
-    
-    alert(
-      error.response?.data?.message || 
-      error.message || 
-      'Failed to sync status from Lalamove. Please try again.'
-    );
-  } finally {
-    setSyncing(null);
-  }
-};
-
-const mapLalamoveStatus = (lalamoveStatus) => {
-  const statusMap = {
-    'ASSIGNING_DRIVER': 'assigned',
-    'ON_GOING': 'in-transit',
-    'PICKED_UP': 'in-transit',
-    'COMPLETED': 'completed', // ✅ This is the key mapping
-    'CANCELLED': 'cancelled',
-    'EXPIRED': 'cancelled'
   };
-  return statusMap[lalamoveStatus] || 'pending';
-};
-  // ✅ Render sync button
+
+  const mapLalamoveStatus = (lalamoveStatus) => {
+    const statusMap = {
+      'ASSIGNING_DRIVER': 'assigned',
+      'ON_GOING': 'in-transit',
+      'PICKED_UP': 'in-transit',
+      'COMPLETED': 'completed',
+      'CANCELLED': 'cancelled',
+      'EXPIRED': 'cancelled'
+    };
+    return statusMap[lalamoveStatus] || 'pending';
+  };
+
   const renderSyncButton = (delivery) => {
     if (!delivery.lalamove?.orderId) return null;
     
@@ -452,29 +443,29 @@ const mapLalamoveStatus = (lalamoveStatus) => {
                   <div className="space-y-3">
                     <AnimatePresence>
                       {paged.map((d) => (
-                          <motion.div
-                            key={d._id}
-                            layout
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            className="p-4 rounded-2xl ring-1 ring-slate-200 bg-white hover:shadow-lg transition"
-                          >
-                            <div className="flex flex-wrap items-center gap-3">
-                              <div className="flex items-center gap-2 min-w-[8rem]">
-                                <span className="font-semibold text-slate-800">
-                                  {last6(d.order?._id || d.order || d._id)}
-                                </span>
-                                {/* ✅ Show Lalamove status if available, otherwise show regular status */}
-                                {d.lalamove?.orderId ? (
-                                  <>
-                                    {statusPill(d.lalamove.status || d.status)}
-                                    {lalamoveBadge(d)}
-                                  </>
-                                ) : (
-                                  statusPill(d.status)
-                                )}
-                              </div>
+                        <motion.div
+                          key={d._id}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="p-4 rounded-2xl ring-1 ring-slate-200 bg-white hover:shadow-lg transition"
+                        >
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2 min-w-[8rem]">
+                              <span className="font-semibold text-slate-800">
+                                {last6(d.order?._id || d.order || d._id)}
+                              </span>
+                              {/* ✅ Pass delivery type to statusPill */}
+                              {d.lalamove?.orderId ? (
+                                <>
+                                  {statusPill(d.lalamove.status || d.status)}
+                                  {lalamoveBadge(d)}
+                                </>
+                              ) : (
+                                statusPill(d.status, d.type)
+                              )}
+                            </div>
 
                             <div className="flex items-center gap-2 text-slate-600 min-w-[13rem]">
                               <User className="w-4 h-4" />
@@ -500,9 +491,9 @@ const mapLalamoveStatus = (lalamoveStatus) => {
                               <span>{d.order?.totalWeightKg || d.weight || 0} kg</span>
                             </div>
 
-                           <div className="ml-auto flex items-center gap-2">
+                            <div className="ml-auto flex items-center gap-2">
                               {vehiclePill(d)}
-                              {renderSyncButton(d)} {/* ✅ Add sync button */}
+                              {renderSyncButton(d)}
                               
                               <button
                                 onClick={() => handleDrawerOpen(d)}
@@ -591,7 +582,7 @@ const mapLalamoveStatus = (lalamoveStatus) => {
                     row={editing}
                     onCancel={() => setEditing(null)}
                     onSave={(v) => onSavePickup(editing._id, v)}
-                    onQuickStatus={(st) => onQuickStatus(editing._id, st)}
+                    onQuickStatus={(st) => onQuickStatus(editing._id, st, true)}
                   />
                 ) : tab === "in-house" ? (
                   <InHouseEditor
@@ -615,7 +606,7 @@ const mapLalamoveStatus = (lalamoveStatus) => {
         </div>
       </div>
 
-      {/* ✅ Drawer stays the same */}
+      {/* Drawer for delivery details */}
       <AnimatePresence>
         {drawer && (
           <motion.div
@@ -644,36 +635,36 @@ const mapLalamoveStatus = (lalamoveStatus) => {
               ) : (
                 <div className="space-y-6">
                   <div className="bg-slate-50 rounded-xl p-4">
-                      <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
-                        <ShoppingCart className="w-4 h-4" />
-                        Order Information
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Order ID:</span>
-                          <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Delivery Type:</span>
-                          <span className="font-medium capitalize">{drawer.type || "—"}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Status:</span>
-                          {/* ✅ Show Lalamove status if available */}
-                          <div>
-                            {drawer.lalamove?.orderId 
-                              ? statusPill(drawer.lalamove.status || drawer.status)
-                              : statusPill(drawer.status)
-                            }
-                          </div>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Weight:</span>
-                          <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
+                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4" />
+                      Order Information
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Order ID:</span>
+                        <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Delivery Type:</span>
+                        <span className="font-medium capitalize">{drawer.type || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Status:</span>
+                        <div>
+                          {/* ✅ Pass delivery type to statusPill in drawer */}
+                          {drawer.lalamove?.orderId 
+                            ? statusPill(drawer.lalamove.status || drawer.status)
+                            : statusPill(drawer.status, drawer.type)
+                          }
                         </div>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Weight:</span>
+                        <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
+                      </div>
                     </div>
-                  {/* Customer Information */}
+                  </div>
+
                   {(drawerDetails?.order?.user || drawer?.order?.user) && (
                     <div className="bg-slate-50 rounded-xl p-4">
                       <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
@@ -693,7 +684,6 @@ const mapLalamoveStatus = (lalamoveStatus) => {
                     </div>
                   )}
 
-                  {/* Location Information */}
                   <div className="bg-slate-50 rounded-xl p-4">
                     <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
@@ -715,7 +705,6 @@ const mapLalamoveStatus = (lalamoveStatus) => {
                     </div>
                   </div>
 
-                  {/* Assignment Information */}
                   <div className="bg-slate-50 rounded-xl p-4">
                     <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
                       <Bike className="w-4 h-4" />
@@ -746,49 +735,10 @@ const mapLalamoveStatus = (lalamoveStatus) => {
                             <span className="text-slate-600">Vehicle:</span>
                             <span className="font-medium">{vehicleLabel(drawer) || "Not assigned"}</span>
                           </div>
-                          {drawer.assignedVehicle?.capacityKg && (
-                            <div className="flex justify-between">
-                              <span className="text-slate-600">Vehicle Capacity:</span>
-                              <span className="font-medium">{drawer.assignedVehicle.capacityKg} kg</span>
-                            </div>
-                          )}
                         </>
                       )}
                     </div>
                   </div>
-
-                  {/* Order Items */}
-                  {(drawerDetails?.order?.items || drawer?.order?.items) && (drawerDetails?.order?.items || drawer?.order?.items).length > 0 && (
-                    <div className="bg-slate-50 rounded-xl p-4">
-                      <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
-                        <Package className="w-4 h-4" />
-                        Order Items ({(drawerDetails?.order?.items || drawer?.order?.items).length})
-                      </h4>
-                      <div className="space-y-3 max-h-48 overflow-y-auto">
-                        {(drawerDetails?.order?.items || drawer?.order?.items).map((item, idx) => (
-                          <div key={idx} className="bg-white rounded-lg p-3 text-sm">
-                            <div className="flex justify-between items-start mb-1">
-                              <span className="font-medium text-slate-800">{item.productName || item.name || "—"}</span>
-                              <span className="text-slate-600">×{item.quantity || 1}</span>
-                            </div>
-                            {item.price && (
-                              <div className="text-slate-600">₱{item.price.toLocaleString()}</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Order Summary */}
-                  {(drawerDetails?.order?.total || drawer?.order?.total) && (
-                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
-                      <h4 className="font-medium text-emerald-800 mb-2">Order Total</h4>
-                      <div className="text-2xl font-bold text-emerald-700">
-                        ₱{(drawerDetails?.order?.total || drawer?.order?.total).toLocaleString()}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </motion.div>
@@ -796,7 +746,7 @@ const mapLalamoveStatus = (lalamoveStatus) => {
         )}
       </AnimatePresence>
 
-      {/* ✅ Lalamove Modal */}
+      {/* Lalamove Modal */}
       {lalamoveModal && lalamoveDelivery && (
         <LalamoveIntegration
           delivery={lalamoveDelivery}
@@ -805,7 +755,7 @@ const mapLalamoveStatus = (lalamoveStatus) => {
             setLalamoveDelivery(null);
           }}
           onSuccess={() => {
-            load(); // Reload deliveries after successful booking
+            load();
           }}
         />
       )}
@@ -813,79 +763,14 @@ const mapLalamoveStatus = (lalamoveStatus) => {
   );
 }
 
-/* --------------------------- Summary Component (unchanged) --------------------------- */
-function CompletedCancelledSummary({ deliveries, tab }) {
-  const bgColor = tab === "completed" ? "bg-green-50 ring-green-200" : "bg-red-50 ring-red-200";
-  const iconColor = tab === "completed" ? "text-green-600" : "text-red-600";
-  const Icon = tab === "completed" ? CheckCircle : XCircle;
-
-  const totalDeliveries = deliveries.length;
-  const today = new Date();
-  const todayDeliveries = deliveries.filter(d => {
-    const deliveryDate = new Date(d.updatedAt || d.createdAt);
-    return deliveryDate.toDateString() === today.toDateString();
-  }).length;
-
-  const thisWeekStart = new Date(today);
-  thisWeekStart.setDate(today.getDate() - today.getDay());
-  const thisWeekDeliveries = deliveries.filter(d => {
-    const deliveryDate = new Date(d.updatedAt || d.createdAt);
-    return deliveryDate >= thisWeekStart;
-  }).length;
-
-  return (
-    <div className={`rounded-3xl shadow-xl ring-1 p-5 ${bgColor}`}>
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className={`w-5 h-5 ${iconColor}`} />
-        <h3 className="font-semibold text-black capitalize">{tab} Deliveries Summary</h3>
-      </div>
-
-      <div className="space-y-4">
-        <div className="bg-white rounded-xl p-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div className="text-slate-600">Total</div>
-              <div className="text-xl font-bold text-slate-800">{totalDeliveries}</div>
-            </div>
-            <div>
-              <div className="text-slate-600">Today</div>
-              <div className="text-xl font-bold text-slate-800">{todayDeliveries}</div>
-            </div>
-            <div>
-              <div className="text-slate-600">This Week</div>
-              <div className="text-xl font-bold text-slate-800">{thisWeekDeliveries}</div>
-            </div>
-          </div>
-        </div>
-
-        {deliveries.length > 0 && (
-          <div className="bg-white rounded-xl p-4">
-            <h4 className="font-medium text-slate-800 mb-3">Recent {tab === "completed" ? "Completed" : "Cancelled"}</h4>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {deliveries.slice(0, 5).map((d) => (
-                <div key={d._id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                  <div>
-                    <div className="font-medium text-sm">{last6(d.order?._id || d._id)}</div>
-                    <div className="text-xs text-slate-600">{fmtDateTime(d.updatedAt || d.createdAt)}</div>
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    {d.order?.totalWeightKg || d.weight || 0} kg
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* --------------------------- Editors --------------------------- */
-
+// ✅ PICKUP EDITOR with custom status buttons
 function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
-  const [scheduled, setScheduled] = useState(row?.scheduledDate ? new Date(row.scheduledDate).toISOString().slice(0, 16) : "");
-  const [location, setLocation] = useState(row?.pickupLocation || "");
+  const [scheduled, setScheduled] = useState(
+    row?.scheduledDate ? new Date(row.scheduledDate).toISOString().slice(0, 16) : ""
+  );
+  const [location, setLocation] = useState(
+    row?.pickupLocation || "Poblacion 1, Moncada Tarlac, Philippines"
+  );
 
   return (
     <div className="space-y-3">
@@ -901,7 +786,7 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
       <input
         value={location}
         onChange={(e) => setLocation(e.target.value)}
-        placeholder="Warehouse Bay 3, Ipil"
+        placeholder="Poblacion 1, Moncada Tarlac, Philippines"
         className="w-full px-3 py-2 rounded-xl ring-1 ring-slate-200 focus:ring-emerald-300 outline-none"
       />
 
@@ -915,21 +800,60 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
         <button onClick={onCancel} className="px-4 py-2 rounded-xl ring-1 ring-slate-200">Cancel</button>
       </div>
 
+      {/* ✅ Custom status buttons for pickup */}
       <div className="pt-3">
         <div className="text-xs text-slate-500 mb-2">Quick status</div>
         <div className="flex flex-wrap gap-2">
-          {QUICK_STATUSES.map((s) => (
-            <button key={s} onClick={() => onQuickStatus(s)} className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-slate-200 hover:bg-slate-50">
-              {s}
-            </button>
-          ))}
+          <button 
+            onClick={() => onQuickStatus("assigned")} 
+            className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-sky-300 text-sky-700 hover:bg-sky-50"
+          >
+            Preparing
+          </button>
+          <button 
+            onClick={() => onQuickStatus("in-transit")} 
+            className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            Ready to Pickup
+          </button>
+          <button 
+            onClick={() => onQuickStatus("completed")} 
+            className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-green-300 text-green-700 hover:bg-green-50"
+          >
+            Completed
+          </button>
+          <button 
+            onClick={() => onQuickStatus("cancelled")} 
+            className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-red-300 text-red-700 hover:bg-red-50"
+          >
+            Cancelled
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ✅ Updated ThirdPartyEditor with Lalamove button
+// Other editor components remain the same
+function CompletedCancelledSummary({ deliveries, tab }) {
+  const bgColor = tab === "completed" ? "bg-green-50 ring-green-200" : "bg-red-50 ring-red-200";
+  const iconColor = tab === "completed" ? "text-green-600" : "text-red-600";
+  const Icon = tab === "completed" ? CheckCircle : XCircle;
+
+  return (
+    <div className={`rounded-3xl shadow-xl ring-1 p-5 ${bgColor}`}>
+      <div className="flex items-center gap-2 mb-4">
+        <Icon className={`w-5 h-5 ${iconColor}`} />
+        <h3 className="font-semibold text-black capitalize">{tab} Deliveries</h3>
+      </div>
+      <div className="bg-white rounded-xl p-4">
+        <div className="text-2xl font-bold text-slate-800">{deliveries.length}</div>
+        <div className="text-sm text-slate-600">Total {tab}</div>
+      </div>
+    </div>
+  );
+}
+
 function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus, onOpenLalamove }) {
   const [provider, setProvider] = useState(row?.thirdPartyProvider || "");
   
@@ -937,24 +861,22 @@ function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus, onOpenLalamove
     <div className="space-y-3">
       <label className="text-sm text-slate-600">3rd-Party Provider</label>
       
-      {/* ✅ Lalamove Button */}
       <button
         type="button"
         onClick={onOpenLalamove}
-        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white hover:from-pink-600 hover:to-red-600 inline-flex items-center justify-center gap-2 font-medium shadow-md hover:shadow-lg transition"
+        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white hover:from-pink-600 hover:to-red-600 inline-flex items-center justify-center gap-2 font-medium"
       >
-        <Truck className="w-4 h-4" />
+        <Truck className="w-4 h-4"
+        />
         Book with Lalamove
       </button>
 
-      {/* OR Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-slate-200"></div>
         <span className="text-xs text-slate-500">OR</span>
         <div className="flex-1 h-px bg-slate-200"></div>
       </div>
 
-      {/* Manual Provider Input */}
       <input
         value={provider}
         onChange={(e) => setProvider(e.target.value)}
