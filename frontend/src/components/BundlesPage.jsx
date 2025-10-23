@@ -131,8 +131,8 @@ const BundlesPage = () => {
   // Fetch bundles
   const fetchBundles = async () => {
     try {
-      console.log("🔍 Fetching bundles from:", `${API}/bundles`);
-      const response = await axios.get(`${API}/bundles`, {
+      console.log("🔍 Fetching bundles from:", `${API}/admin/bundles`);
+      const response = await axios.get(`${API}/admin/bundles`, {
         headers: { 
           Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
           "Content-Type": "application/json"
@@ -220,7 +220,7 @@ const BundlesPage = () => {
       console.log("📤 Submitting bundle:", payload);
       
       if (editBundle) {
-        const response = await axios.put(`${API}/bundles/${editBundle}`, payload, {
+        const response = await axios.put(`${API}/admin/bundles/${editBundle}`, payload, {
           headers: { 
             Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
             "Content-Type": "application/json"
@@ -229,7 +229,7 @@ const BundlesPage = () => {
         console.log("✅ Update response:", response.data);
         showModal("Success", "Bundle updated successfully!", "success");
       } else {
-        const response = await axios.post(`${API}/bundles`, payload, {
+        const response = await axios.post(`${API}/admin/bundles`, payload, {
           headers: { 
             Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
             "Content-Type": "application/json"
@@ -253,8 +253,11 @@ const BundlesPage = () => {
     setBundleName(bundle.name);
     setBundleDescription(bundle.description ?? "");
     setBundlePrice(bundle.price ?? "");
-    setSelectedProducts((bundle.products ?? []).map((p) => ({
-      product: p.product._id ?? p.product,
+    
+    // Handle both old format (products) and new admin format (items)
+    const bundleItems = bundle.items ?? bundle.products ?? [];
+    setSelectedProducts(bundleItems.map((p) => ({
+      product: p.productId ?? p.product?._id ?? p.product,
       quantity: p.quantity,
     })));
 
@@ -272,7 +275,7 @@ const BundlesPage = () => {
       async () => {
         try {
           console.log("🗑️ Deleting bundle:", id);
-          const response = await axios.delete(`${API}/bundles/${id}`, {
+          const response = await axios.delete(`${API}/admin/bundles/${id}`, {
             headers: { 
               Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
               "Content-Type": "application/json"
@@ -570,7 +573,7 @@ const BundlesPage = () => {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 lg:[grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] gap-4">
                   {displayedBundles.map((bundle) => {
-                    const items = bundle.products ?? [];
+                    const items = bundle.items ?? bundle.products ?? [];
                     const itemCount = items.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0);
                     const isEditingThis = editBundle === bundle._id;
 
@@ -605,7 +608,7 @@ const BundlesPage = () => {
                                 key={idx}
                                 className="text-xs bg-white border rounded-full px-2.5 py-1 text-gray-700"
                               >
-                                {(p.product?.name ?? p.product)} × {p.quantity}
+                                {(p.productName ?? p.product?.name ?? p.product)} × {p.quantity}
                               </span>
                             ))
                           )}

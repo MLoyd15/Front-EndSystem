@@ -109,3 +109,142 @@ export const remove = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error deleting bundle." });
   }
 };
+
+// Admin Bundle Functions with proper data transformation
+function transformBundleForAdmin(bundle) {
+  const transformed = {
+    _id: bundle._id,
+    name: bundle.name,
+    description: bundle.description,
+    price: bundle.price,
+    isActive: bundle.isActive,
+    createdAt: bundle.createdAt,
+    updatedAt: bundle.updatedAt,
+    items: bundle.products?.map(p => ({
+      productId: p.product._id || p.product,
+      productName: p.product.name || 'Unknown Product',
+      quantity: p.quantity,
+      price: p.product.price,
+      stock: p.product.stock
+    })) || []
+  };
+  return transformed;
+}
+
+export const listAdminBundles = async (req, res) => {
+  try {
+    const { q, active } = req.query;
+    const filter = {};
+    if (q) filter.name = { $regex: q, $options: "i" };
+    if (active === "true") filter.isActive = true;
+    if (active === "false") filter.isActive = false;
+
+    const bundles = await Bundle.find(filter)
+      .populate("products.product", "name price stock")
+      .sort({ createdAt: -1 });
+
+    const transformedBundles = bundles.map(transformBundleForAdmin);
+    return res.status(200).json({ success: true, bundles: transformedBundles });
+  } catch (err) {
+    console.error("List admin bundles error:", err);
+    return res.status(500).json({ success: false, message: "Server error listing bundles." });
+  }
+};
+
+export const getAdminBundle = async (req, res) => {
+  try {
+    const bundle = await Bundle.findById(req.params.id)
+      .populate("products.product", "name price stock");
+    if (!bundle) return res.status(404).json({ success: false, message: "Bundle not found." });
+    
+    const transformedBundle = transformBundleForAdmin(bundle);
+    return res.status(200).json({ success: true, bundle: transformedBundle });
+  } catch (err) {
+    console.error("Get admin bundle error:", err);
+    return res.status(500).json({ success: false, message: "Server error fetching bundle." });
+  }
+};
+
+export const createAdminBundle = async (req, res) => {
+  try {
+    let { name, description, price, products, isActive } = req.body;
+
+    // Transform admin format back to internal format if needed
+    if (req.body.items) {
+      products = req.body.items.map(item => ({
+        product: item.productId,
+        quantity: item.quantity
+      }));
+    }
+
+    // Validate referenced products exist
+    const productIds = (products ?? []).map(p => p.product);
+    const count = await Product.countDocuments({ _id: { $in: productIds } });
+    if (count !== productIds.length) {
+      return res.status(400).json({ success: false, message: "One or more products do not exist." });
+    }
+
+    const bundle = await Bundle.create({ name, description, price, products, isActive });
+    const populatedBundle = await Bundle.findById(bundle._id)
+      .populate("products.product", "name price stock");
+    
+    const transformedBundle = transformBundleForAdmin(populatedBundle);
+    return res.status(201).json({ success: true, bundle: transformedBundle });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Bundle name already exists." });
+    }
+    console.error("Create admin bundle error:", err);
+    return res.status(500).json({ success: false, message: "Server error creating bundle." });
+  }
+};
+
+export const updateAdminBundle = async (req, res) => {
+  try {
+    let { name, description, price, products, isActive } = req.body;
+
+    // Transform admin format back to internal format if needed
+    if (req.body.items) {
+      products = req.body.items.map(item => ({
+        product: item.productId,
+        quantity: item.quantity
+      }));
+    }
+
+    if (products) {
+      const productIds = products.map(p => p.product);
+      const count = await Product.countDocuments({ _id: { $in: productIds } });
+      if (count !== productIds.length) {
+        return res.status(400).json({ success: false, message: "One or more products do not exist." });
+      }
+    }
+
+    const updated = await Bundle.findByIdAndUpdate(
+      req.params.id,
+      { name, description, price, products, isActive },
+      { new: true, runValidators: true }
+    ).populate("products.product", "name price stock");
+
+    if (!updated) return res.status(404).json({ success: false, message: "Bundle not found." });
+    
+    const transformedBundle = transformBundleForAdmin(updated);
+    return res.status(200).json({ success: true, bundle: transformedBundle });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Bundle name already exists." });
+    }
+    console.error("Update admin bundle error:", err);
+    return res.status(500).json({ success: false, message: "Server error updating bundle." });
+  }
+};
+
+export const deleteAdminBundle = async (req, res) => {
+  try {
+    const deleted = await Bundle.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, message: "Bundle not found." });
+    return res.status(200).json({ success: true, message: "Bundle deleted." });
+  } catch (err) {
+    console.error("Delete admin bundle error:", err);
+    return res.status(500).json({ success: false, message: "Server error deleting bundle." });
+  }
+};
