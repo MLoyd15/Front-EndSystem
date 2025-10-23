@@ -214,6 +214,7 @@ const BundlesPage = () => {
         product: p.product,
         quantity: Number(p.quantity) || 1,
       })),
+      isActive: true,
     };
 
     try {
@@ -373,7 +374,46 @@ const BundlesPage = () => {
       />
 
       <div className="p-6 bg-gray-100 min-h-screen">
-        <h1 className="text-xl font-semibold mb-8">Manage Bundles</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-xl font-semibold">Manage Bundles</h1>
+          <button
+            onClick={async () => {
+              try {
+                console.log('🧪 Testing Bundle APIs...');
+                const response = await axios.get(`${API}/admin/debug/bundles`, {
+                  headers: { Authorization: `Bearer ${localStorage.getItem("pos-token")}` }
+                });
+                
+                console.log('✅ Debug Response:', response.data);
+                
+                const { admin, mobile, analysis } = response.data;
+                
+                let message = `Admin API: ${admin.success ? '✅' : '❌'} (${admin.bundleCount} bundles)\n`;
+                message += `Mobile API: ${mobile.success ? '✅' : '❌'} (${mobile.bundleCount} bundles)\n\n`;
+                
+                if (analysis.suggestions.length > 0) {
+                  message += `Suggestions:\n${analysis.suggestions.join('\n')}`;
+                }
+                
+                showModal(
+                  "Bundle API Test Results", 
+                  message, 
+                  analysis.bothWorking && analysis.countMatch ? "success" : "warning"
+                );
+              } catch (error) {
+                console.error('❌ Debug test failed:', error);
+                showModal(
+                  "Debug Test Failed", 
+                  `Error: ${error.response?.data?.message || error.message}`, 
+                  "error"
+                );
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
+          >
+            🧪 Test APIs
+          </button>
+        </div>
 
         <div className="w-full flex flex-col lg:flex-row gap-6">
           {/* Left: 40% */}
