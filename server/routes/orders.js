@@ -1,10 +1,9 @@
 import express from "express";
+import authMiddleware from "../middleware/authMiddleware.js";
 import { getOrders, createOrder } from "../controlers/orderController.js";
-import { authenticateToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
-
-router.get("/", authenticateToken, getOrders);
-router.post("/", authenticateToken, createOrder);
+router.get("/", authMiddleware, getOrders);
+router.post("/", authMiddleware, createOrder);
 
 export default router;

@@ -8,19 +8,19 @@ import {
   getActiveChats,
   closeSupportChat
 } from '../controlers/supportChatControllers.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // User routes (require authentication)
-router.post('/create', authenticateToken, createSupportChat);
-router.get('/:roomId/messages', authenticateToken, getChatMessages);
-router.post('/:roomId/message', authenticateToken, sendSupportMessage);
-router.post('/:roomId/close', authenticateToken, closeSupportChat);
+router.post('/create', authMiddleware, createSupportChat);
+router.get('/:roomId/messages', authMiddleware, getChatMessages);
+router.post('/:roomId/message', authMiddleware, sendSupportMessage);
+router.post('/:roomId/close', authMiddleware, closeSupportChat);
 
 // Admin routes (require authentication)
-router.get('/pending', authenticateToken, getPendingSupportChats);
-router.get('/active', authenticateToken, getActiveChats);
-router.post('/:roomId/accept', authenticateToken, acceptSupportChat);
+router.get('/pending', authMiddleware, getPendingSupportChats);
+router.get('/active', authMiddleware, getActiveChats);
+router.post('/:roomId/accept', authMiddleware, acceptSupportChat);
 
 export default router;
