@@ -11,11 +11,14 @@ const AdminChatSystem = () => {
   const [socket, setSocket] = useState(null);
   const [pendingChats, setPendingChats] = useState([]);
   const [activeChats, setActiveChats] = useState([]);
+  const [allChats, setAllChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'active', 'history'
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
@@ -119,16 +122,38 @@ const AdminChatSystem = () => {
     };
   }, [selectedChat]);
 
-  // Fetch pending chats on mount
+  // Fetch active chats
+  const fetchActiveChats = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/support-chat/active`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setActiveChats(data.chats);
+      }
+    } catch (error) {
+      console.error('Error fetching active chats:', error);
+    }
+  };
+
+  // Fetch active chats on mount
   useEffect(() => {
     fetchPendingChats();
+    fetchActiveChats();
+    if (activeTab === 'history') {
+      fetchAllChats();
+    }
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, []);
+  }, [activeTab]);
 
-  // Fetch pending support chats
+  // Fetch pending chats
   const fetchPendingChats = async () => {
     try {
       const token = getAuthToken();
@@ -143,6 +168,25 @@ const AdminChatSystem = () => {
       }
     } catch (error) {
       console.error('Error fetching pending chats:', error);
+    }
+  };
+
+  // Fetch all chats (history)
+  const fetchAllChats = async (page = 1) => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/support-chat/all?page=${page}&limit=20`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAllChats(data.chats);
+        setPagination(data.pagination);
+      }
+    } catch (error) {
+      console.error('Error fetching all chats:', error);
     }
   };
 
@@ -280,80 +324,179 @@ const AdminChatSystem = () => {
           </h2>
         </div>
 
-        {/* Pending Chats */}
-        {pendingChats.length > 0 && (
-          <div className="border-b border-gray-200">
-            <div className="p-3 bg-yellow-50">
-              <h3 className="text-sm font-semibold text-yellow-800 flex items-center">
-                <Clock size={16} className="mr-2" />
-                Pending ({pendingChats.length})
-              </h3>
+        {/* Tab Navigation */}
+        <div className="flex border-b border-gray-200">
+          <button 
+            className={`flex-1 py-3 px-4 text-sm font-medium ${
+              activeTab === 'pending' 
+                ? 'bg-yellow-50 text-yellow-800 border-b-2 border-yellow-500' 
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+            onClick={() => setActiveTab('pending')}
+          >
+            <Clock size={16} className="inline mr-2" />
+            Pending ({pendingChats.length})
+          </button>
+          <button 
+            className={`flex-1 py-3 px-4 text-sm font-medium ${
+              activeTab === 'active' 
+                ? 'bg-green-50 text-green-800 border-b-2 border-green-500' 
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+            onClick={() => setActiveTab('active')}
+          >
+            <CheckCircle size={16} className="inline mr-2" />
+            Active ({activeChats.length})
+          </button>
+          <button 
+            className={`flex-1 py-3 px-4 text-sm font-medium ${
+              activeTab === 'history' 
+                ? 'bg-blue-50 text-blue-800 border-b-2 border-blue-500' 
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+            onClick={() => setActiveTab('history')}
+          >
+            History
+          </button>
+        </div>
+
+        {/* Chat Lists */}
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'pending' && (
+            <div>
+              {pendingChats.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No pending chats
+                </div>
+              ) : (
+                pendingChats.map((chat) => (
+                  <div
+                    key={chat.roomId}
+                    className="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => acceptChat(chat.roomId)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                          <User size={20} className="text-yellow-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-800">
+                            {chat.user.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(chat.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                      <button className="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600">
+                        Accept
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="max-h-48 overflow-y-auto">
-              {pendingChats.map((chat) => (
-                <div
-                  key={chat.roomId}
-                  className="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => acceptChat(chat.roomId)}
-                >
-                  <div className="flex items-center justify-between">
+          )}
+
+          {activeTab === 'active' && (
+            <div>
+              {activeChats.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No active chats
+                </div>
+              ) : (
+                activeChats.map((chat) => (
+                  <div
+                    key={chat.roomId}
+                    className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                      selectedChat?.roomId === chat.roomId ? 'bg-blue-50' : ''
+                    }`}
+                    onClick={() => selectChat(chat)}
+                  >
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <User size={20} className="text-yellow-600" />
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <User size={20} className="text-green-600" />
                       </div>
                       <div>
                         <p className="font-semibold text-sm text-gray-800">
-                          {chat.user.name}
+                          {chat.user?.name || 'Customer'}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(chat.createdAt).toLocaleTimeString()}
-                        </p>
+                        <p className="text-xs text-gray-500">Active chat</p>
                       </div>
                     </div>
-                    <button className="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600">
-                      Accept
-                    </button>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Active Chats */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-3 bg-green-50">
-            <h3 className="text-sm font-semibold text-green-800 flex items-center">
-              <CheckCircle size={16} className="mr-2" />
-              Active ({activeChats.length})
-            </h3>
-          </div>
-          {activeChats.length === 0 ? (
-            <div className="p-4 text-center text-gray-500 text-sm">
-              No active chats
-            </div>
-          ) : (
-            activeChats.map((chat) => (
-              <div
-                key={chat.roomId}
-                className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                  selectedChat?.roomId === chat.roomId ? 'bg-blue-50' : ''
-                }`}
-                onClick={() => selectChat(chat)}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <User size={20} className="text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm text-gray-800">
-                      {chat.user?.name || 'Customer'}
-                    </p>
-                    <p className="text-xs text-gray-500">Active chat</p>
-                  </div>
+          {activeTab === 'history' && (
+            <div>
+              {allChats.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No chat history
                 </div>
-              </div>
-            ))
+              ) : (
+                <>
+                  {allChats.map((chat) => (
+                    <div
+                      key={chat.roomId}
+                      className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                        selectedChat?.roomId === chat.roomId ? 'bg-blue-50' : ''
+                      } ${chat.status === 'closed' ? 'opacity-75' : ''}`}
+                      onClick={() => selectChat(chat)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                          <User size={20} className="text-gray-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold text-sm text-gray-800">
+                              {chat.user?.name || 'Customer'}
+                            </p>
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              chat.status === 'closed' 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {chat.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {new Date(chat.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Pagination */}
+                  {pagination.totalPages > 1 && (
+                    <div className="p-4 flex items-center justify-between border-t border-gray-200">
+                      <button 
+                        onClick={() => fetchAllChats(pagination.currentPage - 1)}
+                        disabled={pagination.currentPage === 1}
+                        className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {pagination.currentPage} of {pagination.totalPages}
+                      </span>
+                      <button 
+                        onClick={() => fetchAllChats(pagination.currentPage + 1)}
+                        disabled={pagination.currentPage === pagination.totalPages}
+                        className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>

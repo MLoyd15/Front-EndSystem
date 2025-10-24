@@ -6,6 +6,7 @@ import {
   sendSupportMessage,
   getPendingSupportChats,
   getActiveChats,
+  getAllChats,
   closeSupportChat
 } from '../controlers/supportChatControllers.js';
 import authMiddleware from '../middleware/authMiddleware.js';
@@ -21,6 +22,7 @@ router.post('/:roomId/close', authMiddleware, closeSupportChat);
 // Admin routes (require authentication)
 router.get('/pending', authMiddleware, getPendingSupportChats);
 router.get('/active', authMiddleware, getActiveChats);
+router.get('/all', authMiddleware, getAllChats);
 router.post('/:roomId/accept', authMiddleware, acceptSupportChat);
 
 export default router;

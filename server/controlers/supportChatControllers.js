@@ -287,6 +287,68 @@ export const getActiveChats = async (req, res) => {
   }
 };
 
+// Get all chat history (for admins to follow up)
+export const getAllChats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Verify admin role
+    const admin = await User.findById(userId);
+    if (!admin || !['admin', 'superadmin'].includes(admin.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Get all chats with pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const allChats = await ChatRoom.find({})
+      .populate('userId', 'firstName lastName email name')
+      .populate('adminId', 'firstName lastName email name')
+      .sort({ lastActivity: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalChats = await ChatRoom.countDocuments({});
+
+    res.json({
+      success: true,
+      chats: allChats.map(chat => ({
+        roomId: chat.roomId,
+        user: chat.userId ? {
+          id: chat.userId._id,
+          name: chat.userId.firstName && chat.userId.lastName 
+            ? `${chat.userId.firstName} ${chat.userId.lastName}`
+            : chat.userId.name || 'Unknown User',
+          email: chat.userId.email
+        } : null,
+        admin: chat.adminId ? {
+          id: chat.adminId._id,
+          name: chat.adminId.firstName && chat.adminId.lastName 
+            ? `${chat.adminId.firstName} ${chat.adminId.lastName}`
+            : chat.adminId.name || 'Unknown Admin',
+          email: chat.adminId.email
+        } : null,
+        status: chat.status,
+        createdAt: chat.createdAt,
+        lastActivity: chat.lastActivity,
+        closedAt: chat.closedAt
+      })),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalChats / limit),
+        totalChats,
+        hasNext: page < Math.ceil(totalChats / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error getting all chats:', error);
+    res.status(500).json({ success: false, message: 'Failed to get chat history' });
+  }
+};
+
 // Close support chat
 export const closeSupportChat = async (req, res) => {
   try {
