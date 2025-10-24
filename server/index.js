@@ -109,7 +109,7 @@ io.on("connection", async (socket) => {
   // ✅ NEW: Check if user is admin and join admin room
   try {
     if (socket.userId) {
-      const User = (await import('./models/User.js')).default;
+      const User = (await import('./models/user.js')).default;
       const user = await User.findById(socket.userId);
       if (user && ['admin', 'superadmin'].includes(user.role)) {
         socket.join('admin_room');
