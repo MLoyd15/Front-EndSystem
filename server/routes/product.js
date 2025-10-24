@@ -9,21 +9,21 @@ import { uploadProductImages, deleteProductImage } from "../controlers/uploadCon
 
 const router = express.Router();
 
-// For reviews
+// Public routes (no auth required)
 router.get("/flat", ctrl.listFlat);
-router.delete("/:productId/reviews/:reviewId", authMiddleware, ctrl.deleteReview);
-
-// Audit
-router.get("/audit", ctrl.auditList);
-router.post("/audit/reconcile", ctrl.auditReconcile);
-
-// CRUD
 router.get("/", ctrl.list);
 router.get("/:id", ctrl.getOne);
-router.post("/", ctrl.create);
-router.patch("/:id", ctrl.update);
-router.put("/:id", ctrl.update);
-router.delete("/:id", ctrl.remove);
+
+// User routes (auth required)
+router.delete("/:productId/reviews/:reviewId", authMiddleware, ctrl.deleteReview);
+
+// Admin routes (auth required)
+router.get("/audit", authMiddleware, ctrl.auditList);
+router.post("/audit/reconcile", authMiddleware, ctrl.auditReconcile);
+router.post("/", authMiddleware, ctrl.create);
+router.patch("/:id", authMiddleware, ctrl.update);
+router.put("/:id", authMiddleware, ctrl.update);
+router.delete("/:id", authMiddleware, ctrl.remove);
 
 // Catalog toggle
 router.patch("/:id/catalog", ctrl.toggleCatalog);

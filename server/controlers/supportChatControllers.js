@@ -238,11 +238,11 @@ export const getPendingSupportChats = async (req, res) => {
       success: true,
       chats: pendingChats.map(chat => ({
         roomId: chat.roomId,
-        user: {
+        user: chat.userId ? {
           id: chat.userId._id,
           name: chat.userId.name,
           email: chat.userId.email
-        },
+        } : null,
         createdAt: chat.createdAt
       }))
     });

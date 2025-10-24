@@ -1,9 +1,10 @@
 import express from "express";
-import { getOrders } from "../controlers/orderController.js";
+import { getOrders, createOrder } from "../controlers/orderController.js";
+import { authenticateToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// GET /api/orders
-router.get("/", getOrders);
+router.get("/", authenticateToken, getOrders);
+router.post("/", authenticateToken, createOrder);
 
-export default router; 
+export default router;

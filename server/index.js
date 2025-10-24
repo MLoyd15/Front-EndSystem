@@ -35,8 +35,12 @@ app.use(
       "http://localhost:5173",   // Vite admin
       "http://127.0.0.1:5173",
       "http://localhost:19006",  // Expo web preview (if used)
+      "http://localhost:8081",   // Expo mobile dev server
+      "exp://localhost:19000",   // Expo development
+      "exp://192.168.1.100:19000", // Expo on local network (adjust IP as needed)
       "https://goagritrading.org",
       'https://goat-agritrading-frontend.vercel.app',
+      "*" // Allow all origins for mobile development (remove in production)
     ],
     credentials: true,
   })
@@ -68,7 +72,13 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // ✅ Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
+  cors: { 
+    origin: "*", 
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  },
+  allowEIO3: true, // Allow Engine.IO v3 clients (for older mobile apps)
 });
 
 const JWT_SECRET = process.env.JWT_SECRET;
