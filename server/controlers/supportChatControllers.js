@@ -1,6 +1,6 @@
 import ChatRoom from '../models/ChatRoom.js';
 import SupportMessage from '../models/SupportMessage.js';
-import User from '../models/User.js';
+import User from '../models/user.js';
 import { v4 as uuidv4 } from 'uuid';
 
 // Create or get existing support chat room for user
