@@ -8,14 +8,14 @@ import {
   FaUsers,
   FaStar,
   FaUser,
-  FaTools  // ← Add this import
+  FaTools,
+  FaComments  // ✅ Add this import for chat icon
 } from "react-icons/fa";
 import { NavLink } from "react-router";
 import { MdDiscount, MdHistory} from "react-icons/md";
 
 const Sidebar = () => {
   const menuItems = [
-    // ✅ ADD THIS LINE - Maintenance menu for super-admin only
     { name: "Maintenance", path: "/admin-dashboard/maintenance", icon: <FaTools />, isParent: false, superAdminOnly: true },
     { name: "Dashboard", path: "/admin-dashboard", icon: <FaHome />, isParent: true },
     { name: "Categories", path: "/admin-dashboard/categories", icon: <FaTable />, isParent: false },
@@ -24,7 +24,7 @@ const Sidebar = () => {
     { name: "Product review", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
     { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false },
     { name: "Sales History", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false },
-    
+    { name: "Support Chat", path: "/admin-dashboard/support-chat", icon: <FaComments />, isParent: false }, // ✅ Add this line
     { name: "Logout", path: "/admin-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 
@@ -41,10 +41,8 @@ const Sidebar = () => {
     if (user?.role === "driver") {
       setItems(driverItems);
     } else {
-      // ✅ CHANGE THIS - Filter menu items based on role
       let filteredItems = menuItems;
       if (user?.role !== "superadmin") {
-        // Hide super-admin only items for regular admins
         filteredItems = menuItems.filter(item => !item.superAdminOnly);
       }
       setItems(filteredItems);

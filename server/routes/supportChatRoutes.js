@@ -7,7 +7,7 @@ import {
   getPendingSupportChats,
   getActiveChats,
   closeSupportChat
-} from '../controllers/supportChatController.js';
+} from '../controlers/supportChatController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
