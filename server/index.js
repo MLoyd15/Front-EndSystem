@@ -15,7 +15,6 @@ import bundlesRoutes from "./routes/bundles.js";
 import deliveryRoutes from "./routes/delivery.js";
 import promoRoutes from "./routes/promo.js";
 import driverRoutes from "./routes/driver.js";
-import Message from "./models/Message.js";
 import jwt from "jsonwebtoken";
 import { fileURLToPath } from "url";
 import path from "path";
