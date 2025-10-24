@@ -21,9 +21,9 @@ const AdminChatSystem = () => {
 
   // Get auth token from localStorage
   const getAuthToken = () => {
-    return localStorage.getItem('adminToken') || localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('pos-user') || '{}');
+    return user.token || localStorage.getItem('token');
   };
-
   // Scroll to bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
