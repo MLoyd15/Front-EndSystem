@@ -57,7 +57,6 @@ app.use("/api/bundles", bundlesRoutes);
 app.use("/api/delivery", deliveryRoutes);
 app.use("/api/promo", promoRoutes);
 app.use("/api/driver", driverRoutes);
-app.use("/api/chat", chatRoutes);
 app.use("/api/refund-tickets", adminRefundTicketsRouter);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/lalamove', lalamoveRoutes);
