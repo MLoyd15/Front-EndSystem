@@ -217,17 +217,44 @@ export const sendSupportMessage = async (req, res) => {
 // Get pending support chats (for admins)
 export const getPendingSupportChats = async (req, res) => {
   try {
-    const userId = req.user.id;
+    console.log('=== Getting Pending Chats ===');
+    console.log('User from token:', req.user);
     
-    // Verify admin role
+    if (!req.user) {
+      console.error('No user in request');
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Not authenticated' 
+      });
+    }
+    
+    const userId = req.user.id;
+    console.log('User ID:', userId);
+    
     const admin = await User.findById(userId);
-    if (!admin || !['admin', 'superadmin'].includes(admin.role)) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+    console.log('Admin found:', admin?.email, admin?.role);
+    
+    if (!admin) {
+      console.error('User not found in database');
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    
+    if (!['admin', 'superadmin'].includes(admin.role)) {
+      console.error('User is not admin:', admin.role);
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied - admin role required' 
+      });
     }
 
     const pendingChats = await ChatRoom.find({ status: 'waiting' })
       .populate('userId', 'firstName lastName email')
       .sort({ createdAt: 1 });
+
+    console.log('Found pending chats:', pendingChats.length);
 
     res.json({
       success: true,
@@ -242,11 +269,16 @@ export const getPendingSupportChats = async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error getting pending support chats:', error);
-    res.status(500).json({ success: false, message: 'Failed to get pending chats' });
+    console.error('=== ERROR in getPendingSupportChats ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get pending chats',
+      error: error.message 
+    });
   }
 };
-
 // Get admin's active chats
 export const getActiveChats = async (req, res) => {
   try {
