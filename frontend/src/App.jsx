@@ -11,7 +11,7 @@ import Deliveries from './components/Deliveries';
 import Review from './components/Review';
 import DriverDashboardComponent from './components/dashboardDriver'
 import DriverDashboard from './pages/driverDashboard'
-import ChatPanel from './components/chat'
+import ChatPanel from './components/SupportChat'
 import DriverDeliveries from './components/driverDeliveries'
 import Promo from './components/promo'
 import Logout from "./pages/Logout";

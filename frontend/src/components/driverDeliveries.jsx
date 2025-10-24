@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Search, MapPin, Clock, User, MessageSquare, Phone, RefreshCw } from "lucide-react";
 import ChatModal from "./chatmodal";       // <- use the ChatModal we created earlier
-import ChatPanel from "./chat";       // <- real Socket.IO chat panel
+import ChatPanel from "./SupportChat";       // <- real Socket.IO chat panel
 import { VITE_API_BASE, VITE_SOCKET_URL} from "../config"
 
 const API = `${VITE_API_BASE}/delivery`
