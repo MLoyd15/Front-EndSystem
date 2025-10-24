@@ -252,6 +252,41 @@ export const getPendingSupportChats = async (req, res) => {
   }
 };
 
+export const getActiveChats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Verify admin role
+    const admin = await User.findById(userId);
+    if (!admin || !['admin', 'superadmin'].includes(admin.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const activeChats = await ChatRoom.find({ 
+      adminId: userId,
+      status: 'active'
+    })
+      .populate('userId', 'firstName lastName email')
+      .sort({ lastActivity: -1 });
+
+    res.json({
+      success: true,
+      chats: activeChats.map(chat => ({
+        roomId: chat.roomId,
+        user: {
+          id: chat.userId._id,
+          name: `${chat.userId.firstName} ${chat.userId.lastName}`,
+          email: chat.userId.email
+        },
+        lastActivity: chat.lastActivity
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting active chats:', error);
+    res.status(500).json({ success: false, message: 'Failed to get active chats' });
+  }
+};
+
 // Close support chat
 export const closeSupportChat = async (req, res) => {
   try {
