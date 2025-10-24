@@ -11,8 +11,7 @@ import {
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authMiddleware);
+
 
 // User routes
 router.post('/create', createSupportChat);
