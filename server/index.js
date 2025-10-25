@@ -35,7 +35,8 @@ app.use(
       "http://localhost:5173",   // Vite admin
       "http://127.0.0.1:5173",
       "http://localhost:19006",  // Expo web preview (if used)
-      "http://localhost:8081",   // Expo mobile dev server
+      "http://localhost:8081",
+      "http://localhost:8082",   // Expo mobile dev server
       "exp://localhost:19000",   // Expo development
       "exp://192.168.1.100:19000", // Expo on local network (adjust IP as needed)
       "https://goagritrading.org",

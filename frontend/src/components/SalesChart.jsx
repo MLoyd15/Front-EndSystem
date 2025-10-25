@@ -50,9 +50,9 @@ export default function EnhancedSalesChart() {
   const [groupBy, setGroupBy] = useState("day");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
-  const [chartType, setChartType] = useState("line"); // line | area | bar
+  const [chartType, setChartType] = useState("line"); 
 
-  // for product name lookups
+  
   const [productIndex, setProductIndex] = useState(new Map());
 
   useEffect(() => {
