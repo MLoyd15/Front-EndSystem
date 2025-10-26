@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, User, Menu, X, Loader, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Star, User, Menu, X, Loader, ChevronLeft, ChevronRight, Download, Gift, Copy, Check, Tag, Clock, Percent } from 'lucide-react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
 
@@ -42,6 +42,11 @@ const GoAgriLanding = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Promo states
+  const [promos, setPromos] = useState([]);
+  const [promosLoading, setPromosLoading] = useState(true);
+  const [copiedCode, setCopiedCode] = useState(null);
+  
   // Pagination states
   const [currentProductPage, setCurrentProductPage] = useState(1);
   const [currentReviewPage, setCurrentReviewPage] = useState(1);
@@ -55,6 +60,7 @@ const GoAgriLanding = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setPromosLoading(true);
       
       // Fetch products using the same endpoint as ProductsPage
       const productsRes = await fetch(`${API}/products?catalog=true&limit=50`);
@@ -90,12 +96,26 @@ const GoAgriLanding = () => {
       );
       
       setReviews(allReviews);
+      
+      // Fetch active promos
+      try {
+        const promosRes = await fetch(`${API}/promo/active`);
+        const promosJson = await promosRes.json();
+        if (promosJson.success) {
+          setPromos(promosJson.promos || []);
+        }
+      } catch (promoErr) {
+        console.error('Error fetching promos:', promoErr);
+        setPromos([]);
+      }
+      
       setError(null);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load data. Please try again later.');
     } finally {
       setLoading(false);
+      setPromosLoading(false);
     }
   };
 
@@ -118,6 +138,60 @@ const GoAgriLanding = () => {
 
   const handleLogoClick = () => {
     window.location.href = '/Superlogin';
+  };
+
+  // Copy promo code functionality
+  const copyPromoCode = async (code) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = code;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    }
+  };
+
+  // Format promo value for display
+  const formatPromoValue = (promo) => {
+    if (promo.type === 'Percentage') {
+      return `${promo.value}% OFF`;
+    } else if (promo.type === 'Fixed Amount') {
+      return `₱${promo.value} OFF`;
+    } else if (promo.type === 'Free Shipping') {
+      return 'FREE SHIPPING';
+    }
+    return 'DISCOUNT';
+  };
+
+  // Format promo description
+  const getPromoDescription = (promo) => {
+    let desc = `Get ${formatPromoValue(promo)}`;
+    if (promo.minSpend > 0) {
+      desc += ` on orders over ₱${promo.minSpend}`;
+    }
+    if (promo.type === 'Percentage' && promo.maxDiscount > 0) {
+      desc += ` (max ₱${promo.maxDiscount})`;
+    }
+    return desc;
+  };
+
+  // Format expiry date
+  const formatExpiryDate = (date) => {
+    if (!date) return null;
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   // Pagination logic for products
@@ -283,6 +357,143 @@ const GoAgriLanding = () => {
               </a>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Promo Section */}
+      <section className="py-16 bg-gradient-to-r from-orange-50 via-red-50 to-pink-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-2 rounded-full text-sm font-semibold mb-4">
+              <Gift className="w-4 h-4" />
+              <span>SPECIAL OFFERS</span>
+            </div>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Exclusive Deals & Discounts
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Save more on your agricultural needs with our limited-time promotional offers
+            </p>
+          </div>
+
+          {promosLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader className="w-8 h-8 text-orange-500 animate-spin" />
+            </div>
+          ) : promos.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-auto">
+                <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No active promotions at the moment.</p>
+                <p className="text-sm text-gray-500 mt-2">Check back soon for exciting deals!</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {promos.map((promo, index) => (
+                <div 
+                  key={promo._id} 
+                  className={`relative bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 ${
+                    index === 0 ? 'lg:col-span-2 lg:row-span-1' : ''
+                  }`}
+                >
+                  {/* Promo Header */}
+                  <div className={`bg-gradient-to-r ${
+                    promo.type === 'Percentage' ? 'from-green-500 to-emerald-500' :
+                    promo.type === 'Fixed Amount' ? 'from-blue-500 to-indigo-500' :
+                    'from-purple-500 to-pink-500'
+                  } p-6 text-white`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {promo.type === 'Percentage' ? (
+                          <Percent className="w-6 h-6" />
+                        ) : promo.type === 'Fixed Amount' ? (
+                          <Tag className="w-6 h-6" />
+                        ) : (
+                          <Gift className="w-6 h-6" />
+                        )}
+                        <span className="text-sm font-medium opacity-90">{promo.type}</span>
+                      </div>
+                      {promo.endsAt && (
+                        <div className="flex items-center space-x-1 text-sm opacity-90">
+                          <Clock className="w-4 h-4" />
+                          <span>Until {formatExpiryDate(promo.endsAt)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="text-2xl font-bold mt-2">{promo.name}</h3>
+                    <div className="text-3xl font-black mt-1">
+                      {formatPromoValue(promo)}
+                    </div>
+                  </div>
+
+                  {/* Promo Body */}
+                  <div className="p-6">
+                    <p className="text-gray-600 mb-4">
+                      {getPromoDescription(promo)}
+                    </p>
+                    
+                    {/* Usage Info */}
+                    <div className="flex items-center justify-between text-sm text-gray-500 mb-6">
+                      <span>
+                        {promo.limit > 0 ? (
+                          `${promo.used}/${promo.limit} used`
+                        ) : (
+                          'Unlimited uses'
+                        )}
+                      </span>
+                      {promo.limit > 0 && (
+                        <div className="w-20 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min((promo.used / promo.limit) * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Promo Code */}
+                    <div className="bg-gray-50 rounded-xl p-4 border-2 border-dashed border-gray-300">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">PROMO CODE</p>
+                          <p className="text-lg font-bold text-gray-900 font-mono tracking-wider">
+                            {promo.code}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => copyPromoCode(promo.code)}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                            copiedCode === promo.code
+                              ? 'bg-green-500 text-white'
+                              : 'bg-orange-500 hover:bg-orange-600 text-white'
+                          }`}
+                        >
+                          {copiedCode === promo.code ? (
+                            <>
+                              <Check className="w-4 h-4" />
+                              <span>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Decorative Elements */}
+                  <div className="absolute top-4 right-4 w-16 h-16 bg-white bg-opacity-20 rounded-full"></div>
+                  <div className="absolute bottom-4 left-4 w-8 h-8 bg-white bg-opacity-10 rounded-full"></div>
+                </div>
+              ))}
+            </div>
+          )}
+
+
         </div>
       </section>
 

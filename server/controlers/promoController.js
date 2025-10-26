@@ -79,6 +79,45 @@ export const deletePromo = async (req, res) => {
 };
 
 // APPLY endpoint — validate code & compute discount for a given cart subtotal
+// Public endpoint to get active promos for landing page
+export const getActivePromos = async (req, res) => {
+  const now = new Date();
+  
+  try {
+    const activePromos = await Promotion.find({
+      $and: [
+        { status: "Active" },
+        {
+          $or: [
+            { startsAt: { $exists: false } },
+            { startsAt: null },
+            { startsAt: { $lte: now } }
+          ]
+        },
+        {
+          $or: [
+            { endsAt: { $exists: false } },
+            { endsAt: null },
+            { endsAt: { $gte: now } }
+          ]
+        },
+        {
+          $or: [
+            { limit: 0 }, // No limit set
+            { limit: { $exists: false } }, // No limit field
+            { $expr: { $lt: ["$used", "$limit"] } } // Used count is less than limit
+          ]
+        }
+      ]
+    }).sort({ createdAt: -1 }).limit(5); // Get latest 5 active promos
+    
+    res.json({ success: true, promos: activePromos });
+  } catch (error) {
+    console.error("Error fetching active promos:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch active promos" });
+  }
+};
+
 export const applyPromo = async (req, res) => {
   const { code, subtotal } = req.body; // subtotal in pesos
   const now = new Date();
@@ -139,4 +178,31 @@ export const reactivatePromo = async (req, res) => {
 
   await promo.save();
   res.json(promo);
+};
+
+// Test endpoint to increment used count (for testing purposes only)
+export const testIncrementUsed = async (req, res) => {
+  const { code } = req.params;
+  
+  try {
+    const promo = await Promotion.findOne({ code: code.toUpperCase() });
+    if (!promo) return res.status(404).json({ message: "Promo not found" });
+    
+    promo.used = (promo.used || 0) + 1;
+    await promo.save();
+    
+    res.json({ 
+      success: true, 
+      message: `Incremented used count for ${code}`, 
+      promo: {
+        code: promo.code,
+        used: promo.used,
+        limit: promo.limit,
+        reachedLimit: promo.limit > 0 && promo.used >= promo.limit
+      }
+    });
+  } catch (error) {
+    console.error("Error incrementing used count:", error);
+    res.status(500).json({ success: false, message: "Failed to increment used count" });
+  }
 };
