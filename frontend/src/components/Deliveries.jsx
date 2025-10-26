@@ -268,7 +268,6 @@ export default function Deliveries() {
     if (currentTab === "pickup") {
       return delivery.pickupLocation || "Set pickup location";
     }
-    // For in-house and third-party, only show delivery address
     return delivery.deliveryAddress || "—";
   };
 
@@ -483,13 +482,10 @@ export default function Deliveries() {
                               </span>
                             </div>
 
-                            {/* ✅ FIXED: Only show scheduled time for pickup orders */}
-                            {d.type === "pickup" && (
-                              <div className="flex items-center gap-2 text-slate-600">
-                                <Clock className="w-4 h-4" />
-                                <span>{fmtDateTime(d.scheduledDate)}</span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <Clock className="w-4 h-4" />
+                              <span>{fmtDateTime(d.scheduledDate)}</span>
+                            </div>
 
                             <div className="flex items-center gap-2 text-slate-600">
                               <Weight className="w-4 h-4" />
@@ -657,42 +653,42 @@ export default function Deliveries() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-slate-600">Order ID:</span>
-                        <span className="font-medium">{last6((drawerDetails || drawer).order?._id || (drawerDetails || drawer).order || (drawerDetails || drawer)._id)}</span>
+                        <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Status:</span>
-                        <span>{statusPill((drawerDetails || drawer).lalamove?.status || (drawerDetails || drawer).status, (drawerDetails || drawer).type)}</span>
+                        <span>{statusPill(drawer.lalamove?.status || drawer.status, drawer.type)}</span>
                       </div>
-                      {(drawerDetails || drawer).lalamove?.orderId && (
+                      {drawer.lalamove?.orderId && (
                         <>
                           <div className="flex justify-between">
                             <span className="text-slate-600">Lalamove ID:</span>
-                            <span className="font-medium text-xs">{(drawerDetails || drawer).lalamove.orderId}</span>
+                            <span className="font-medium text-xs">{drawer.lalamove.orderId}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-slate-600">Provider:</span>
-                            {lalamoveBadge(drawerDetails || drawer)}
+                            {lalamoveBadge(drawer)}
                           </div>
                         </>
                       )}
                       <div className="flex justify-between">
                         <span className="text-slate-600">Total Weight:</span>
-                        <span className="font-medium">{(drawerDetails || drawer).order?.totalWeightKg || (drawerDetails || drawer).weight || 0} kg</span>
+                        <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Created:</span>
-                        <span className="font-medium">{fmtDateTime((drawerDetails || drawer).createdAt)}</span>
+                        <span className="font-medium">{fmtDateTime(drawer.createdAt)}</span>
                       </div>
-                      {(drawerDetails || drawer).deliveredAt && (
+                      {drawer.deliveredAt && (
                         <div className="flex justify-between">
                           <span className="text-slate-600">Delivered:</span>
-                          <span className="font-medium">{fmtDateTime((drawerDetails || drawer).deliveredAt)}</span>
+                          <span className="font-medium">{fmtDateTime(drawer.deliveredAt)}</span>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {(drawerDetails?.order?.user || drawer?.order?.user) && (
+                  {drawer.order?.user && (
                     <div className="bg-slate-50 rounded-xl p-4">
                       <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
                         <ShoppingCart className="w-4 h-4" />
@@ -721,27 +717,18 @@ export default function Deliveries() {
                       Location Details
                     </h4>
                     <div className="space-y-3 text-sm">
-                      {/* ✅ FIXED: Only show pickup location for pickup orders */}
-                      {(drawerDetails || drawer).type === "pickup" && (
-                        <div>
-                          <span className="text-slate-600 block mb-1">Pickup Location:</span>
-                          <span className="font-medium">{(drawerDetails || drawer).pickupLocation || "—"}</span>
-                        </div>
-                      )}
-                      {/* ✅ FIXED: Show delivery address for non-pickup orders */}
-                      {(drawerDetails || drawer).type !== "pickup" && (
-                        <div>
-                          <span className="text-slate-600 block mb-1">Delivery Address:</span>
-                          <span className="font-medium">{(drawerDetails || drawer).deliveryAddress || "—"}</span>
-                        </div>
-                      )}
-                      {/* ✅ FIXED: Only show scheduled time for pickup orders */}
-                      {(drawerDetails || drawer).type === "pickup" && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Scheduled Time:</span>
-                          <span className="font-medium">{fmtDateTime((drawerDetails || drawer).scheduledDate)}</span>
-                        </div>
-                      )}
+                      <div>
+                        <span className="text-slate-600 block mb-1">Pickup Location:</span>
+                        <span className="font-medium">{drawer.pickupLocation || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 block mb-1">Delivery Address:</span>
+                        <span className="font-medium">{drawer.deliveryAddress || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Scheduled Time:</span>
+                        <span className="font-medium">{fmtDateTime(drawer.scheduledDate)}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -751,12 +738,12 @@ export default function Deliveries() {
                       Assignment Details
                     </h4>
                     <div className="space-y-2 text-sm">
-                      {(drawerDetails || drawer).thirdPartyProvider ? (
+                      {drawer.thirdPartyProvider ? (
                         <div className="flex justify-between">
                           <span className="text-slate-600">3rd Party Provider:</span>
-                          <span className="font-medium">{(drawerDetails || drawer).thirdPartyProvider}</span>
+                          <span className="font-medium">{drawer.thirdPartyProvider}</span>
                         </div>
-                      ) : (drawerDetails || drawer).type === "pickup" ? (
+                      ) : drawer.type === "pickup" ? (
                         <div className="text-center text-slate-500 py-2">
                           No assignment needed for pickup orders
                         </div>
@@ -764,20 +751,20 @@ export default function Deliveries() {
                         <>
                           <div className="flex justify-between">
                             <span className="text-slate-600">Driver:</span>
-                            <span className="font-medium">{driverLabel(drawerDetails || drawer) || "Not assigned"}</span>
+                            <span className="font-medium">{driverLabel(drawer) || "Not assigned"}</span>
                           </div>
-                          {((drawerDetails || drawer).assignedDriver?.phone) && (
+                          {drawer.assignedDriver?.phone && (
                             <div className="flex justify-between">
                               <span className="text-slate-600">Driver Phone:</span>
                               <span className="font-medium flex items-center gap-1">
                                 <Phone className="w-3 h-3" />
-                                {(drawerDetails || drawer).assignedDriver.phone}
+                                {drawer.assignedDriver.phone}
                               </span>
                             </div>
                           )}
                           <div className="flex justify-between">
                             <span className="text-slate-600">Vehicle:</span>
-                            <span className="font-medium">{vehicleLabel(drawerDetails || drawer) || "Not assigned"}</span>
+                            <span className="font-medium">{vehicleLabel(drawer) || "Not assigned"}</span>
                           </div>
                         </>
                       )}
