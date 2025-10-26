@@ -17,15 +17,16 @@ import { MdDiscount, MdHistory} from "react-icons/md";
 const Sidebar = () => {
   const menuItems = [
     { name: "Maintenance", path: "/admin-dashboard/maintenance", icon: <FaTools />, isParent: false, superAdminOnly: true },
-    { name: "Dashboard", path: "/admin-dashboard", icon: <FaHome />, isParent: true },
+    { name: "Dashboard", path: "/admin-dashboard", icon: <FaHome />, isParent: true, superAdminOnly: true },
     { name: "Categories", path: "/admin-dashboard/categories", icon: <FaTable />, isParent: false },
     { name: "Products", path: "/admin-dashboard/products", icon: <FaBox />, isParent: false },
     { name: "Delivery", path: "/admin-dashboard/delivery", icon: <FaTruck />, isParent: false },
     { name: "Product review", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
-    { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false },
-    { name: "Sales History", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false },
-    { name: "Support Chat", path: "/admin-dashboard/support-chat", icon: <FaComments />, isParent: false }, // ✅ Add this line
-    { name: "Logout", path: "/admin-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
+    { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false, superAdminOnly: true },
+    { name: "Sales History", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false, superAdminOnly: true },
+    { name: "Support Chat", path: "/admin-dashboard/support-chat", icon: <FaComments />, isParent: false },
+  { name: "Create Driver", path: "/admin-dashboard/create-driver", icon: <FaTruck />, isParent: false, superAdminOnly: true },
+  { name: "Logout", path: "/admin-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 
   const driverItems = [
