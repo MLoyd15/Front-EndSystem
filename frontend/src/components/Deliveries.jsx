@@ -217,22 +217,34 @@ export default function Deliveries() {
   };
 
   // ✅ UPDATED: Auto-fill pickup location when saving
-  const onSavePickup = async (id, values) => {
+  const onSavePickup = async (id, updates) => {
     try {
-      const body = {};
-      if ("scheduledDate" in values) body.scheduledDate = values.scheduledDate ? new Date(values.scheduledDate) : null;
-      if ("pickupLocation" in values) body.pickupLocation = values.pickupLocation;
+      const saveData = { ...updates };
       
-      // ✅ If pickup location is empty, auto-fill with default address
-      if (!values.pickupLocation || values.pickupLocation.trim() === "") {
-        body.pickupLocation = "Poblacion 1, Moncada Tarlac, Philippines";
+      // ✅ Always ensure pickup location is set for pickup deliveries
+      if (!saveData.pickupLocation) {
+        saveData.pickupLocation = "Poblacion 1, Moncada Tarlac, Philippines";
       }
       
-      await axios.put(`${API}/${id}`, body, { headers: auth() });
+      await axios.put(`${API}/${id}`, saveData, { headers: auth() });
       setEditing(null);
       load();
     } catch (e) {
       console.error('Error saving pickup:', e?.response?.data || e.message);
+    }
+  };
+
+  const onAssignInHouse = async (id, { driverId, vehicleId }) => {
+    try {
+      await axios.put(
+        `${API}/${id}`,
+        { assignedDriver: driverId, assignedVehicle: vehicleId, status: "assigned" },
+        { headers: auth() }
+      );
+      setEditing(null);
+      load();
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -242,24 +254,8 @@ export default function Deliveries() {
       setEditing(null);
       load();
     } catch (e) {
-      console.error('Error saving third party:', e?.response?.data || e.message);
+      console.error(e);
     }
-  };
-
-  const onSaveInHouse = async (id, { driverId, vehicleId }) => {
-    try {
-      await axios.put(`${API}/${id}/assign`, { driverId, vehicleId }, { headers: auth() });
-      setEditing(null);
-      load();
-    } catch (e) {
-      console.error('Error assigning in-house:', e?.response?.data || e.message);
-    }
-  };
-
-  const openLalamove = (delivery) => {
-    setLalamoveDelivery(delivery);
-    setLalamoveModal(true);
-    setEditing(null);
   };
 
   const handleDrawerOpen = (delivery) => {
@@ -268,35 +264,37 @@ export default function Deliveries() {
     loadDeliveryDetails(delivery._id);
   };
 
-  const getLocationDisplay = (delivery, tab) => {
-    if (tab === "pickup") return delivery.pickupLocation || "Set pickup location";
-    return delivery.deliveryAddress || "Set delivery address";
+  const getLocationDisplay = (delivery, currentTab) => {
+    if (currentTab === "pickup") {
+      return delivery.pickupLocation || "Set pickup location";
+    }
+    return delivery.deliveryAddress || "—";
   };
 
   const syncLalamoveStatus = async (deliveryId, lalamoveOrderId) => {
+    if (!window.confirm('Sync status from Lalamove?')) return;
+    
     setSyncing(deliveryId);
     try {
       const response = await axios.get(
-        `${VITE_API_BASE}/lalamove/order/${lalamoveOrderId}`,
+        `${API}/lalamove/status/${lalamoveOrderId}`,
         { headers: auth() }
       );
       
       if (response.data.success) {
-        const lalamoveData = response.data.data;
-        const lalamoveStatus = lalamoveData.status;
+        const lalamoveStatus = response.data.data.status;
         const systemStatus = mapLalamoveStatus(lalamoveStatus);
         
         const updatePayload = {
           status: systemStatus,
-          'lalamove.status': lalamoveStatus,
+          'lalamove.status': lalamoveStatus
         };
         
-        if (lalamoveData.driver || lalamoveData.driverId) {
-          updatePayload['lalamove.driver'] = {
-            name: lalamoveData.driver?.name || lalamoveData.driverName || '',
-            phone: lalamoveData.driver?.phone || lalamoveData.driverPhone || '',
-            plateNumber: lalamoveData.driver?.plateNumber || '',
-            photo: lalamoveData.driver?.photo || ''
+        if (response.data.data.driverName) {
+          updatePayload.assignedDriver = {
+            name: response.data.data.driverName,
+            phone: response.data.data.driverPhone || '',
+            plateNumber: response.data.data.driverPlateNumber || ''
           };
         }
         
@@ -467,12 +465,15 @@ export default function Deliveries() {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-2 text-slate-600 min-w-[13rem]">
-                              <User className="w-4 h-4" />
-                              <span className="truncate">
-                                {d.thirdPartyProvider || driverLabel(d) || "—"}
-                              </span>
-                            </div>
+                            {/* ✅ FIXED: Only show User icon for non-pickup deliveries */}
+                            {d.type !== "pickup" && (
+                              <div className="flex items-center gap-2 text-slate-600 min-w-[13rem]">
+                                <User className="w-4 h-4" />
+                                <span className="truncate">
+                                  {d.thirdPartyProvider || driverLabel(d) || "—"}
+                                </span>
+                              </div>
+                            )}
 
                             <div className="flex items-center gap-2 text-slate-600 min-w-[14rem]">
                               <MapPin className="w-4 h-4" />
@@ -569,36 +570,46 @@ export default function Deliveries() {
                   {tab === "pickup"
                     ? "Pickup Scheduler"
                     : tab === "in-house"
-                    ? "In-House Scheduler"
-                    : "3rd-Party Booking"}
+                    ? "In-house Assignment"
+                    : "3rd-Party Setup"}
                 </h3>
 
-                {!editing ? (
-                  <p className="text-sm text-slate-600">
-                    Select a delivery and click <b>Manage</b>.
-                  </p>
-                ) : tab === "pickup" ? (
-                  <PickupEditor
-                    row={editing}
-                    onCancel={() => setEditing(null)}
-                    onSave={(v) => onSavePickup(editing._id, v)}
-                    onQuickStatus={(st) => onQuickStatus(editing._id, st, true)}
-                  />
-                ) : tab === "in-house" ? (
-                  <InHouseEditor
-                    row={editing}
-                    onCancel={() => setEditing(null)}
-                    onAssign={(payload) => onSaveInHouse(editing._id, payload)}
-                    onQuickStatus={(st) => onQuickStatus(editing._id, st)}
-                  />
+                {editing ? (
+                  <div className="bg-white p-4 rounded-xl">
+                    {tab === "pickup" && (
+                      <PickupEditor
+                        row={editing}
+                        onCancel={() => setEditing(null)}
+                        onSave={(updates) => onSavePickup(editing._id, updates)}
+                        onQuickStatus={(st) => onQuickStatus(editing._id, st, true)}
+                      />
+                    )}
+                    {tab === "in-house" && (
+                      <InHouseEditor
+                        row={editing}
+                        onCancel={() => setEditing(null)}
+                        onAssign={(data) => onAssignInHouse(editing._id, data)}
+                        onQuickStatus={(st) => onQuickStatus(editing._id, st)}
+                      />
+                    )}
+                    {tab === "third-party" && (
+                      <ThirdPartyEditor
+                        row={editing}
+                        onCancel={() => setEditing(null)}
+                        onSave={(provider) => onSaveThirdParty(editing._id, provider)}
+                        onQuickStatus={(st) => onQuickStatus(editing._id, st)}
+                        onOpenLalamove={() => {
+                          setLalamoveModal(true);
+                          setLalamoveDelivery(editing);
+                          setEditing(null);
+                        }}
+                      />
+                    )}
+                  </div>
                 ) : (
-                  <ThirdPartyEditor
-                    row={editing}
-                    onCancel={() => setEditing(null)}
-                    onSave={(provider) => onSaveThirdParty(editing._id, provider)}
-                    onQuickStatus={(st) => onQuickStatus(editing._id, st)}
-                    onOpenLalamove={() => openLalamove(editing)}
-                  />
+                  <div className="text-sm text-slate-600 bg-white p-4 rounded-xl">
+                    Select a delivery to manage
+                  </div>
                 )}
               </div>
             )}
@@ -606,75 +617,91 @@ export default function Deliveries() {
         </div>
       </div>
 
-      {/* Drawer for delivery details */}
       <AnimatePresence>
         {drawer && (
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setDrawer(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 z-40"
+            onClick={() => setDrawer(null)}
           >
             <motion.div
-              initial={{ x: 420 }} animate={{ x: 0 }} exit={{ x: 420 }}
-              transition={{ type: "spring", stiffness: 220, damping: 24 }}
-              className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl ring-1 ring-slate-200 p-6 overflow-y-auto"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "tween", duration: 0.3 }}
+              className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl overflow-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-slate-800">
-                  Order {last6(drawer.order?._id || drawer.order || drawer._id)}
-                </h3>
-                <button onClick={() => setDrawer(null)} className="p-2 rounded-xl hover:bg-slate-50">
+              <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Delivery Details</h3>
+                <button
+                  onClick={() => setDrawer(null)}
+                  className="p-1 hover:bg-slate-100 rounded-lg transition"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {drawerLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-slate-500">Loading order details...</div>
-                </div>
+                <div className="p-6 text-center text-slate-500">Loading details…</div>
               ) : (
-                <div className="space-y-6">
+                <div className="p-6 space-y-4">
                   <div className="bg-slate-50 rounded-xl p-4">
-                    <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4" />
-                      Order Information
-                    </h4>
+                    <h4 className="font-medium text-slate-800 mb-3">Order Information</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-slate-600">Order ID:</span>
                         <span className="font-medium">{last6(drawer.order?._id || drawer.order || drawer._id)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-600">Delivery Type:</span>
-                        <span className="font-medium capitalize">{drawer.type || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
                         <span className="text-slate-600">Status:</span>
-                        <div>
-                          {/* ✅ Pass delivery type to statusPill in drawer */}
-                          {drawer.lalamove?.orderId 
-                            ? statusPill(drawer.lalamove.status || drawer.status)
-                            : statusPill(drawer.status, drawer.type)
-                          }
-                        </div>
+                        <span>{statusPill(drawer.lalamove?.status || drawer.status, drawer.type)}</span>
                       </div>
+                      {drawer.lalamove?.orderId && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Lalamove ID:</span>
+                            <span className="font-medium text-xs">{drawer.lalamove.orderId}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">Provider:</span>
+                            {lalamoveBadge(drawer)}
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between">
-                        <span className="text-slate-600">Weight:</span>
+                        <span className="text-slate-600">Total Weight:</span>
                         <span className="font-medium">{drawer.order?.totalWeightKg || drawer.weight || 0} kg</span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Created:</span>
+                        <span className="font-medium">{fmtDateTime(drawer.createdAt)}</span>
+                      </div>
+                      {drawer.deliveredAt && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Delivered:</span>
+                          <span className="font-medium">{fmtDateTime(drawer.deliveredAt)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {(drawerDetails?.order?.user || drawer?.order?.user) && (
+                  {drawer.order?.user && (
                     <div className="bg-slate-50 rounded-xl p-4">
                       <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
-                        <User className="w-4 h-4" />
+                        <ShoppingCart className="w-4 h-4" />
                         Customer Information
                       </h4>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-slate-600">Name:</span>
                           <span className="font-medium">{(drawerDetails?.order?.user || drawer?.order?.user)?.name || "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Phone:</span>
+                          <span className="font-medium">{(drawerDetails?.order?.user || drawer?.order?.user)?.phone || "—"}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-600">Email:</span>
@@ -767,7 +794,7 @@ export default function Deliveries() {
   );
 }
 
-// ✅ PICKUP EDITOR with custom status buttons
+// ✅ FIXED: PICKUP EDITOR with required pickup time and custom status buttons
 function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
   const [scheduled, setScheduled] = useState(
     row?.scheduledDate ? new Date(row.scheduledDate).toISOString().slice(0, 16) : ""
@@ -778,11 +805,14 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
 
   return (
     <div className="space-y-3">
-      <label className="text-sm text-slate-600">Pickup Time</label>
+      <label className="text-sm text-slate-600">
+        Pickup Time <span className="text-red-500">*</span>
+      </label>
       <input
         type="datetime-local"
         value={scheduled}
         onChange={(e) => setScheduled(e.target.value)}
+        required
         className="w-full px-3 py-2 rounded-xl ring-1 ring-slate-200 focus:ring-emerald-300 outline-none"
       />
 
@@ -797,7 +827,10 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
       <div className="flex gap-2">
         <button
           onClick={() => onSave({ scheduledDate: scheduled, pickupLocation: location })}
-          className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center justify-center gap-2"
+          disabled={!scheduled}
+          className={`flex-1 px-4 py-2 rounded-xl text-white hover:bg-emerald-700 inline-flex items-center justify-center gap-2 ${
+            !scheduled ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600'
+          }`}
         >
           <CheckCircle2 className="w-4 h-4" /> Save
         </button>
