@@ -75,6 +75,27 @@ export const getStats = async (req, res) => {
   }
 };
 
+export const getDrivers = async (req, res) => {
+  try {
+    // Fetch all drivers from User model with role 'driver'
+    const drivers = await User.find({ role: 'driver' })
+      .select('-password') // Exclude password from response
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    res.json({
+      success: true,
+      drivers
+    });
+
+  } catch (err) {
+    console.error("Error fetching drivers:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while fetching drivers"
+    });
+  }
+};
+
 export const createDriver = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
@@ -109,7 +130,7 @@ export const createDriver = async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create new driver user
+    // Create new driver as user with role 'driver'
     const newDriver = new User({
       name: name.trim(),
       email: email.toLowerCase().trim(),

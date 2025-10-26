@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Mail, Phone, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Loader, UserPlus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Phone, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Loader, UserPlus, Users, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
 
@@ -18,6 +18,40 @@ const CreateDriver = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [drivers, setDrivers] = useState([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
+  const [activeTab, setActiveTab] = useState('create'); // 'create' or 'list'
+
+  // Fetch drivers with driver role
+  const fetchDrivers = async () => {
+    setLoadingDrivers(true);
+    try {
+      const token = localStorage.getItem('pos-token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await axios.get(`${API}/admin/drivers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        setDrivers(response.data.drivers || []);
+      }
+    } catch (err) {
+      console.error('Fetch drivers error:', err);
+    } finally {
+      setLoadingDrivers(false);
+    }
+  };
+
+  // Load drivers on component mount
+  useEffect(() => {
+    fetchDrivers();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({
@@ -101,6 +135,8 @@ const CreateDriver = () => {
           password: '',
           confirmPassword: ''
         });
+        // Refresh drivers list
+        fetchDrivers();
       } else {
         throw new Error(response.data.message || 'Failed to create driver account');
       }
@@ -120,43 +156,73 @@ const CreateDriver = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-green-100 p-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="bg-green-600 p-4 rounded-full">
-              <UserPlus className="w-8 h-8 text-white" />
+              <Users className="w-8 h-8 text-white" />
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Create Driver Account
+            Driver Management
           </h1>
           <p className="text-gray-600">
-            Add a new driver to the GO AGRI TRADING system
+            Create and manage drivers in the GO AGRI TRADING system
           </p>
         </div>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
-          {/* Success Message */}
-          {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-green-800">{success}</p>
-              </div>
-            </div>
-          )}
+        {/* Tabs */}
+        <div className="mb-8">
+          <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-lg">
+            <button
+              onClick={() => setActiveTab('create')}
+              className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+                activeTab === 'create'
+                  ? 'bg-green-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <UserPlus className="w-5 h-5 mr-2" />
+              Create Driver
+            </button>
+            <button
+              onClick={() => setActiveTab('list')}
+              className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+                activeTab === 'list'
+                  ? 'bg-green-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Users className="w-5 h-5 mr-2" />
+              View Drivers ({drivers.length})
+            </button>
+          </div>
+        </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-red-800">{error}</p>
+        {/* Content based on active tab */}
+        {activeTab === 'create' ? (
+          /* Create Driver Form */
+          <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100 max-w-2xl mx-auto">
+            {/* Success Message */}
+            {success && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800">{success}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800">{error}</p>
+                </div>
+              </div>
+            )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Driver Name */}
@@ -315,14 +381,105 @@ const CreateDriver = () => {
             </button>
           </form>
 
-          {/* Info Note */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-sm text-blue-800">
-              <strong>Note:</strong> The driver will be able to log in using their email and password. 
-              Make sure to provide them with their login credentials securely.
-            </p>
+            {/* Info Note */}
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> The driver will be able to log in using their email and password. 
+                Make sure to provide them with their login credentials securely.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Drivers List */
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Driver Accounts</h2>
+                  <p className="text-gray-600 mt-1">Manage all driver accounts with driver role</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={fetchDrivers}
+                    disabled={loadingDrivers}
+                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
+                  >
+                    {loadingDrivers ? (
+                      <Loader className="animate-spin w-4 h-4 mr-2" />
+                    ) : (
+                      <Users className="w-4 h-4 mr-2" />
+                    )}
+                    Refresh
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {loadingDrivers ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="animate-spin w-8 h-8 text-green-600" />
+                  <span className="ml-3 text-gray-600">Loading drivers...</span>
+                </div>
+              ) : drivers.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No drivers found</h3>
+                  <p className="text-gray-600 mb-6">No driver accounts have been created yet.</p>
+                  <button
+                    onClick={() => setActiveTab('create')}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Create First Driver
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {drivers.map((driver) => (
+                    <div key={driver._id} className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-shadow duration-200">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center">
+                          <div className="bg-green-100 p-2 rounded-full">
+                            <User className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="font-semibold text-gray-900">{driver.name}</h3>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {driver.role}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Mail className="w-4 h-4 mr-2" />
+                          {driver.email}
+                        </div>
+                        {driver.phone && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Phone className="w-4 h-4 mr-2" />
+                            {driver.phone}
+                          </div>
+                        )}
+                        <div className="flex items-center text-sm text-gray-600">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Status: {driver.active ? 'Active' : 'Inactive'}
+                        </div>
+                        {driver.createdAt && (
+                          <div className="text-xs text-gray-500 mt-2">
+                            Created: {new Date(driver.createdAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

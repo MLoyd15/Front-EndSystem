@@ -1,5 +1,5 @@
 import express from "express";
-import { getStats, createDriver } from "../controlers/adminController.js";
+import { getStats, createDriver, getDrivers } from "../controlers/adminController.js";
 import { 
   listAdminBundles, 
   getAdminBundle, 
@@ -15,6 +15,7 @@ const router = express.Router();
 router.get("/stats", authMiddleware, getStats);
 
 // Driver Management
+router.get("/drivers", authMiddleware, getDrivers);
 router.post("/create-driver", authMiddleware, createDriver);
 
 // Admin Bundle Management Routes
