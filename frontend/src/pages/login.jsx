@@ -44,16 +44,18 @@ const Login = () => {
     setError(null);
 
     try {
-      const endpoint = activeTab === "driver" 
-        ? `${API}/driver/login` 
-        : `${API}/auth/login`;
+      // Both admin and driver use the same /auth/login endpoint
+      const endpoint = `${API}/auth/login`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          role: activeTab // Send the role to differentiate between admin and driver
+        })
       });
 
       const data = await response.json();
@@ -63,9 +65,15 @@ const Login = () => {
       }
 
       if (data?.success) {
-        const who = activeTab === "driver" ? data.driver : data.user;
-        await login(who, data.token);
-        navigate(activeTab === "driver" ? "/driver-dashboard" : "/admin-dashboard");
+        // The backend should return user data regardless of role
+        const user = data.user || data.driver;
+        await login(user, data.token);
+        
+        // Navigate based on the user's role from the response
+        const dashboardRoute = user.role === "driver" || activeTab === "driver"
+          ? "/driver-dashboard" 
+          : "/admin-dashboard";
+        navigate(dashboardRoute);
       } else {
         setError(data?.message || "Login failed");
       }
