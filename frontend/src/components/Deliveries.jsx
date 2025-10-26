@@ -237,8 +237,8 @@ export default function Deliveries() {
   const onAssignInHouse = async (id, { driverId, vehicleId }) => {
     try {
       await axios.put(
-        `${API}/${id}`,
-        { assignedDriver: driverId, assignedVehicle: vehicleId, status: "assigned" },
+        `${API}/${id}/assign`,
+        { driverId, vehicleId, status: "assigned" },
         { headers: auth() }
       );
       setEditing(null);

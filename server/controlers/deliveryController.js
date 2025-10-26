@@ -101,6 +101,8 @@ export async function updateDelivery(req, res) {
       "estimatedDeliveryTime",
       "notes",
       "deliveredAt", // ✅ Add this
+      "assignedDriver", // ✅ Add assignment fields as backup
+      "assignedVehicle", // ✅ Add assignment fields as backup
       "lalamove.status",
       "lalamove.driver",
       "lalamove.orderId",
