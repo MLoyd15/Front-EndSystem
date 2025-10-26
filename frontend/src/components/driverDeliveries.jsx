@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Search, MapPin, Clock, User, MessageSquare, Phone, RefreshCw } from "lucide-react";
+import { Search, MapPin, Clock, MessageSquare, Phone, RefreshCw } from "lucide-react";
 import ChatModal from "./chatmodal";       // <- use the ChatModal we created earlier
 import ChatPanel from "./SupportChat";       // <- real Socket.IO chat panel
 import { VITE_API_BASE, VITE_SOCKET_URL} from "../config"
@@ -328,10 +328,7 @@ export default function DriverDeliveries() {
                     </span>
                   </td>
                   <td className="px-3 py-3">
-                    <span className="inline-flex items-center gap-1">
-                      <User className="h-4 w-4 text-slate-400" />
-                      {d?.order?.user?.name || "—"}
-                    </span>
+                    {d?.order?.user?.name || "—"}
                   </td>
                   <td className="px-3 py-3">
                     <span className="inline-flex items-center gap-1">
