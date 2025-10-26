@@ -96,7 +96,14 @@ const AdminChatSystem = () => {
 
     // Listen for new messages
     newSocket.on('new_support_message', (message) => {
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        // Check if message already exists (to prevent duplicates)
+        const messageExists = prev.some(msg => msg.id === message.id);
+        if (messageExists) {
+          return prev;
+        }
+        return [...prev, message];
+      });
     });
 
     // Listen for chat closed
@@ -241,6 +248,25 @@ const AdminChatSystem = () => {
   const sendMessage = async () => {
     if (!messageText.trim() || !selectedChat) return;
 
+    const messageToSend = messageText.trim();
+    const tempMessageId = `temp_${Date.now()}`;
+    
+    // Immediately add message to local state for instant UI update
+    const tempMessage = {
+      id: tempMessageId,
+      message: messageToSend,
+      senderType: 'admin',
+      sender: {
+        id: 'current_admin',
+        name: 'You',
+        role: 'admin'
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, tempMessage]);
+    setMessageText('');
+
     try {
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/support-chat/${selectedChat.roomId}/message`, {
@@ -249,14 +275,25 @@ const AdminChatSystem = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ message: messageText })
+        body: JSON.stringify({ message: messageToSend })
       });
       
       const data = await response.json();
       if (data.success) {
-        setMessageText('');
+        // Replace temp message with real message from server
+        setMessages(prev => prev.map(msg => 
+          msg.id === tempMessageId ? data.message : msg
+        ));
+      } else {
+        // Remove temp message if sending failed
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
+        setMessageText(messageToSend); // Restore message text
+        console.error('Failed to send message:', data.message);
       }
     } catch (error) {
+      // Remove temp message if sending failed
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
+      setMessageText(messageToSend); // Restore message text
       console.error('Error sending message:', error);
     }
   };
