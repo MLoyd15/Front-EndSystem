@@ -7,10 +7,129 @@ const authHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
 });
 
+// Confirmation Modal Component
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, changesCount }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 ring-2 ring-blue-200 flex items-center justify-center flex-shrink-0 text-xl font-bold">
+            ?
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-sm text-gray-600">{message}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Success Modal Component
+const SuccessModal = ({ isOpen, onClose, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-emerald-100 rounded-full flex items-center justify-center">
+            <div className="text-emerald-600 text-2xl font-bold">✓</div>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Success</h3>
+          <p className="text-sm text-gray-600 mb-6">{message}</p>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-medium transition"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Error Modal Component
+const ErrorModal = ({ isOpen, onClose, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <div className="text-red-600 text-2xl font-bold">✕</div>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error</h3>
+          <p className="text-sm text-gray-600 mb-6">{message}</p>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-medium transition"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Info Modal Component (for "Nothing to reconcile")
+const InfoModal = ({ isOpen, onClose, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+            <div className="text-blue-600 text-2xl font-bold">ℹ</div>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Information</h3>
+          <p className="text-sm text-gray-600 mb-6">{message}</p>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-medium transition"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function InventoryAudit() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [physicalMap, setPhysicalMap] = useState({}); // id -> number
+  
+  // Modal states
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, changesCount: 0 });
+  const [successModal, setSuccessModal] = useState({ isOpen: false, message: "" });
+  const [errorModal, setErrorModal] = useState({ isOpen: false, message: "" });
+  const [infoModal, setInfoModal] = useState({ isOpen: false, message: "" });
 
   const fetchAudit = async () => {
     setLoading(true);
@@ -26,7 +145,10 @@ export default function InventoryAudit() {
       setPhysicalMap(init);
     } catch (e) {
       console.error("Audit fetch failed:", e);
-      alert(e?.response?.data?.message || "Failed to load audit list");
+      setErrorModal({
+        isOpen: true,
+        message: e?.response?.data?.message || "Failed to load audit list"
+      });
     } finally {
       setLoading(false);
     }
@@ -61,11 +183,20 @@ export default function InventoryAudit() {
 
   const reconcile = async () => {
     if (changed.length === 0) {
-      alert("Nothing to reconcile.");
+      setInfoModal({
+        isOpen: true,
+        message: "Nothing to reconcile."
+      });
       return;
     }
-    if (!window.confirm(`Apply ${changed.length} change(s) to system stock?`)) return;
+    
+    setConfirmModal({
+      isOpen: true,
+      changesCount: changed.length
+    });
+  };
 
+  const handleConfirmReconcile = async () => {
     try {
       const payload = {
         items: changed.map((r) => ({ id: r._id, physical: r.physical })),
@@ -73,13 +204,25 @@ export default function InventoryAudit() {
       await axios.post(`${API}/products/audit/reconcile`, payload, {
         headers: { ...authHeader(), "Content-Type": "application/json" },
       });
-      alert("Reconciled successfully!");
+      setSuccessModal({
+        isOpen: true,
+        message: "Stock updated successfully!"
+      });
       fetchAudit(); // refresh numbers
     } catch (e) {
       console.error("Reconcile failed:", e);
-      alert(e?.response?.data?.message || "Failed to reconcile");
+      setErrorModal({
+        isOpen: true,
+        message: e?.response?.data?.message || "Failed to reconcile"
+      });
     }
   };
+
+  // Modal close handlers
+  const closeConfirmModal = () => setConfirmModal({ isOpen: false, changesCount: 0 });
+  const closeSuccessModal = () => setSuccessModal({ isOpen: false, message: '' });
+  const closeErrorModal = () => setErrorModal({ isOpen: false, message: '' });
+  const closeInfoModal = () => setInfoModal({ isOpen: false, message: '' });
 
   return (
     <div className="p-0.5 bg-gray-100 min-h-screen">
@@ -170,6 +313,36 @@ export default function InventoryAudit() {
           Reconciling will apply the physical counts to system stock.
         </p>
       </div>
+
+      {/* Modals */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={() => {
+          closeConfirmModal();
+          handleConfirmReconcile();
+        }}
+        title="Confirm Reconciliation"
+        message={`Apply ${confirmModal.changesCount} change(s) to system stock?`}
+      />
+
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={closeSuccessModal}
+        message={successModal.message}
+      />
+
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={closeErrorModal}
+        message={errorModal.message}
+      />
+
+      <InfoModal
+        isOpen={infoModal.isOpen}
+        onClose={closeInfoModal}
+        message={infoModal.message}
+      />
     </div>
   );
 }
