@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
     password: {type: String, required: true},
     address: {type: String},
     role: {type: String, enum:["admin", "superadmin","user", "driver"]},
+    active:   { type: Boolean, default: true },
 
      // Loyalty fields
     loyaltyPoints: { type: Number, default: 0 },

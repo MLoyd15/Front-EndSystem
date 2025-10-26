@@ -62,7 +62,7 @@ const deliverySchema = new mongoose.Schema(
     
     // In-house delivery fields
     assignedVehicle: { type: mongoose.Schema.Types.ObjectId, ref: "Vehicle" },
-    assignedDriver: { type: mongoose.Schema.Types.ObjectId, ref: "Driver" },
+    assignedDriver: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     
     // Additional tracking
     deliveredAt: Date,               // Actual delivery timestamp

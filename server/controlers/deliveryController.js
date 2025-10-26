@@ -3,6 +3,7 @@
 import mongoose from "mongoose";
 import Delivery from "../models/Delivery.js";
 import Driver from "../models/Driver.js";
+import User from "../models/user.js"; // ✅ Import User model for driver assignments
 import Vehicle from "../models/Vehicle.js";
 import Order from "../models/Order.js"; // ✅ Import Order model
 
@@ -248,7 +249,7 @@ export async function assignDriverVehicle(req, res) {
     }
 
     const [driver, vehicle] = await Promise.all([
-      Driver.findById(driverId).select("_id name phone"),
+      User.findById(driverId).select("_id name phone"),
       Vehicle.findById(vehicleId).select("_id plate capacityKg"),
     ]);
     

@@ -925,10 +925,14 @@ function InHouseEditor({ row, onCancel, onAssign, onQuickStatus }) {
     (async () => {
       try {
         setLoading(true);
-        const { data } = await axios.get(`${API}/resources/all`, { headers: auth() });
+        // Fetch drivers from admin endpoint and vehicles from resources endpoint
+        const [driversResponse, vehiclesResponse] = await Promise.all([
+          axios.get(`${VITE_API_BASE}/admin/drivers`, { headers: auth() }),
+          axios.get(`${API}/resources/all`, { headers: auth() })
+        ]);
         if (!live) return;
-        setDrivers(data?.drivers || []);
-        setVehicles(data?.vehicles || []);
+        setDrivers(driversResponse.data?.drivers || []);
+        setVehicles(vehiclesResponse.data?.vehicles || []);
         setErr("");
       } catch (e) {
         console.error("Failed to load drivers/vehicles", e?.response?.status, e?.response?.data);
