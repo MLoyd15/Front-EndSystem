@@ -22,6 +22,44 @@ const AdminChatSystem = () => {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
+  // Helper function to get display name for chat user
+  const getChatDisplayName = (chat) => {
+    if (!chat || !chat.user) {
+      return 'Anonymous User';
+    }
+    
+    const user = chat.user;
+    
+    // Try different name fields in order of preference
+    if (user.name && user.name !== 'undefined' && user.name.trim() !== '') {
+      return user.name;
+    }
+    if (user.fullName && user.fullName !== 'undefined' && user.fullName.trim() !== '') {
+      return user.fullName;
+    }
+    if (user.firstName && user.lastName) {
+      const fullName = `${user.firstName} ${user.lastName}`.trim();
+      if (fullName !== 'undefined undefined' && fullName !== '' && !fullName.includes('undefined')) {
+        return fullName;
+      }
+    }
+    if (user.firstName && user.firstName !== 'undefined' && user.firstName.trim() !== '') {
+      return user.firstName;
+    }
+    if (user.username && user.username !== 'undefined' && user.username.trim() !== '') {
+      return user.username;
+    }
+    if (user.email && user.email !== 'undefined' && user.email.trim() !== '') {
+      // Extract name part from email if available
+      const emailName = user.email.split('@')[0];
+      const displayName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+      return displayName;
+    }
+    
+    // Fallback to a generic name
+    return 'Customer';
+  };
+
   // Get auth token from localStorage
  const getAuthToken = () => {
   try {
@@ -419,7 +457,7 @@ const AdminChatSystem = () => {
                         </div>
                         <div>
                           <p className="font-semibold text-sm text-gray-800">
-                            {chat.user.name}
+                            {getChatDisplayName(chat)}
                           </p>
                           <p className="text-xs text-gray-500">
                             {new Date(chat.createdAt).toLocaleTimeString()}
@@ -457,7 +495,7 @@ const AdminChatSystem = () => {
                       </div>
                       <div>
                         <p className="font-semibold text-sm text-gray-800">
-                          {chat.user?.name || 'Customer'}
+                          {getChatDisplayName(chat)}
                         </p>
                         <p className="text-xs text-gray-500">Active chat</p>
                       </div>
@@ -491,7 +529,7 @@ const AdminChatSystem = () => {
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <p className="font-semibold text-sm text-gray-800">
-                              {chat.user?.name || 'Customer'}
+                              {getChatDisplayName(chat)}
                             </p>
                             <span className={`px-2 py-1 text-xs rounded ${
                               chat.status === 'closed' 
@@ -550,10 +588,10 @@ const AdminChatSystem = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">
-                    {selectedChat.user?.name || 'Customer'}
+                    {getChatDisplayName(selectedChat)}
                   </h3>
                   <p className="text-xs text-gray-500">
-                    {selectedChat.user?.email}
+                    {selectedChat.user?.email || 'No email provided'}
                   </p>
                 </div>
               </div>

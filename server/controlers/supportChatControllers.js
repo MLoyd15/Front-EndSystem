@@ -266,7 +266,7 @@ export const getActiveChats = async (req, res) => {
       adminId: userId,
       status: 'active'
     })
-      .populate('userId', 'firstName lastName email')
+      .populate('userId', 'name email')
       .sort({ lastActivity: -1 });
 
     res.json({
@@ -275,7 +275,7 @@ export const getActiveChats = async (req, res) => {
         roomId: chat.roomId,
         user: {
           id: chat.userId._id,
-          name: `${chat.userId.firstName} ${chat.userId.lastName}`,
+          name: chat.userId.name || 'Unknown User',
           email: chat.userId.email
         },
         lastActivity: chat.lastActivity
@@ -304,8 +304,8 @@ export const getAllChats = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const allChats = await ChatRoom.find({})
-      .populate('userId', 'firstName lastName email name')
-      .populate('adminId', 'firstName lastName email name')
+      .populate('userId', 'name email')
+      .populate('adminId', 'name email')
       .sort({ lastActivity: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -318,16 +318,12 @@ export const getAllChats = async (req, res) => {
         roomId: chat.roomId,
         user: chat.userId ? {
           id: chat.userId._id,
-          name: chat.userId.firstName && chat.userId.lastName 
-            ? `${chat.userId.firstName} ${chat.userId.lastName}`
-            : chat.userId.name || 'Unknown User',
+          name: chat.userId.name || 'Unknown User',
           email: chat.userId.email
         } : null,
         admin: chat.adminId ? {
           id: chat.adminId._id,
-          name: chat.adminId.firstName && chat.adminId.lastName 
-            ? `${chat.adminId.firstName} ${chat.adminId.lastName}`
-            : chat.adminId.name || 'Unknown Admin',
+          name: chat.adminId.name || 'Unknown Admin',
           email: chat.adminId.email
         } : null,
         status: chat.status,
