@@ -268,6 +268,7 @@ export default function Deliveries() {
     if (currentTab === "pickup") {
       return delivery.pickupLocation || "Set pickup location";
     }
+    // For in-house and third-party, only show delivery address
     return delivery.deliveryAddress || "—";
   };
 
@@ -482,10 +483,13 @@ export default function Deliveries() {
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <Clock className="w-4 h-4" />
-                              <span>{fmtDateTime(d.scheduledDate)}</span>
-                            </div>
+                            {/* ✅ FIXED: Only show scheduled time for pickup orders */}
+                            {d.type === "pickup" && (
+                              <div className="flex items-center gap-2 text-slate-600">
+                                <Clock className="w-4 h-4" />
+                                <span>{fmtDateTime(d.scheduledDate)}</span>
+                              </div>
+                            )}
 
                             <div className="flex items-center gap-2 text-slate-600">
                               <Weight className="w-4 h-4" />
@@ -717,18 +721,27 @@ export default function Deliveries() {
                       Location Details
                     </h4>
                     <div className="space-y-3 text-sm">
-                      <div>
-                        <span className="text-slate-600 block mb-1">Pickup Location:</span>
-                        <span className="font-medium">{drawer.pickupLocation || "—"}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-600 block mb-1">Delivery Address:</span>
-                        <span className="font-medium">{drawer.deliveryAddress || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Scheduled Time:</span>
-                        <span className="font-medium">{fmtDateTime(drawer.scheduledDate)}</span>
-                      </div>
+                      {/* ✅ FIXED: Only show pickup location for pickup orders */}
+                      {drawer.type === "pickup" && (
+                        <div>
+                          <span className="text-slate-600 block mb-1">Pickup Location:</span>
+                          <span className="font-medium">{drawer.pickupLocation || "—"}</span>
+                        </div>
+                      )}
+                      {/* ✅ FIXED: Show delivery address for non-pickup orders */}
+                      {drawer.type !== "pickup" && (
+                        <div>
+                          <span className="text-slate-600 block mb-1">Delivery Address:</span>
+                          <span className="font-medium">{drawer.deliveryAddress || "—"}</span>
+                        </div>
+                      )}
+                      {/* ✅ FIXED: Only show scheduled time for pickup orders */}
+                      {drawer.type === "pickup" && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Scheduled Time:</span>
+                          <span className="font-medium">{fmtDateTime(drawer.scheduledDate)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
