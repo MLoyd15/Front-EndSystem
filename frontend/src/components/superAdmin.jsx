@@ -1,18 +1,56 @@
 import React, { useState } from 'react';
-import { User, Lock, Eye, EyeOff, AlertCircle, Loader } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, AlertCircle, Loader, Key, Shield } from 'lucide-react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
 
 const API = VITE_API_BASE;
 
 const SuperAdminLogin = () => {
+  const [accessKey, setAccessKey] = useState('');
+  const [isAccessGranted, setIsAccessGranted] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [accessKeyLoading, setAccessKeyLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleAccessKeySubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setAccessKeyLoading(true);
+
+    try {
+      const response = await fetch(`${API}/auth/validate-access-key`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ accessKey })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid access key');
+      }
+
+      if (data.success) {
+        setIsAccessGranted(true);
+        setError('');
+      } else {
+        throw new Error('Access denied');
+      }
+      
+    } catch (err) {
+      console.error('Access key validation error:', err);
+      setError(err.message || 'Invalid access key');
+    } finally {
+      setAccessKeyLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -86,7 +124,7 @@ const SuperAdminLogin = () => {
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            Welcome Back
+            {!isAccessGranted ? 'Secure Access Required' : 'Welcome Back'}
           </h2>
 
           {/* Error Message */}
@@ -99,8 +137,64 @@ const SuperAdminLogin = () => {
             </div>
           )}
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {!isAccessGranted ? (
+            /* Access Key Form */
+            <form onSubmit={handleAccessKeySubmit} className="space-y-5">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="w-8 h-8 text-white" />
+                </div>
+                <p className="text-gray-600 text-sm">
+                  Enter the secure access key to proceed to owner login
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Access Key
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Key className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="password"
+                    value={accessKey}
+                    onChange={(e) => setAccessKey(e.target.value)}
+                    required
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
+                    placeholder="Enter secure access key"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={accessKeyLoading}
+                className="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:from-red-700 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {accessKeyLoading ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    Validating...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-5 h-5" />
+                    Validate Access Key
+                  </>
+                )}
+              </button>
+
+              <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                <p className="text-xs text-red-800 text-center">
+                  🔐 This portal requires a secure access key. Contact the system administrator if you don't have access.
+                </p>
+              </div>
+            </form>
+          ) : (
+            /* Login Form */
+            <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Input */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -169,39 +263,40 @@ const SuperAdminLogin = () => {
                 'Sign In as Owner'
               )}
             </button>
-          </form>
 
-          {/* Divider */}
-          <div className="mt-6 relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
+            {/* Divider */}
+            <div className="mt-6 relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500">Owner Only</span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">Owner Only</span>
-            </div>
-          </div>
 
-          {/* Role Information */}
-          <div className="mt-6">
-            <div className="p-4 bg-gradient-to-r from-green-50 to-yellow-50 rounded-lg border-2 border-green-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-green-900">Owner Access</p>
-                  <p className="text-xs text-green-700">Full system control & maintenance</p>
+            {/* Role Information */}
+            <div className="mt-6">
+              <div className="p-4 bg-gradient-to-r from-green-50 to-yellow-50 rounded-lg border-2 border-green-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-green-900">Owner Access</p>
+                    <p className="text-xs text-green-700">Full system control & maintenance</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Security Notice */}
-          <div className="mt-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-            <p className="text-xs text-yellow-800 text-center">
-              🔒 This is a restricted access area. All login attempts are monitored and logged.
-            </p>
-          </div>
+            {/* Security Notice */}
+            <div className="mt-6 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <p className="text-xs text-yellow-800 text-center">
+                🔒 This is a restricted access area. All login attempts are monitored and logged.
+              </p>
+            </div>
+          </form>
+          )}
         </div>
 
         {/* Back to Website */}

@@ -136,8 +136,19 @@ const GoAgriLanding = () => {
     });
   };
 
+  // Secure logo click handler - multiple safe alternatives
   const handleLogoClick = () => {
-    window.location.href = '/Superlogin';
+    // Option 1: Scroll to top (safest)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Option 2: Show company info modal (alternative)
+    // setShowCompanyInfo(true);
+    
+    // Option 3: Navigate to homepage/about section (alternative)
+    // window.location.href = '#about';
+    
+    // Option 4: Do nothing (just visual feedback)
+    // console.log('Logo clicked - GO AGRI TRADING');
   };
 
   // Copy promo code functionality
@@ -277,7 +288,7 @@ const GoAgriLanding = () => {
             <div 
               className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={handleLogoClick}
-              title="Click to access staff login"
+              title="GO AGRI TRADING - Back to top"
             >
               <img 
                 src="https://res.cloudinary.com/dx9cjcodr/image/upload/v1759537836/logoAgriTrading_l1hp4e.png" 
@@ -390,7 +401,54 @@ const GoAgriLanding = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {promos.map((promo, index) => (
+              {promos.map((promo, index) => {
+                // Color schemes array for variety
+                const colorSchemes = [
+                  'from-blue-500 to-indigo-600',      // Blue to Indigo
+                  'from-purple-500 to-pink-600',      // Purple to Pink
+                  'from-green-500 to-emerald-600',    // Green to Emerald
+                  'from-orange-500 to-red-600',       // Orange to Red
+                  'from-cyan-500 to-blue-600',        // Cyan to Blue
+                  'from-violet-500 to-purple-600',    // Violet to Purple
+                  'from-emerald-500 to-teal-600',     // Emerald to Teal
+                  'from-rose-500 to-pink-600',        // Rose to Pink
+                  'from-amber-500 to-orange-600',     // Amber to Orange
+                  'from-indigo-500 to-blue-600'       // Indigo to Blue
+                ];
+                
+                const colorScheme = colorSchemes[index % colorSchemes.length];
+                
+                // Extract primary color for progress bar and buttons
+                const progressColors = [
+                  'bg-blue-500',      // Blue
+                  'bg-purple-500',    // Purple
+                  'bg-green-500',     // Green
+                  'bg-orange-500',    // Orange
+                  'bg-cyan-500',      // Cyan
+                  'bg-violet-500',    // Violet
+                  'bg-emerald-500',   // Emerald
+                  'bg-rose-500',      // Rose
+                  'bg-amber-500',     // Amber
+                  'bg-indigo-500'     // Indigo
+                ];
+                
+                const buttonColors = [
+                  'bg-blue-500 hover:bg-blue-600',      // Blue
+                  'bg-purple-500 hover:bg-purple-600',  // Purple
+                  'bg-green-500 hover:bg-green-600',    // Green
+                  'bg-orange-500 hover:bg-orange-600',  // Orange
+                  'bg-cyan-500 hover:bg-cyan-600',      // Cyan
+                  'bg-violet-500 hover:bg-violet-600',  // Violet
+                  'bg-emerald-500 hover:bg-emerald-600',// Emerald
+                  'bg-rose-500 hover:bg-rose-600',      // Rose
+                  'bg-amber-500 hover:bg-amber-600',    // Amber
+                  'bg-indigo-500 hover:bg-indigo-600'   // Indigo
+                ];
+                
+                const progressColor = progressColors[index % progressColors.length];
+                const buttonColor = buttonColors[index % buttonColors.length];
+                
+                return (
                 <div 
                   key={promo._id} 
                   className={`relative bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 ${
@@ -398,11 +456,7 @@ const GoAgriLanding = () => {
                   }`}
                 >
                   {/* Promo Header */}
-                  <div className={`bg-gradient-to-r ${
-                    promo.type === 'Percentage' ? 'from-green-500 to-emerald-500' :
-                    promo.type === 'Fixed Amount' ? 'from-blue-500 to-indigo-500' :
-                    'from-purple-500 to-pink-500'
-                  } p-6 text-white`}>
+                  <div className={`bg-gradient-to-r ${colorScheme} p-6 text-white`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         {promo.type === 'Percentage' ? (
@@ -445,7 +499,7 @@ const GoAgriLanding = () => {
                       {promo.limit > 0 && (
                         <div className="w-20 bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                            className={`${progressColor} h-2 rounded-full transition-all duration-300`}
                             style={{ width: `${Math.min((promo.used / promo.limit) * 100, 100)}%` }}
                           ></div>
                         </div>
@@ -466,7 +520,7 @@ const GoAgriLanding = () => {
                           className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                             copiedCode === promo.code
                               ? 'bg-green-500 text-white'
-                              : 'bg-orange-500 hover:bg-orange-600 text-white'
+                              : `${buttonColor} text-white`
                           }`}
                         >
                           {copiedCode === promo.code ? (
@@ -485,11 +539,10 @@ const GoAgriLanding = () => {
                     </div>
                   </div>
 
-                  {/* Decorative Elements */}
-                  <div className="absolute top-4 right-4 w-16 h-16 bg-white bg-opacity-20 rounded-full"></div>
-                  <div className="absolute bottom-4 left-4 w-8 h-8 bg-white bg-opacity-10 rounded-full"></div>
+
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
