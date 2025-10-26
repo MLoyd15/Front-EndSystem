@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Category from "../models/category.js";
+import mongoose from "mongoose";
 
 /** Helper: get io instance safely */
 const getIO = (req) => req.app && req.app.get && req.app.get("io");
@@ -48,6 +49,10 @@ const list = async (req, res) => {
 
 const getOne = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid product ID format" });
+    }
+    
     const item = await Product.findById(req.params.id).populate(
       "category",
       "categoryName"
@@ -143,6 +148,10 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid product ID format" });
+    }
+    
     const body = Object.fromEntries(
       Object.entries(req.body).filter(([, v]) => v !== undefined)
     );
@@ -207,6 +216,10 @@ const update = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid product ID format" });
+    }
+    
     const deleted = await Product.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Product not found" });
     res.json({ message: "Deleted", id: deleted._id });
@@ -272,14 +285,23 @@ export const auditReconcile = async (req, res) => {
     for (const r of items) {
       const id = String(r.id || "").trim();
       const physical = Number(r.physical);
-      if (!id || Number.isNaN(physical) || physical < 0) {
+      
+      // Validate ObjectId format
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         return res
           .status(400)
-          .json({ message: "Each item needs valid id and physical >= 0" });
+          .json({ message: `Invalid product ID format: ${id}` });
       }
+      
+      if (Number.isNaN(physical) || physical < 0) {
+        return res
+          .status(400)
+          .json({ message: "Each item needs valid physical count >= 0" });
+      }
+      
       ops.push({
         updateOne: {
-          filter: { _id: id },
+          filter: { _id: new mongoose.Types.ObjectId(id) },
           update: { $set: { stock: physical } },
         },
       });
