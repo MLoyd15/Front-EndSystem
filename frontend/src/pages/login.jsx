@@ -72,7 +72,7 @@ const Login = () => {
         // Navigate based on the user's role from the response
         const dashboardRoute = user.role === "driver" || activeTab === "driver"
           ? "/driver-dashboard" 
-          : "/admin-dashboard";
+          : "/admin-dashboard/products";
         navigate(dashboardRoute);
       } else {
         setError(data?.message || "Login failed");
