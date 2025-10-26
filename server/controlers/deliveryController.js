@@ -317,17 +317,53 @@ export async function createDeliveryFromOrder(req, res) {
       });
     }
 
+    // Extract customer data from different order formats
+    let customerData = {
+      name: "Unknown Customer",
+      phone: "",
+      email: ""
+    };
+
+    // Priority 1: Use customerContact if available
+    if (order.customerContact?.name) {
+      customerData = {
+        name: order.customerContact.name,
+        phone: order.customerContact.phone || "",
+        email: order.customerContact.email || ""
+      };
+    }
+    // Priority 2: Use populated user data
+    else if (order.user?.name) {
+      customerData = {
+        name: order.user.name,
+        phone: order.user.phone || "",
+        email: order.user.email || ""
+      };
+    }
+    // Priority 3: Handle mobile app format with userId
+    else if (order.userId) {
+      if (order.userId.includes('@')) {
+        customerData = {
+          name: order.userId,
+          phone: "",
+          email: order.userId
+        };
+      } else {
+        customerData = {
+          name: order.userId,
+          phone: "",
+          email: ""
+        };
+      }
+    }
+
     const delivery = new Delivery({
       order: orderId,
       type,
       status: "pending",
       pickupLocation: pickupLocation || "Warehouse, Manila",
-      deliveryAddress: deliveryAddress || order.deliveryAddress || order.user?.address,
-      customer: {
-        name: order.customerContact?.name || order.user?.name,
-        phone: order.customerContact?.phone || order.user?.phone,
-        email: order.customerContact?.email || order.user?.email
-      }
+      deliveryAddress: deliveryAddress || order.deliveryAddress || order.address || order.user?.address,
+      customer: customerData
     });
 
     await delivery.save();

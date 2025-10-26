@@ -22,6 +22,7 @@ import adminRefundTicketsRouter from "./routes/adminRefundTickets.js";
 import maintenanceRoutes from './routes/maintenance.js';
 import lalamoveRoutes from './routes/lalalmove.js';
 import supportChatRoutes from "./routes/supportChatRoutes.js"; // ✅ Already imported
+import deliveryChatRoutes from "./routes/deliveryChat.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,6 +67,7 @@ app.use("/api/refund-tickets", adminRefundTicketsRouter);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/lalamove', lalamoveRoutes);
 app.use("/api/support-chat", supportChatRoutes); // ✅ ADD THIS LINE
+app.use("/api/delivery-chat", deliveryChatRoutes);
 
 // (Optional) simple health check
 app.get("/health", (_req, res) => res.json({ ok: true }));

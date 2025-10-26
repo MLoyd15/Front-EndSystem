@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Phone, RefreshCcw, Truck, CheckCircle2, Timer,
   MapPin, Package, User, Weight, ChevronRight, Search, Clock, X,
-  ChevronLeft, Calendar, TrendingUp
+  ChevronLeft, Calendar, TrendingUp, Play
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
 
@@ -53,7 +53,7 @@ const Card = ({ children, onClick }) => (
   <motion.div
     layout
     onClick={onClick}
-    className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-lg cursor-pointer transition-all duration-200"
+    className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 shadow-sm hover:shadow-lg cursor-pointer transition-all duration-200"
     whileHover={{ y: -4, scale: 1.01 }}
     transition={{ type: "spring", stiffness: 300, damping: 24 }}
   >
@@ -74,62 +74,61 @@ function JobCard({ job, onStart, onDeliver, onView }) {
 
   return (
     <Card onClick={() => onView?.(job)}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4 flex-1">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 ring-1 ring-emerald-200">
-            <Package className="w-6 h-6 text-emerald-600" />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+          <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 ring-1 ring-emerald-200 flex-shrink-0">
+            <Package className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-bold text-gray-900 text-lg">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <p className="font-bold text-gray-900 text-base sm:text-lg">
                 {orderCode}
               </p>
               <Pill tone={tone}>{job?.status}</Pill>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+            <div className="space-y-1 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-3 text-xs sm:text-sm text-gray-600">
               <span className="flex items-center gap-1.5">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">{name}</span>
+                <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                <span className="truncate">{name}</span>
               </span>
-              {items ? (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-gray-400" />
-                  <span>{items} item{items > 1 ? "s" : ""}</span>
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-2 flex items-start gap-2 text-gray-600 text-sm">
-              <MapPin className="w-4 h-4 mt-0.5 text-gray-400 flex-shrink-0" />
-              <span className="line-clamp-2">{address}</span>
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                <span className="truncate">{address}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Package className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                <span>{items} item{items !== 1 ? 's' : ''}</span>
+              </span>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Actions */}
-      <div className="mt-4 flex gap-2 flex-wrap">
-        {job?.status === "assigned" && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onStart?.(job);
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-5 py-2.5 text-sm font-medium hover:from-sky-700 hover:to-blue-700 transition-all shadow-sm"
-          >
-            <Truck className="w-4 h-4" /> Start Trip
-          </button>
-        )}
-        {job?.status === "in-transit" && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeliver?.(job);
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 text-white px-5 py-2.5 text-sm font-medium hover:from-emerald-700 hover:to-green-700 transition-all shadow-sm"
-          >
-            <CheckCircle2 className="w-4 h-4" /> Mark Delivered
-          </button>
-        )}
+        
+        <div className="flex flex-row sm:flex-col gap-2 sm:gap-2 flex-shrink-0">
+          {job?.status === "assigned" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStart?.(job);
+              }}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2 text-xs sm:text-sm font-medium text-white hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-sm"
+            >
+              <Play className="w-3 h-3 sm:w-4 sm:h-4" />
+              Start
+            </button>
+          )}
+          {job?.status === "in-transit" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeliver?.(job);
+              }}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-3 py-2 text-xs sm:text-sm font-medium text-white hover:from-sky-600 hover:to-sky-700 transition-all shadow-sm"
+            >
+              <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" />
+              Deliver
+            </button>
+          )}
+        </div>
       </div>
     </Card>
   );
@@ -225,13 +224,13 @@ const DetailSheet = ({ open, job, onClose }) => {
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", stiffness: 260, damping: 30 }}
-          className="absolute inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white p-6 shadow-2xl max-h-[85vh] overflow-y-auto"
+          className="absolute inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white p-4 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-4 sm:mb-6">
             <div>
-              <h3 className="text-xl font-bold text-gray-900">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900">
                 Order #{orderCode}
               </h3>
               <div className="mt-2">
@@ -244,24 +243,24 @@ const DetailSheet = ({ open, job, onClose }) => {
           </div>
 
           {/* Order Items */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Package className="w-5 h-5 text-gray-700" />
-              <h4 className="font-semibold text-gray-900">Order Items</h4>
+          <div className="mb-4 sm:mb-6">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+              <Package className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
+              <h4 className="font-semibold text-gray-900 text-sm sm:text-base">Order Items</h4>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {items.length === 0 && (
-                <p className="text-sm text-gray-500">No items attached.</p>
+                <p className="text-xs sm:text-sm text-gray-500">No items attached.</p>
               )}
               {items.map((it, idx) => (
-                <div key={idx} className="rounded-lg border border-gray-200 p-4 bg-white">
+                <div key={idx} className="rounded-lg border border-gray-200 p-3 sm:p-4 bg-white">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-xs sm:text-sm font-semibold text-gray-900">
                         {it?.name || it?.product?.name || `Item ${idx + 1}`}
                       </p>
                       {it?.price && (
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-600 mt-1">
                           ₱{Number(it.price).toLocaleString()}
                         </p>
                       )}
@@ -273,10 +272,10 @@ const DetailSheet = ({ open, job, onClose }) => {
           </div>
 
           {/* Total */}
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-3 sm:pt-4 border-t border-gray-200">
             <div className="flex justify-between items-center">
-              <span className="text-base font-semibold text-gray-900">Total</span>
-              <span className="text-lg font-bold text-gray-900">
+              <span className="text-sm sm:text-base font-semibold text-gray-900">Total</span>
+              <span className="text-base sm:text-lg font-bold text-gray-900">
                 {items.length > 0 && items.some(it => it?.price) 
                   ? `₱${items.reduce((sum, it) => sum + (Number(it?.price || 0) * (it?.qty || it?.quantity || 1)), 0).toLocaleString()}`
                   : "—"
@@ -304,7 +303,8 @@ export default function DriverHome() {
   const [assignedPage, setAssignedPage] = useState(1);
   const [transitPage, setTransitPage] = useState(1);
   const [completedPage, setCompletedPage] = useState(1);
-  const ITEMS_PER_PAGE = 6;
+  const ASSIGNED_ITEMS_PER_PAGE = 3; // Ready to pick up shows 3 items per page
+  const ITEMS_PER_PAGE = 6; // Other sections show 6 items per page
 
   const fetcher = useCallback(async () => {
     try {
@@ -383,70 +383,72 @@ export default function DriverHome() {
   };
 
   // Paginate function
-  const paginate = (items, page) => {
-    const startIndex = (page - 1) * ITEMS_PER_PAGE;
-    return items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginate = (items, page, itemsPerPage = ITEMS_PER_PAGE) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return items.slice(startIndex, startIndex + itemsPerPage);
   };
 
   const filteredAssigned = filterByQ(assigned);
   const filteredTransit = filterByQ(inTransit);
   const filteredCompleted = filterByQ(completed);
 
-  const paginatedAssigned = paginate(filteredAssigned, assignedPage);
+  const paginatedAssigned = paginate(filteredAssigned, assignedPage, ASSIGNED_ITEMS_PER_PAGE);
   const paginatedTransit = paginate(filteredTransit, transitPage);
   const paginatedCompleted = paginate(filteredCompleted, completedPage);
 
-  const assignedTotalPages = Math.ceil(filteredAssigned.length / ITEMS_PER_PAGE);
+  const assignedTotalPages = Math.ceil(filteredAssigned.length / ASSIGNED_ITEMS_PER_PAGE);
   const transitTotalPages = Math.ceil(filteredTransit.length / ITEMS_PER_PAGE);
   const completedTotalPages = Math.ceil(filteredCompleted.length / ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Driver Dashboard</h1>
-            <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              {todayStr()}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-2xl bg-white border border-gray-200 px-4 py-2.5 shadow-sm">
-              <Search className="w-4 h-4 text-gray-400" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search orders..."
-                className="outline-none text-sm w-48 sm:w-64"
-              />
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Driver Dashboard</h1>
+              <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                {todayStr()}
+              </p>
             </div>
             <button
               onClick={fetcher}
-              className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm sm:w-auto w-full"
               title="Refresh"
             >
               <RefreshCcw className="w-4 h-4" /> Refresh
             </button>
           </div>
+          
+          {/* Search - Full width on mobile */}
+          <div className="flex items-center gap-2 rounded-2xl bg-white border border-gray-200 px-4 py-2.5 shadow-sm">
+            <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search orders..."
+              className="outline-none text-sm flex-1 min-w-0"
+            />
+          </div>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {stats.map((s) => (
             <motion.div
               key={s.label}
               whileHover={{ y: -4 }}
-              className="rounded-2xl p-6 bg-white border border-gray-200 shadow-sm"
+              className="rounded-2xl p-4 sm:p-6 bg-white border border-gray-200 shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-500 font-medium mb-1">{s.label}</p>
-                  <p className="text-3xl font-bold text-gray-900">{s.value}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">{s.value}</p>
                 </div>
-                <div className={`p-3 rounded-xl bg-gradient-to-br ${s.tone}`}>
-                  <s.icon className="w-6 h-6 text-white" />
+                <div className={`p-2 sm:p-3 rounded-xl bg-gradient-to-br ${s.tone}`}>
+                  <s.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
               </div>
             </motion.div>
@@ -454,16 +456,16 @@ export default function DriverHome() {
         </div>
 
         {/* Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Assigned */}
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-xl text-gray-800 flex items-center gap-2">
-                <Timer className="w-5 h-5 text-amber-600" /> Ready to pick up
-                <span className="text-sm font-normal text-gray-500">({filteredAssigned.length})</span>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="font-bold text-lg sm:text-xl text-gray-800 flex items-center gap-2">
+                <Timer className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" /> Ready to pick up
+                <span className="text-xs sm:text-sm font-normal text-gray-500">({filteredAssigned.length})</span>
               </h2>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {loading && <Empty icon={Timer} title="Loading..." />}
               {!loading && filteredAssigned.length === 0 && (
                 <Empty icon={Timer} title="No assigned jobs" note="Once a dispatcher assigns tasks, they will appear here." />
@@ -491,13 +493,13 @@ export default function DriverHome() {
 
           {/* In Transit */}
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-xl text-gray-800 flex items-center gap-2">
-                <Truck className="w-5 h-5 text-sky-600" /> In transit
-                <span className="text-sm font-normal text-gray-500">({filteredTransit.length})</span>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="font-bold text-lg sm:text-xl text-gray-800 flex items-center gap-2">
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600" /> In transit
+                <span className="text-xs sm:text-sm font-normal text-gray-500">({filteredTransit.length})</span>
               </h2>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {loading && <Empty icon={Truck} title="Loading..." />}
               {!loading && filteredTransit.length === 0 && (
                 <Empty icon={Truck} title="No ongoing trips" note="Start a job to move it to in-transit." />
@@ -526,11 +528,11 @@ export default function DriverHome() {
 
         {/* Completed */}
         <section>
-          <h2 className="font-bold text-xl text-gray-800 flex items-center gap-2 mb-4">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" /> Completed deliveries
-            <span className="text-sm font-normal text-gray-500">({filteredCompleted.length})</span>
+          <h2 className="font-bold text-lg sm:text-xl text-gray-800 flex items-center gap-2 mb-3 sm:mb-4">
+            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" /> Completed deliveries
+            <span className="text-xs sm:text-sm font-normal text-gray-500">({filteredCompleted.length})</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             {loading && (
               <div className="sm:col-span-2 lg:col-span-3">
                 <Empty icon={CheckCircle2} title="Loading..." />

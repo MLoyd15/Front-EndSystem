@@ -79,7 +79,7 @@ const SuperAdminLogin = () => {
             GO AGRI TRADING
           </h1>
           <p className="text-gray-600 text-sm">
-            Super Admin Access Portal
+            Owner Access Portal
           </p>
         </div>
 
@@ -117,7 +117,7 @@ const SuperAdminLogin = () => {
                   onChange={handleChange}
                   required
                   className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
-                  placeholder="superadmin@goagri.com"
+                  placeholder="owner@goagri.com"
                 />
               </div>
             </div>
@@ -166,7 +166,7 @@ const SuperAdminLogin = () => {
                   Signing in...
                 </>
               ) : (
-                'Sign In as Super Admin'
+                'Sign In as Owner'
               )}
             </button>
           </form>
@@ -177,7 +177,7 @@ const SuperAdminLogin = () => {
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">Super Admin Only</span>
+              <span className="px-4 bg-white text-gray-500">Owner Only</span>
             </div>
           </div>
 
@@ -189,7 +189,7 @@ const SuperAdminLogin = () => {
                   <User className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-green-900">Super Admin Access</p>
+                  <p className="text-sm font-bold text-green-900">Owner Access</p>
                   <p className="text-xs text-green-700">Full system control & maintenance</p>
                 </div>
               </div>

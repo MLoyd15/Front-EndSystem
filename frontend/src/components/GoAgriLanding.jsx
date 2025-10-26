@@ -203,7 +203,7 @@ const GoAgriLanding = () => {
             <div 
               className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={handleLogoClick}
-              title="Click to access admin login"
+              title="Click to access staff login"
             >
               <img 
                 src="https://res.cloudinary.com/dx9cjcodr/image/upload/v1759537836/logoAgriTrading_l1hp4e.png" 
@@ -233,7 +233,7 @@ const GoAgriLanding = () => {
                 className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
               >
                 <User className="w-4 h-4" />
-                <span>Admin Login</span>
+                <span>Staff Login</span>
               </a>
             </div>
 
@@ -257,7 +257,7 @@ const GoAgriLanding = () => {
                 <Download className="w-4 h-4" />
                 <span>Download App</span>
               </a>
-              <a href="/login" className="block text-blue-600 hover:text-blue-700 font-medium">Admin Login</a>
+              <a href="/login" className="block text-blue-600 hover:text-blue-700 font-medium">Staff Login</a>
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Star, Search, Eye, Trash2, Package, MessageSquare,
+  Star, Search, Eye, Package, MessageSquare,
   ArrowLeft, Filter, Calendar, User
 } from "lucide-react";
 import { VITE_API_BASE } from "../config"
@@ -108,37 +108,6 @@ export default function ProductReviewManagement() {
     const avgRating = total > 0 ? all.reduce((s, r) => s + (r.rating || 0), 0) / total : 0;
     return { totalProducts: products.length, total, avgRating };
   }, [products]);
-
-  // Delete a review (API)
-const deleteReview = async (reviewId, productId) => {
-  if (!window.confirm("Are you sure you want to delete this review?")) return;
-
-  // 🔹 Optimistic UI: update immediately
-  setProducts(prev =>
-    prev.map(p =>
-      p._id === productId
-        ? { ...p, reviews: p.reviews.filter(r => r._id !== reviewId) }
-        : p
-    )
-  );
-  setSelectedProduct(prev =>
-    prev?._id === productId
-      ? { ...prev, reviews: prev.reviews.filter(r => r._id !== reviewId) }
-      : prev
-  );
-  if (selectedReview?._id === reviewId) setSelectedReview(null);
-
-  try {
-    await axios.delete(`${API}/products/${productId}/reviews/${reviewId}`, { headers: auth() });
-    window.alert("Review deleted successfully.");
-  } catch (e) {
-    // 🔙 Rollback if API fails (optional)
-    console.error("Failed to delete review:", e);
-    window.alert("Failed to delete review. Please try again.");
-    // You can reload data here if you want a full rollback:
-    // loadData();
-  }
-};
   // If a product is selected, render the per-product review view
   if (selectedProduct) {
     return (
@@ -148,7 +117,6 @@ const deleteReview = async (reviewId, productId) => {
           setSelectedProduct(null);
           setSelectedReview(null);
         }}
-        onDeleteReview={deleteReview}
         onViewReview={setSelectedReview}
         selectedReview={selectedReview}
         onCloseReview={() => setSelectedReview(null)}
@@ -349,7 +317,7 @@ const ProductCard = ({ product, onClick, delay = 0 }) => {
 };
 
 function ProductReviewsView({
-  product, onBack, onDeleteReview, onViewReview, selectedReview, onCloseReview,
+  product, onBack, onViewReview, selectedReview, onCloseReview,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRating, setFilterRating] = useState("");
@@ -462,7 +430,6 @@ function ProductReviewsView({
                     key={review._id}
                     review={review}
                     productId={product._id}
-                    onDelete={onDeleteReview}
                     onViewDetails={() => onViewReview(review)}
                     delay={index * 0.05}
                   />
@@ -480,10 +447,6 @@ function ProductReviewsView({
               productName={product.name}
               productImage={product.images?.[0]}
               onClose={onCloseReview}
-              onDelete={(reviewId) => {
-                onDeleteReview(reviewId, product._id);
-                onCloseReview();
-              }}
             />
           )}
         </AnimatePresence>
@@ -492,7 +455,7 @@ function ProductReviewsView({
   );
 }
 
-const ReviewCard = ({ review, productId, onDelete, onViewDetails, delay = 0 }) => {
+const ReviewCard = ({ review, productId, onViewDetails, delay = 0 }) => {
   const reviewerName = getReviewerName(review);
 
   return (
@@ -525,13 +488,6 @@ const ReviewCard = ({ review, productId, onDelete, onViewDetails, delay = 0 }) =
           >
             <Eye className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => onDelete(review._id, productId)}
-            className="p-2 rounded-lg hover:bg-red-100 text-red-600 transition-colors"
-            title="Delete Review"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
@@ -542,77 +498,67 @@ const ReviewCard = ({ review, productId, onDelete, onViewDetails, delay = 0 }) =
   );
 };
 
-const ReviewDetailsModal = ({ review, productName, productImage, onClose, onDelete }) => (
-  <motion.div
-    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-    onClick={onClose}
-  >
+const ReviewDetailsModal = ({ review, productId, productImage, onClose }) => {
+  const reviewerName = getReviewerName(review);
+
+  return (
     <motion.div
-      initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-      className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-      onClick={(e) => e.stopPropagation()}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      onClick={onClose}
     >
-      <div className="p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-900">Review Details</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">✕</button>
-        </div>
-
-        {/* Product Info */}
-        <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl mb-6">
-          <div className="w-16 h-16 rounded-xl bg-slate-200 overflow-hidden">
-            {productImage ? (
-              <img src={productImage} alt={productName} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="w-8 h-8 text-slate-400" />
-              </div>
-            )}
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900 text-lg">{productName}</h3>
-            <StarRating rating={review.rating} size="md" showNumber />
-          </div>
-        </div>
-
-        {/* Details */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-2">
-                <User className="w-4 h-4" /> Reviewer
-              </label>
-              <p className="text-slate-900 font-medium">{getReviewerName(review)}</p>
-            </div>
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-2">
-                <Calendar className="w-4 h-4" /> Date
-              </label>
-              <p className="text-slate-900">{formatDate(review.createdAt)}</p>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-2 block">Comment</label>
-            <div className="p-4 bg-slate-50 rounded-xl">
-              <p className="text-slate-900 leading-relaxed">{review.comment || "No comment provided"}</p>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-6 border-t border-slate-200">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold text-slate-900">Review Details</h3>
             <button
-              onClick={() => onDelete(review._id)}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl"
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
             >
-              <Trash2 className="w-4 h-4" />
-              Delete Review
+              <X className="w-5 h-5" />
             </button>
           </div>
+
+          <div className="space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                {reviewerName.charAt(0).toUpperCase() || "A"}
+              </div>
+              <div className="flex-1">
+                <h4 className="text-xl font-semibold text-slate-900">{reviewerName}</h4>
+                <div className="flex items-center gap-3 mt-2">
+                  <StarRating rating={review.rating} size="lg" />
+                  <span className="text-slate-600">{formatDate(review.createdAt)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-4">
+              <p className="text-slate-700 leading-relaxed text-lg">
+                {review.comment || "No comment provided"}
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t">
+              <button
+                onClick={onClose}
+                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 px-6 rounded-xl font-semibold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
-  </motion.div>
-);
+  );
+};
 

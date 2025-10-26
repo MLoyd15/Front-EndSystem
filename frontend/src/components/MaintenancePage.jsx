@@ -95,13 +95,13 @@ const MaintenancePage = () => {
           </div>
         </div>
 
-        {/* Admin Login Link */}
+        {/* Staff Login Link */}
         <div className="mt-6 text-center">
           <a 
             href="/login" 
             className="text-sm text-white hover:text-orange-300 transition-colors"
           >
-            Admin Access →
+            Staff Access →
           </a>
         </div>
       </div>

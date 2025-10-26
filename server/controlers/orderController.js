@@ -146,10 +146,11 @@ export const getOrders = async (req, res) => {
   }
 };
 
-// ✅ NEW: Create order with delivery
+// ✅ NEW: Create order with delivery (supports both web admin and mobile app formats)
 export const createOrder = async (req, res) => {
   try {
     const { 
+      // Web admin format
       user, 
       products, 
       totalAmount, 
@@ -157,32 +158,89 @@ export const createOrder = async (req, res) => {
       deliveryAddress,
       customerContact,
       deliveryCoordinates,
-      notes 
+      notes,
+      
+      // Mobile app format
+      userId,
+      items,
+      total,
+      address,
+      paymentMethod
     } = req.body;
 
-    // Create order
-    const order = new Order({
-      user,
-      products,
-      totalAmount,
-      deliveryType: deliveryType || "pickup",
-      deliveryAddress,
-      customerContact,
-      deliveryCoordinates,
-      notes,
-      status: "pending"
-    });
+    // Normalize data between web admin and mobile app formats
+    let normalizedData = {};
+    
+    if (userId && items) {
+      // Mobile app format
+      console.log("Processing mobile app order format");
+      
+      // Convert items to products format
+      const normalizedProducts = items.map(item => ({
+        product: item.productId,
+        quantity: item.quantity,
+        price: item.price
+      }));
+      
+      // Try to find user by userId (could be ObjectId, email, or username)
+      let userRecord = null;
+      try {
+        const User = (await import("../models/user.js")).default;
+        userRecord = await User.findOne({
+          $or: [
+            { _id: userId },
+            { email: userId },
+            { name: userId },
+            { username: userId }
+          ]
+        });
+      } catch (err) {
+        console.log("Could not find user record for userId:", userId);
+      }
+      
+      normalizedData = {
+        user: userRecord?._id || null,
+        products: normalizedProducts,
+        totalAmount: total,
+        deliveryType: address ? "third-party" : "pickup",
+        deliveryAddress: address,
+        customerContact: {
+          name: userRecord?.name || userId || "Mobile Customer",
+          phone: userRecord?.phone || "",
+          email: userRecord?.email || (userId.includes('@') ? userId : "")
+        },
+        deliveryCoordinates: null,
+        notes: paymentMethod ? `Payment: ${paymentMethod}` : "",
+        status: "pending"
+      };
+    } else {
+      // Web admin format
+      console.log("Processing web admin order format");
+      normalizedData = {
+        user,
+        products,
+        totalAmount,
+        deliveryType: deliveryType || "pickup",
+        deliveryAddress,
+        customerContact,
+        deliveryCoordinates,
+        notes,
+        status: "pending"
+      };
+    }
 
+    // Create order with normalized data
+    const order = new Order(normalizedData);
     await order.save();
 
     // Auto-create delivery record if not pickup
-    if (deliveryType && deliveryType !== "pickup") {
+    if (normalizedData.deliveryType && normalizedData.deliveryType !== "pickup") {
       const delivery = new Delivery({
         order: order._id,
-        type: deliveryType,
+        type: normalizedData.deliveryType,
         status: "pending",
-        deliveryAddress: deliveryAddress,
-        customer: customerContact
+        deliveryAddress: normalizedData.deliveryAddress,
+        customer: normalizedData.customerContact
       });
 
       await delivery.save();

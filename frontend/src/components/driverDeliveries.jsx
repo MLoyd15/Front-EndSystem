@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Search, MapPin, Clock, MessageSquare, Phone, RefreshCw } from "lucide-react";
-import ChatModal from "./chatmodal";       // <- use the ChatModal we created earlier
-import ChatPanel from "./SupportChat";       // <- real Socket.IO chat panel
-import { VITE_API_BASE, VITE_SOCKET_URL} from "../config"
+import { Search, MapPin, Clock, Phone, RefreshCw, User, Package, MessageSquare } from "lucide-react";
+import { VITE_API_BASE } from "../config"
+import DriverChat from "./DriverChat";
 
 const API = `${VITE_API_BASE}/delivery`
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
@@ -29,8 +28,66 @@ const Pill = ({ status }) => {
   );
 };
 
+// Mobile Card Component
+const DeliveryCard = ({ delivery, onChatClick, canChat }) => {
+  const d = delivery;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Package className="w-4 h-4 text-gray-400" />
+          <span className="font-mono font-semibold text-sm">{last6(d?.order?._id || d?._id)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Pill status={d?.status} />
+          {canChat(d) && (
+            <button
+              onClick={() => onChatClick(d._id)}
+              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Chat with customer"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <div className="space-y-2 text-sm">
+        <div className="flex items-start gap-2">
+          <User className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+          <span className="text-gray-700">{d?.order?.user?.name || d?.customer?.name || d?.order?.customerContact?.name || "—"}</span>
+        </div>
+        
+        <div className="flex items-start gap-2">
+          <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Pickup</div>
+            <div className="text-gray-700">{d?.pickupLocation || "—"}</div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-2">
+          <MapPin className="w-4 h-4 text-sky-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Drop-off</div>
+            <div className="text-gray-700">{d?.deliveryAddress || "—"}</div>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+          <Clock className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-600 text-xs">{fmt(d?.scheduledDate || d?.createdAt)}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const fmt = (d) => (d ? new Date(d).toLocaleString() : "—");
 const last6 = (id = "") => `#${String(id).slice(-6)}`;
+
+// Pagination constants
+const PAGE_SIZE = 10;
 
 export default function DriverDeliveries() {
   const [allDeliveries, setAllDeliveries] = useState([]); // Store ALL deliveries for counts
@@ -39,9 +96,14 @@ export default function DriverDeliveries() {
   const [error, setError] = useState(null);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("all");
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatOrderId, setChatOrderId] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Chat state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
 
   const me = (() => { 
     try { 
@@ -52,6 +114,23 @@ export default function DriverDeliveries() {
       return {}; 
     } 
   })();
+
+  // Chat functions
+  const openChat = (deliveryId) => {
+    setSelectedDeliveryId(deliveryId);
+    setChatOpen(true);
+  };
+
+  const closeChat = () => {
+    setChatOpen(false);
+    setSelectedDeliveryId(null);
+  };
+
+  // Check if delivery can have chat (assigned or in-transit)
+  const canChat = (delivery) => {
+    const status = delivery?.status?.toLowerCase();
+    return status === 'assigned' || status === 'in-transit';
+  };
 
   const fetchDeliveries = async () => {
     setLoading(true);
@@ -166,56 +245,61 @@ export default function DriverDeliveries() {
     });
   }, [rows, q]);
 
-  const openChat = (orderId) => {
-    if (!orderId) {
-      alert("No order ID available for chat");
-      return;
-    }
-    setChatOrderId(orderId);
-    setChatOpen(true);
-  };
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return filtered.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filtered, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tab, q]);
 
   const toggleDebug = () => {
     setDebugMode(!debugMode);
   };
 
   return (
-    <div className="p-4">
+    <div className="p-3 sm:p-4">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <div className="text-lg font-semibold">My Deliveries</div>
-          <div className="text-slate-500 text-sm">
-            Signed in as <span className="font-medium">{me?.name || "Driver"}</span>
-            {me?._id && <span className="text-xs ml-2">ID: {me._id}</span>}
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div>
+            <div className="text-lg sm:text-xl font-semibold">My Deliveries</div>
+            <div className="text-slate-500 text-sm">
+              Signed in as <span className="font-medium">{me?.name || "Driver"}</span>
+              {me?._id && <span className="text-xs ml-2 hidden sm:inline">ID: {me._id}</span>}
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchDeliveries}
-            disabled={loading}
-            className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search address, pickup, order id…"
-              className="pl-8 pr-3 py-2 rounded-lg ring-1 ring-slate-200 outline-none w-72"
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <button
+              onClick={fetchDeliveries}
+              disabled={loading}
+              className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 text-sm"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search address, pickup, order id…"
+                className="pl-9 pr-3 py-2 rounded-lg ring-1 ring-slate-200 outline-none w-full sm:w-72 text-sm"
+              />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           <strong>Error:</strong> {error}
         </div>
       )}
@@ -243,7 +327,7 @@ export default function DriverDeliveries() {
       )}
 
       {/* Tabs - Now using counts from allDeliveries */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4 sm:mb-6">
         {[
           { k: "all", label: `All (${counts.all})` },
           { k: "assigned", label: `Assigned (${counts.assigned})` },
@@ -253,7 +337,7 @@ export default function DriverDeliveries() {
           <button
             key={t.k}
             onClick={() => setTab(t.k)}
-            className={`px-3 py-1.5 rounded-full text-sm ring-1 ${
+            className={`px-3 py-1.5 rounded-full text-xs sm:text-sm ring-1 flex-shrink-0 ${
               tab === t.k ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-200"
             }`}
           >
@@ -262,8 +346,46 @@ export default function DriverDeliveries() {
         ))}
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto border rounded-lg bg-white">
+      {/* Mobile Cards View (hidden on desktop) */}
+      <div className="block sm:hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-slate-500">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              Loading deliveries…
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-slate-500 text-center">
+            <div className="text-lg">📦</div>
+            <div className="text-sm">
+              {allDeliveries.length === 0 
+                ? "No deliveries assigned to you yet" 
+                : q.trim() 
+                  ? `No deliveries match "${q}"` 
+                  : `No ${tab} deliveries`
+              }
+            </div>
+            {allDeliveries.length === 0 && (
+              <button
+                onClick={fetchDeliveries}
+                className="mt-2 text-emerald-600 hover:text-emerald-700 text-sm"
+              >
+                Refresh to check for new deliveries
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {paginatedData.map((d) => (
+              <DeliveryCard key={d._id} delivery={d} onChatClick={openChat} canChat={canChat} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Table View (hidden on mobile) */}
+      <div className="hidden sm:block overflow-x-auto border rounded-lg bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
@@ -273,7 +395,7 @@ export default function DriverDeliveries() {
               <th className="px-3 py-3 text-left font-semibold">Drop-off</th>
               <th className="px-3 py-3 text-left font-semibold">Customer</th>
               <th className="px-3 py-3 text-left font-semibold">When</th>
-              <th className="px-3 py-3 text-left font-semibold">Actions</th>
+              <th className="px-3 py-3 text-left font-semibold">Chat</th>
             </tr>
           </thead>
           <tbody>
@@ -311,7 +433,7 @@ export default function DriverDeliveries() {
                 </td>
               </tr>
             ) : (
-              filtered.map((d) => (
+              paginatedData.map((d) => (
                 <tr key={d._id} className="border-t hover:bg-slate-50">
                   <td className="px-3 py-3 font-mono font-semibold">{last6(d?.order?._id || d?._id)}</td>
                   <td className="px-3 py-3"><Pill status={d?.status} /></td>
@@ -328,7 +450,7 @@ export default function DriverDeliveries() {
                     </span>
                   </td>
                   <td className="px-3 py-3">
-                    {d?.order?.user?.name || "—"}
+                    {d?.order?.user?.name || d?.customer?.name || d?.order?.customerContact?.name || "—"}
                   </td>
                   <td className="px-3 py-3">
                     <span className="inline-flex items-center gap-1">
@@ -336,28 +458,18 @@ export default function DriverDeliveries() {
                       {fmt(d?.scheduledDate || d?.createdAt)}
                     </span>
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      {d?.order?.user?.phone && (
-                        <a
-                          href={`tel:${d.order.user.phone}`}
-                          className="px-2 py-1.5 rounded-md ring-1 ring-slate-200 text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1 transition-colors"
-                          title={`Call ${d.order.user.name}`}
-                        >
-                          <Phone className="h-4 w-4" />
-                          <span className="hidden sm:inline">Call</span>
-                        </a>
-                      )}
+                  <td className="px-3 py-3">
+                    {canChat(d) ? (
                       <button
-                        onClick={() => openChat(d?.order?._id)}
-                        className="px-2 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-1 transition-colors"
-                        title={`Chat with ${d?.order?.user?.name || 'customer'}`}
-                        disabled={!d?.order?._id}
+                        onClick={() => openChat(d._id)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Chat with customer"
                       >
-                        <MessageSquare className="h-4 w-4" />
-                        <span className="hidden sm:inline">Chat</span>
+                        <MessageSquare className="w-4 h-4" />
                       </button>
-                    </div>
+                    ) : (
+                      <span className="text-gray-400 text-sm">—</span>
+                    )}
                   </td>
                 </tr>
               ))
@@ -366,21 +478,46 @@ export default function DriverDeliveries() {
         </table>
       </div>
 
-      {/* Summary */}
+      {/* Pagination Controls */}
       {!loading && filtered.length > 0 && (
-        <div className="mt-3 text-sm text-slate-500 text-center">
-          Showing {filtered.length} of {rows.length} {tab !== "all" ? tab : ""} deliveries
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-xs sm:text-sm text-slate-500 text-center sm:text-left">
+            Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} {tab !== "all" ? tab : ""} deliveries
+          </div>
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs sm:text-sm border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <span className="text-xs sm:text-sm text-slate-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs sm:text-sm border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Chat Modal */}
-      <ChatModal open={chatOpen} onClose={() => setChatOpen(false)}>
-        {chatOrderId ? (
-          <ChatPanel orderId={chatOrderId} role="driver" onClose={() => setChatOpen(false)} />
-        ) : (
-          <div className="p-4">No order selected for chat.</div>
-        )}
-      </ChatModal>
+      {/* Driver Chat Modal */}
+      {chatOpen && selectedDeliveryId && (
+        <DriverChat
+          deliveryId={selectedDeliveryId}
+          onClose={closeChat}
+        />
+      )}
     </div>
   );
 }

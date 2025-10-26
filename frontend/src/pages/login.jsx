@@ -107,7 +107,7 @@ const Login = () => {
             GO AGRI TRADING
           </h1>
           <p className="text-gray-600 text-sm">
-            {activeTab === "driver" ? "Driver Access Portal" : "Admin Access Portal"}
+            {activeTab === "driver" ? "Driver Access Portal" : "Staff Access Portal"}
           </p>
         </div>
 
@@ -123,7 +123,7 @@ const Login = () => {
                   : "bg-transparent text-gray-600 hover:bg-gray-200"
               }`}
             >
-              👨‍💼 Admin
+              👨‍💼 Staff
             </button>
             <button
               onClick={() => switchTab("driver")}
@@ -170,7 +170,7 @@ const Login = () => {
                   required
                   autoComplete="username"
                   className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
-                  placeholder={activeTab === "driver" ? "driver@goagri.com" : "admin@goagri.com"}
+                  placeholder={activeTab === "driver" ? "driver@goagri.com" : "staff@goagri.com"}
                 />
               </div>
             </div>
@@ -224,7 +224,7 @@ const Login = () => {
                   Signing in...
                 </>
               ) : (
-                `Sign In as ${activeTab === "driver" ? "Driver" : "Admin"}`
+                `Sign In as ${activeTab === "driver" ? "Driver" : "Staff"}`
               )}
             </button>
           </form>
@@ -236,7 +236,7 @@ const Login = () => {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-4 bg-white text-gray-500">
-                {activeTab === "driver" ? "Delivery Access" : "Administrative Access"}
+                {activeTab === "driver" ? "Delivery Access" : "Staff Access"}
               </span>
             </div>
           </div>
@@ -262,7 +262,7 @@ const Login = () => {
                   <p className={`text-sm font-bold ${
                     activeTab === "driver" ? "text-blue-900" : "text-green-900"
                   }`}>
-                    {activeTab === "driver" ? "Driver Access" : "Admin Access"}
+                    {activeTab === "driver" ? "Driver Access" : "Staff Access"}
                   </p>
                   <p className={`text-xs ${
                     activeTab === "driver" ? "text-blue-700" : "text-green-700"
