@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import BundlesPage from "./BundlesPage";
 import { VITE_API_BASE } from "../config"
 
 const API = VITE_API_BASE;
@@ -466,7 +465,6 @@ const Categories = () => {
 
           <div className="col-span-1 lg:col-span-2 mt-8 w-full">
             <h2 className="text-xl font-semibold text-gray-900 mb-4"></h2>
-            <BundlesPage />
           </div>
         </div>
       </div>
