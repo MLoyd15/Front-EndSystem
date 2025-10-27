@@ -1,14 +1,13 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import User from '../models/user.js'
-import { registerOwnerSession } from '../middleware/rateLimitMiddleware.js'
 
 
 const login = async (req, res) => {
     try {
         const {email, password, role} = req.body
 
-        // Enhanced logging for security monitoring
+        // Basic logging
         const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
         console.log(`🔐 Login attempt - Email: ${email}, Role: ${role}, IP: ${clientIP}`);
 
@@ -24,10 +23,7 @@ const login = async (req, res) => {
             return res.status(401).json({success:false, message: "Invalid credentials"})
         }
 
-        // Check if this is a superadmin/owner login
-        const isOwnerLogin = user.role === 'superadmin' || email.includes('superadmin');
-        
-        // Generate JWT token with enhanced security
+        // Generate JWT token
         const tokenPayload = {
             id: user._id, 
             role: user.role,
@@ -37,18 +33,12 @@ const login = async (req, res) => {
         };
         
         const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-            expiresIn: isOwnerLogin ? '1h' : '24h' // Shorter session for owner
+            expiresIn: '24h' // Standard session time for all users
         });
 
-        // Register owner session if applicable
-        if (isOwnerLogin && req.ownerSessionData) {
-            registerOwnerSession(req.ownerSessionData);
-            console.log(`👑 Owner login successful - IP: ${clientIP}`);
-        } else {
-            console.log(`✅ User login successful - Email: ${email}, Role: ${user.role}`);
-        }
+        console.log(`✅ User login successful - Email: ${email}, Role: ${user.role}`);
 
-        // Enhanced response with security info
+        // Standard response
         const response = {
             success: true, 
             message: "Login successful", 
@@ -61,15 +51,6 @@ const login = async (req, res) => {
             }
         };
 
-        // Add session info for owner logins
-        if (isOwnerLogin) {
-            response.sessionInfo = {
-                type: 'owner',
-                expiresIn: '1 hour',
-                restrictions: 'Single session only'
-            };
-        }
-
         return res.status(200).json(response);
         
     } catch (error) {
@@ -78,11 +59,9 @@ const login = async (req, res) => {
     }
 }
 
-// Logout function to clear sessions
+// Logout function
 const logout = async (req, res) => {
     try {
-        const { clearOwnerSession } = await import('../middleware/rateLimitMiddleware.js');
-        
         // Get user info from token if available
         const authHeader = req.headers.authorization;
         let userRole = null;
@@ -98,12 +77,6 @@ const logout = async (req, res) => {
                 // Token might be expired or invalid, continue with logout
                 console.log('Token verification failed during logout:', error.message);
             }
-        }
-        
-        // Clear owner session if this was an owner logout
-        if (userRole === 'superadmin' || (userEmail && userEmail.includes('superadmin'))) {
-            clearOwnerSession();
-            console.log(`👑 Owner session cleared - Email: ${userEmail}`);
         }
         
         console.log(`🔓 Logout successful - Role: ${userRole}, Email: ${userEmail}`);
