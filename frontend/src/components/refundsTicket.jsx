@@ -179,7 +179,7 @@ const MetricCard = ({ title, value, icon, color = "gray" }) => (
 
 // --- TICKET CARD ---
 const TicketCard = ({ ticket, onClick }) => {
-  const amount = Number(ticket.amount ?? 0) / 100; // Convert centavos to pesos
+  const amount = Number(ticket.amount ?? 0);
   const idShort = String(ticket._id ?? "").slice(-8) || "unknown";
   const userName = ticket.user?.name || ticket.user?.email || "Unknown User";
   const orderIdShort = String(ticket.order?._id ?? ticket.order ?? "").slice(-8) || "N/A";
@@ -528,7 +528,7 @@ export default function RefundTickets({ onBack }) {
   }, [searchQuery, statusFilter]);
 
   const metrics = useMemo(() => {
-    const totalAmount = tickets.reduce((s, t) => s + (Number(t.amount ?? 0) / 100), 0);
+    const totalAmount = tickets.reduce((s, t) => s + Number(t.amount ?? 0), 0);
     const totalTickets = tickets.length;
     const pending = tickets.filter((t) => t.status === "requested").length;
     const approved = tickets.filter((t) => t.status === "approved" || t.status === "refunded").length;
