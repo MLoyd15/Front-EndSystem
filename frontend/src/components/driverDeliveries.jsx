@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Search, MapPin, Clock, Phone, RefreshCw, User, Package, MessageSquare } from "lucide-react";
+import { Search, MapPin, Clock, Phone, RefreshCw, Package } from "lucide-react";
 import { VITE_API_BASE } from "../config"
-import DriverChat from "./DriverChat";
 
 const API = `${VITE_API_BASE}/delivery`
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token") || ""}` });
@@ -29,7 +28,7 @@ const Pill = ({ status }) => {
 };
 
 // Mobile Card Component
-const DeliveryCard = ({ delivery, onChatClick, canChat }) => {
+const DeliveryCard = ({ delivery }) => {
   const d = delivery;
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -40,24 +39,10 @@ const DeliveryCard = ({ delivery, onChatClick, canChat }) => {
         </div>
         <div className="flex items-center gap-2">
           <Pill status={d?.status} />
-          {canChat(d) && (
-            <button
-              onClick={() => onChatClick(d._id)}
-              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Chat with customer"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
       
       <div className="space-y-2 text-sm">
-        <div className="flex items-start gap-2">
-          <User className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-          <span className="text-gray-700">{d?.order?.user?.name || d?.customer?.name || d?.order?.customerContact?.name || "—"}</span>
-        </div>
-        
         <div className="flex items-start gap-2">
           <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
           <div>
@@ -100,10 +85,6 @@ export default function DriverDeliveries() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  
-  // Chat state
-  const [chatOpen, setChatOpen] = useState(false);
-  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
 
   const me = (() => { 
     try { 
@@ -115,22 +96,7 @@ export default function DriverDeliveries() {
     } 
   })();
 
-  // Chat functions
-  const openChat = (deliveryId) => {
-    setSelectedDeliveryId(deliveryId);
-    setChatOpen(true);
-  };
 
-  const closeChat = () => {
-    setChatOpen(false);
-    setSelectedDeliveryId(null);
-  };
-
-  // Check if delivery can have chat (assigned or in-transit)
-  const canChat = (delivery) => {
-    const status = delivery?.status?.toLowerCase();
-    return status === 'assigned' || status === 'in-transit';
-  };
 
   const fetchDeliveries = async () => {
     setLoading(true);
@@ -378,7 +344,7 @@ export default function DriverDeliveries() {
         ) : (
           <div className="space-y-3">
             {paginatedData.map((d) => (
-              <DeliveryCard key={d._id} delivery={d} onChatClick={openChat} canChat={canChat} />
+              <DeliveryCard key={d._id} delivery={d} />
             ))}
           </div>
         )}
@@ -393,15 +359,13 @@ export default function DriverDeliveries() {
               <th className="px-3 py-3 text-left font-semibold">Status</th>
               <th className="px-3 py-3 text-left font-semibold">Pickup</th>
               <th className="px-3 py-3 text-left font-semibold">Drop-off</th>
-              <th className="px-3 py-3 text-left font-semibold">Customer</th>
               <th className="px-3 py-3 text-left font-semibold">When</th>
-              <th className="px-3 py-3 text-left font-semibold">Chat</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={5} className="px-3 py-8 text-center text-slate-500">
                   <div className="flex items-center justify-center gap-2">
                     <RefreshCw className="h-5 w-5 animate-spin" />
                     Loading deliveries…
@@ -410,7 +374,7 @@ export default function DriverDeliveries() {
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={5} className="px-3 py-8 text-center text-slate-500">
                   <div className="flex flex-col items-center gap-2">
                     <div className="text-lg">📦</div>
                     <div>
@@ -450,26 +414,10 @@ export default function DriverDeliveries() {
                     </span>
                   </td>
                   <td className="px-3 py-3">
-                    {d?.order?.user?.name || d?.customer?.name || d?.order?.customerContact?.name || "—"}
-                  </td>
-                  <td className="px-3 py-3">
                     <span className="inline-flex items-center gap-1">
                       <Clock className="h-4 w-4 text-slate-400" />
                       {fmt(d?.scheduledDate || d?.createdAt)}
                     </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    {canChat(d) ? (
-                      <button
-                        onClick={() => openChat(d._id)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Chat with customer"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <span className="text-gray-400 text-sm">—</span>
-                    )}
                   </td>
                 </tr>
               ))
@@ -509,14 +457,6 @@ export default function DriverDeliveries() {
             </div>
           )}
         </div>
-      )}
-
-      {/* Driver Chat Modal */}
-      {chatOpen && selectedDeliveryId && (
-        <DriverChat
-          deliveryId={selectedDeliveryId}
-          onClose={closeChat}
-        />
       )}
     </div>
   );

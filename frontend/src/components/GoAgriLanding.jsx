@@ -306,7 +306,8 @@ const GoAgriLanding = () => {
               <a href="#reviews" className="text-gray-700 hover:text-green-600 font-medium transition">Reviews</a>
               
               <a 
-                href="#" 
+                href="https://expo.dev/artifacts/eas/226MntVyrQ6vPA2U8rh51d.apk" 
+                download="GoAgriTrading.apk"
                 className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
               >
                 <Download className="w-4 h-4" />
@@ -338,7 +339,7 @@ const GoAgriLanding = () => {
             <div className="px-4 py-4 space-y-3">
               <a href="#marketplace" className="block text-gray-700 hover:text-green-600 font-medium">Marketplace</a>
               <a href="#reviews" className="block text-gray-700 hover:text-green-600 font-medium">Reviews</a>
-              <a href="#" className="flex items-center space-x-2 text-green-600 hover:text-green-700 font-medium">
+              <a href="https://expo.dev/artifacts/eas/226MntVyrQ6vPA2U8rh51d.apk" download="GoAgriTrading.apk" className="flex items-center space-x-2 text-green-600 hover:text-green-700 font-medium">
                 <Download className="w-4 h-4" />
                 <span>Download App</span>
               </a>
@@ -360,7 +361,8 @@ const GoAgriLanding = () => {
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               <a 
-                href="#" 
+                href="https://expo.dev/artifacts/eas/226MntVyrQ6vPA2U8rh51d.apk" 
+                download="GoAgriTrading.apk"
                 className="inline-flex items-center space-x-2 bg-white text-green-600 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-50 transition shadow-lg border-2 border-green-600"
               >
                 <Download className="w-5 h-5" />
