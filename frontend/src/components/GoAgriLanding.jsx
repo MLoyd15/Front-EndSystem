@@ -489,24 +489,7 @@ const GoAgriLanding = () => {
                       {getPromoDescription(promo)}
                     </p>
                     
-                    {/* Usage Info */}
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-6">
-                      <span>
-                        {promo.limit > 0 ? (
-                          `${promo.used}/${promo.limit} used`
-                        ) : (
-                          'Unlimited uses'
-                        )}
-                      </span>
-                      {promo.limit > 0 && (
-                        <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className={`${progressColor} h-2 rounded-full transition-all duration-300`}
-                            style={{ width: `${Math.min((promo.used / promo.limit) * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      )}
-                    </div>
+
 
                     {/* Promo Code */}
                     <div className="bg-gray-50 rounded-xl p-4 border-2 border-dashed border-gray-300">
