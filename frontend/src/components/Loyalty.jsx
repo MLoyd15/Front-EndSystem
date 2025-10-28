@@ -33,7 +33,7 @@ const Loyalty = () => {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       // Fetch loyalty rewards - Fixed endpoint
-      const rewardsResponse = await axios.get(`${API}/rewards`, { headers });
+      const rewardsResponse = await axios.get(`${API}/loyalty/rewards`, { headers });
       
       // Handle different response structures
       let rewards = [];
