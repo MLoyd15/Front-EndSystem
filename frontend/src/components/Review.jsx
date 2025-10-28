@@ -17,8 +17,9 @@ const COLORS = {
   green: '#22c55e', // Green-500
   greenDark: '#16a34a', // Green-600
   greenLight: '#dcfce7', // Green-100
-  yellow: '#fbbf24', // Yellow-400
-  yellowDark: '#f59e0b', // Yellow-500
+  brown: '#92400e', // Brown-800
+  brownMid: '#a16207', // Amber-700
+  brownLight: '#d97706', // Amber-600
   white: '#ffffff',
   gray: '#64748b',
   grayLight: '#f1f5f9',
@@ -39,7 +40,7 @@ const StarRating = ({ rating = 0, size = "sm", showNumber = false }) => {
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`${sizeClasses[size]} ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+          className={`${sizeClasses[size]} ${star <= rating ? "fill-amber-600 text-amber-600" : "text-gray-300"}`}
         />
       ))}
       {showNumber && <span className="ml-1 text-sm font-medium text-slate-600">({rating})</span>}
@@ -228,7 +229,7 @@ export default function ProductReviewManagement() {
           <StatCard
             label="Avg Rating"
             value={stats.avgRating.toFixed(1)}
-            bgColor="bg-yellow-400"
+            bgColor="bg-amber-700"
             icon={<Star className="w-6 h-6" />}
           />
         </motion.div>
@@ -261,7 +262,7 @@ export default function ProductReviewManagement() {
                 <select
                   value={filterRating}
                   onChange={(e) => setFilterRating(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 min-w-40"
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-600 focus:border-amber-600 min-w-40"
                 >
                   <option value="">All Ratings</option>
                   <option value="5">5 Stars</option>
@@ -317,7 +318,7 @@ export default function ProductReviewManagement() {
 
               {/* Date From */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-yellow-600">
+                <label className="block text-sm font-semibold mb-2 text-amber-700">
                   <Calendar className="w-4 h-4 inline mr-1" />
                   From Date
                 </label>
@@ -325,13 +326,13 @@ export default function ProductReviewManagement() {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-600 focus:border-amber-600"
                 />
               </div>
 
               {/* Date To */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-yellow-600">
+                <label className="block text-sm font-semibold mb-2 text-amber-700">
                   <Calendar className="w-4 h-4 inline mr-1" />
                   To Date
                 </label>
@@ -339,13 +340,13 @@ export default function ProductReviewManagement() {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-600 focus:border-amber-600"
                 />
               </div>
 
               {/* Price Min */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-green-700">
+                <label className="block text-sm font-semibold mb-2 text-amber-800">
                   <DollarSign className="w-4 h-4 inline mr-1" />
                   Min Price
                 </label>
@@ -354,13 +355,13 @@ export default function ProductReviewManagement() {
                   placeholder={`₱${priceRange.min}`}
                   value={priceMin}
                   onChange={(e) => setPriceMin(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-700 focus:border-amber-700"
                 />
               </div>
 
               {/* Price Max */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-green-700">
+                <label className="block text-sm font-semibold mb-2 text-amber-800">
                   <DollarSign className="w-4 h-4 inline mr-1" />
                   Max Price
                 </label>
@@ -369,7 +370,7 @@ export default function ProductReviewManagement() {
                   placeholder={`₱${priceRange.max}`}
                   value={priceMax}
                   onChange={(e) => setPriceMax(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-700 focus:border-amber-700"
                 />
               </div>
             </div>
@@ -378,7 +379,7 @@ export default function ProductReviewManagement() {
             <div className="flex justify-between items-center pt-2">
               <div className="text-sm text-gray-600">
                 {priceRange.min > 0 && (
-                  <span className="text-yellow-600 font-medium">
+                  <span className="text-amber-700 font-medium">
                     Price Range: {peso(priceRange.min)} - {peso(priceRange.max)}
                   </span>
                 )}
@@ -489,7 +490,7 @@ const ProductCard = ({ product, onClick, delay }) => {
             </h3>
             <p className="text-sm text-gray-600">{product.categoryLabel}</p>
           </div>
-          <p className="text-lg font-bold text-yellow-500">{peso(product.price)}</p>
+          <p className="text-lg font-bold text-amber-700">{peso(product.price)}</p>
         </div>
 
         <div className="flex items-center justify-between">
@@ -566,7 +567,7 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
               <p className="text-gray-600 mb-3">
-                {product.categoryLabel} • <span className="text-yellow-500 font-bold">{peso(product.price)}</span>
+                {product.categoryLabel} • <span className="text-amber-700 font-bold">{peso(product.price)}</span>
               </p>
               <div className="flex items-center gap-4">
                 <StarRating rating={Math.round(avgRating)} size="md" />
@@ -599,7 +600,7 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
             <select
               value={filterRating}
               onChange={(e) => setFilterRating(e.target.value)}
-              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 min-w-40"
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-600 focus:border-amber-600 min-w-40"
             >
               <option value="">All Ratings</option>
               <option value="5">5 Stars</option>
@@ -682,7 +683,7 @@ const ReviewCard = ({ review, productId, onViewDetails, delay = 0 }) => {
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onViewDetails(review)}
-            className="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-all"
+            className="p-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white transition-all"
             title="View Details"
           >
             <Eye className="w-4 h-4" />
@@ -740,7 +741,7 @@ const ReviewDetailsModal = ({ review, productName, productImage, onClose }) => {
               </div>
             </div>
 
-            <div className="rounded-lg p-4 bg-gray-50 border border-gray-200">
+            <div className="rounded-lg p-4 bg-amber-50 border border-amber-200">
               <p className="text-gray-700 leading-relaxed text-lg">
                 {review.comment || "No comment provided"}
               </p>
