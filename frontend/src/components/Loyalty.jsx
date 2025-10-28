@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config.js';
-import { FaAward, FaUsers, FaBolt, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaAward, FaUsers, FaBolt, FaCheckCircle, FaExclamationCircle, FaHistory } from 'react-icons/fa';
 
 const API = VITE_API_BASE;
+const CURRENCY = "₱";
+const peso = (n) =>
+  `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 const Loyalty = () => {
   const [loyaltyData, setLoyaltyData] = useState({
@@ -28,30 +31,30 @@ const Loyalty = () => {
       setLoading(true);
       setError(null);
       
-      // Try to get token from localStorage
-      const token = localStorage.getItem('token');
+      // ✅ Use the same token as AdminKpi
+      const token = localStorage.getItem('pos-token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // Fetch loyalty rewards - Fixed endpoint
-      const rewardsResponse = await axios.get(`${API}/loyalty/rewards`, { headers });
+      console.log('Fetching from:', `${API}/loyalty/rewards`);
+      console.log('Headers:', headers);
       
-      // Handle different response structures
-      let rewards = [];
-      if (Array.isArray(rewardsResponse.data)) {
-        rewards = rewardsResponse.data;
-      } else if (rewardsResponse.data.rewards) {
-        rewards = rewardsResponse.data.rewards;
-      } else if (rewardsResponse.data.data) {
-        rewards = rewardsResponse.data.data;
-      }
+      // ✅ Fetch loyalty rewards - Same endpoint as AdminKpi
+      const { data } = await axios.get(`${API}/loyalty/rewards`, { headers });
+      
+      console.log('Raw response:', data);
+      
+      // ✅ Handle different response structures (same as AdminKpi)
+      const loyaltyRewards = Array.isArray(data) ? data 
+        : data?.rewards || data?.data || [];
 
-      console.log('Fetched rewards:', rewards);
+      console.log('Processed rewards:', loyaltyRewards);
 
       // Calculate stats
-      const totalRewards = rewards.length;
-      const totalPointsIssued = rewards.reduce((sum, reward) => sum + (reward.points || 0), 0);
-      const totalPointsRedeemed = rewards.reduce((sum, reward) => {
-        // Check if there's a pointsHistory array
+      const totalRewards = loyaltyRewards.length;
+      const totalPointsIssued = loyaltyRewards.reduce((sum, reward) => sum + (reward.points || 0), 0);
+      
+      // Calculate redeemed points from pointsHistory
+      const totalPointsRedeemed = loyaltyRewards.reduce((sum, reward) => {
         if (reward.pointsHistory && Array.isArray(reward.pointsHistory)) {
           return sum + reward.pointsHistory
             .filter(h => h.change < 0)
@@ -61,13 +64,13 @@ const Loyalty = () => {
       }, 0);
 
       // Get unique users
-      const uniqueUsers = [...new Set(rewards.map(reward => 
+      const uniqueUsers = [...new Set(loyaltyRewards.map(reward => 
         reward.userId?._id || reward.userId
       ))].filter(Boolean);
       const totalUsers = uniqueUsers.length;
 
       setLoyaltyData({
-        rewards,
+        rewards: loyaltyRewards,
         users: uniqueUsers,
         stats: {
           totalRewards,
@@ -77,9 +80,16 @@ const Loyalty = () => {
         }
       });
     } catch (err) {
-      console.error('Error fetching loyalty data:', err);
-      console.error('Error details:', err.response?.data || err.message);
-      setError(err.response?.data?.message || 'Failed to load loyalty data. Please check your connection.');
+      console.error('❌ Error fetching loyalty data:', err);
+      console.error('❌ Error response:', err.response?.data);
+      console.error('❌ Error status:', err.response?.status);
+      
+      const errorMessage = err.response?.data?.message 
+        || err.response?.data?.error 
+        || err.message 
+        || 'Failed to load loyalty data. Please check your connection.';
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -103,15 +113,18 @@ const Loyalty = () => {
       <div className="p-6">
         <div className="bg-gradient-to-r from-red-50 to-pink-50 border-l-4 border-red-500 rounded-lg p-6 shadow-md">
           <div className="flex items-start gap-3">
-            <FaExclamationCircle className="text-red-600 text-2xl mt-1" />
+            <FaExclamationCircle className="text-red-600 text-2xl mt-1 flex-shrink-0" />
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Loyalty Data</h3>
-              <p className="text-red-700 mb-4">{error}</p>
+              <p className="text-red-700 mb-2">{error}</p>
+              <p className="text-sm text-red-600 mb-4">
+                Endpoint: {API}/loyalty/rewards
+              </p>
               <button 
                 onClick={fetchLoyaltyData}
                 className="px-6 py-2 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg hover:from-red-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg"
               >
-                Retry
+                🔄 Retry
               </button>
             </div>
           </div>
@@ -201,11 +214,11 @@ const Loyalty = () => {
         </div>
       </div>
 
-      {/* Recent Rewards Table */}
+      {/* All Loyalty Members Table */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-          <h2 className="text-2xl font-bold text-gray-900">Recent Loyalty Rewards</h2>
-          <p className="text-sm text-gray-600 mt-1">View all customer loyalty transactions</p>
+          <h2 className="text-2xl font-bold text-gray-900">All Loyalty Members</h2>
+          <p className="text-sm text-gray-600 mt-1">Complete list of all loyalty program participants</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -224,18 +237,17 @@ const Loyalty = () => {
                   Total Spent
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Date
+                  Purchases
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Status
+                  Last Updated
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loyaltyData.rewards.length > 0 ? (
                 loyaltyData.rewards
-                  .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
-                  .slice(0, 15)
+                  .sort((a, b) => (b.points || 0) - (a.points || 0))
                   .map((reward, index) => (
                     <tr key={index} className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -275,7 +287,13 @@ const Loyalty = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        ₱{(reward.totalSpent || 0).toLocaleString()}
+                        {peso(reward.totalSpent || 0)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm font-semibold text-gray-900">
+                          <FaHistory className="text-gray-400 mr-2" />
+                          {reward.purchaseCount || 0}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {reward.updatedAt || reward.createdAt 
@@ -285,12 +303,6 @@ const Loyalty = () => {
                               day: 'numeric'
                             })
                           : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm">
-                          <FaCheckCircle className="mr-1" />
-                          Active
-                        </span>
                       </td>
                     </tr>
                   ))
