@@ -22,6 +22,7 @@ import Maintenance from './components/Maintenance'
 import MaintenanceGuard from './components/MaintenanceGuard'
 import SupportChat from './components/SupportChat' // ✅ Support Chat Component
 import CreateDriver from './components/CreateDriver'
+import Loyalty from './components/Loyalty'
 
 function App() {
   return (
@@ -50,6 +51,7 @@ function App() {
             <Route path="create-driver" element={<CreateDriver />} />
             <Route path="review" element={<Review />} />
             <Route path="promo" element={<Promo />} />
+            <Route path="loyalty" element={<Loyalty />} />
             <Route path="Sales" element={<Sales />} />
             
             <Route path="logout" element={<Logout />} />
