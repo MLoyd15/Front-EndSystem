@@ -14,16 +14,14 @@ const auth = () => ({ Authorization: `Bearer ${localStorage.getItem("pos-token")
 
 /* ---------------------------- COLORS -------------------------- */
 const COLORS = {
-  primary: '#22c55e', // Green-500
-  primaryDark: '#16a34a', // Green-600
-  primaryLight: '#86efac', // Green-300
-  secondary: '#fbbf24', // Yellow-400
-  secondaryDark: '#f59e0b', // Yellow-500
-  secondaryLight: '#fef3c7', // Yellow-50
-  accent: '#eab308', // Yellow-600
+  green: '#22c55e', // Green-500
+  greenDark: '#16a34a', // Green-600
+  greenLight: '#dcfce7', // Green-100
+  yellow: '#fbbf24', // Yellow-400
+  yellowDark: '#f59e0b', // Yellow-500
   white: '#ffffff',
   gray: '#64748b',
-  grayLight: '#f8fafc',
+  grayLight: '#f1f5f9',
 };
 
 /* ---------------------------- HELPERS -------------------------- */
@@ -198,14 +196,14 @@ export default function ProductReviewManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-white">
+    <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-yellow-500 bg-clip-text text-transparent mb-3">
+          <h1 className="text-4xl font-bold text-green-600 mb-3">
             Product Reviews Management
           </h1>
-          <p className="text-slate-600 text-lg">Manage customer reviews across all your products</p>
+          <p className="text-gray-600 text-lg">Manage customer reviews across all your products</p>
         </motion.div>
 
         {/* Stats */}
@@ -218,19 +216,19 @@ export default function ProductReviewManagement() {
           <StatCard
             label="Total Products"
             value={stats.totalProducts}
-            gradient={`linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryDark})`}
+            bgColor="bg-green-500"
             icon={<Package className="w-6 h-6" />}
           />
           <StatCard
             label="Total Reviews"
             value={stats.total}
-            gradient={`linear-gradient(135deg, ${COLORS.secondary}, ${COLORS.accent})`}
+            bgColor="bg-green-600"
             icon={<MessageSquare className="w-6 h-6" />}
           />
           <StatCard
             label="Avg Rating"
             value={stats.avgRating.toFixed(1)}
-            gradient={`linear-gradient(135deg, ${COLORS.accent}, ${COLORS.secondaryDark})`}
+            bgColor="bg-yellow-400"
             icon={<Star className="w-6 h-6" />}
           />
         </motion.div>
@@ -240,7 +238,7 @@ export default function ProductReviewManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-xl border-2 border-green-100 p-6 mb-8"
+          className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8"
         >
           <div className="space-y-4">
             {/* Search and Rating */}
@@ -253,7 +251,7 @@ export default function ProductReviewManagement() {
                     placeholder="Search products by name or category..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                   />
                 </div>
               </div>
@@ -263,7 +261,7 @@ export default function ProductReviewManagement() {
                 <select
                   value={filterRating}
                   onChange={(e) => setFilterRating(e.target.value)}
-                  className="px-4 py-3 border-2 border-yellow-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 min-w-40"
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 min-w-40"
                 >
                   <option value="">All Ratings</option>
                   <option value="5">5 Stars</option>
@@ -276,7 +274,7 @@ export default function ProductReviewManagement() {
             </div>
 
             {/* Advanced Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t-2 border-green-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
               {/* Product Filter */}
               <div>
                 <label className="block text-sm font-semibold mb-2 text-green-700">
@@ -286,7 +284,7 @@ export default function ProductReviewManagement() {
                 <select
                   value={filterProduct}
                   onChange={(e) => setFilterProduct(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="">All Products</option>
                   {products.map((p) => (
@@ -306,7 +304,7 @@ export default function ProductReviewManagement() {
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="">All Categories</option>
                   {categories.map((cat) => (
@@ -319,7 +317,7 @@ export default function ProductReviewManagement() {
 
               {/* Date From */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-yellow-700">
+                <label className="block text-sm font-semibold mb-2 text-yellow-600">
                   <Calendar className="w-4 h-4 inline mr-1" />
                   From Date
                 </label>
@@ -327,13 +325,13 @@ export default function ProductReviewManagement() {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-yellow-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
                 />
               </div>
 
               {/* Date To */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-yellow-700">
+                <label className="block text-sm font-semibold mb-2 text-yellow-600">
                   <Calendar className="w-4 h-4 inline mr-1" />
                   To Date
                 </label>
@@ -341,7 +339,7 @@ export default function ProductReviewManagement() {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-yellow-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
                 />
               </div>
 
@@ -356,7 +354,7 @@ export default function ProductReviewManagement() {
                   placeholder={`₱${priceRange.min}`}
                   value={priceMin}
                   onChange={(e) => setPriceMin(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 />
               </div>
 
@@ -371,7 +369,7 @@ export default function ProductReviewManagement() {
                   placeholder={`₱${priceRange.max}`}
                   value={priceMax}
                   onChange={(e) => setPriceMax(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 />
               </div>
             </div>
@@ -388,7 +386,7 @@ export default function ProductReviewManagement() {
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   <X className="w-4 h-4" />
                   Clear All Filters
@@ -407,14 +405,14 @@ export default function ProductReviewManagement() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-white rounded-2xl shadow-xl border-2 border-green-100 p-12 text-center"
+            className="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center"
           >
             <Package className="w-20 h-20 mx-auto mb-4 text-gray-300" />
-            <p className="text-xl text-slate-600">No products found matching your filters.</p>
+            <p className="text-xl text-gray-600">No products found matching your filters.</p>
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="mt-4 px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg"
+                className="mt-4 px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg"
               >
                 Clear Filters
               </button>
@@ -442,14 +440,14 @@ export default function ProductReviewManagement() {
   );
 }
 
-const StatCard = ({ label, value, gradient, icon }) => (
-  <div className="bg-white rounded-2xl shadow-xl border-2 border-green-100 p-6 hover:shadow-2xl transition-all">
+const StatCard = ({ label, value, bgColor, icon }) => (
+  <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-slate-600 mb-1">{label}</p>
-        <p className="text-3xl font-bold text-slate-900">{value}</p>
+        <p className="text-sm font-medium text-gray-600 mb-1">{label}</p>
+        <p className="text-3xl font-bold text-gray-900">{value}</p>
       </div>
-      <div className="p-4 rounded-xl text-white" style={{ background: gradient }}>
+      <div className={`p-4 rounded-xl text-white ${bgColor}`}>
         {icon}
       </div>
     </div>
@@ -466,10 +464,10 @@ const ProductCard = ({ product, onClick, delay }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
-      className="bg-white rounded-2xl shadow-xl border-2 border-green-100 overflow-hidden hover:shadow-2xl hover:border-green-300 transition-all cursor-pointer group"
+      className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl hover:border-green-300 transition-all cursor-pointer group"
       onClick={onClick}
     >
-      <div className="aspect-video overflow-hidden bg-gradient-to-br from-green-50 to-yellow-50">
+      <div className="aspect-video overflow-hidden bg-gray-50">
         {product.images?.[0] ? (
           <img
             src={product.images[0]}
@@ -486,20 +484,20 @@ const ProductCard = ({ product, onClick, delay }) => {
       <div className="p-6">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-green-600 transition-colors">
+            <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-green-600 transition-colors">
               {product.name}
             </h3>
-            <p className="text-sm text-slate-600">{product.categoryLabel}</p>
+            <p className="text-sm text-gray-600">{product.categoryLabel}</p>
           </div>
-          <p className="text-lg font-bold text-yellow-600">{peso(product.price)}</p>
+          <p className="text-lg font-bold text-yellow-500">{peso(product.price)}</p>
         </div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <StarRating rating={Math.round(avgRating)} />
-            <span className="text-sm font-medium text-slate-700">{avgRating.toFixed(1)}</span>
+            <span className="text-sm font-medium text-gray-700">{avgRating.toFixed(1)}</span>
           </div>
-          <div className="flex items-center gap-1 text-slate-600">
+          <div className="flex items-center gap-1 text-gray-600">
             <MessageSquare className="w-4 h-4" />
             <span className="text-sm font-medium">{product.reviews.length}</span>
           </div>
@@ -535,14 +533,14 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
   }, [product.reviews, searchQuery, filterRating]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-white">
+    <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Back Button */}
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={onBack}
-          className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-xl mb-6 transition-all shadow-md hover:shadow-lg"
+          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg mb-6 transition-all shadow-md hover:shadow-lg"
         >
           <ArrowLeft className="w-5 h-5" />
           Back to Products
@@ -552,10 +550,10 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-xl border-2 border-green-100 p-6 mb-8"
+          className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8"
         >
           <div className="flex items-start gap-6">
-            <div className="w-32 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-100">
+            <div className="w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-200">
               {product.images?.[0] ? (
                 <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
               ) : (
@@ -566,14 +564,14 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
             </div>
 
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">{product.name}</h1>
-              <p className="text-slate-600 mb-3">
-                {product.categoryLabel} • <span className="text-yellow-600 font-bold">{peso(product.price)}</span>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+              <p className="text-gray-600 mb-3">
+                {product.categoryLabel} • <span className="text-yellow-500 font-bold">{peso(product.price)}</span>
               </p>
               <div className="flex items-center gap-4">
                 <StarRating rating={Math.round(avgRating)} size="md" />
-                <span className="text-lg font-semibold text-slate-700">{avgRating.toFixed(1)}</span>
-                <span className="text-slate-500">({product.reviews.length} reviews)</span>
+                <span className="text-lg font-semibold text-gray-700">{avgRating.toFixed(1)}</span>
+                <span className="text-gray-500">({product.reviews.length} reviews)</span>
               </div>
             </div>
           </div>
@@ -582,7 +580,7 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
         {/* Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-xl border-2 border-green-100 p-6 mb-8"
+          className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8"
         >
           <div className="flex flex-wrap gap-4 items-center">
             <div className="flex-1 min-w-80">
@@ -593,7 +591,7 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
                   placeholder="Search reviews..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                 />
               </div>
             </div>
@@ -601,7 +599,7 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
             <select
               value={filterRating}
               onChange={(e) => setFilterRating(e.target.value)}
-              className="px-4 py-3 border-2 border-yellow-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 min-w-40"
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 min-w-40"
             >
               <option value="">All Ratings</option>
               <option value="5">5 Stars</option>
@@ -616,15 +614,15 @@ function ProductReviewsView({ product, onBack, onViewReview, selectedReview, onC
         {/* Reviews List */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-xl border-2 border-green-100 overflow-hidden"
+          className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
         >
           {filteredReviews.length === 0 ? (
-            <div className="p-12 text-center text-slate-500">
+            <div className="p-12 text-center text-gray-500">
               <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <p className="text-lg">No reviews found matching your criteria.</p>
             </div>
           ) : (
-            <div className="divide-y divide-green-100">
+            <div className="divide-y divide-gray-200">
               <AnimatePresence>
                 {filteredReviews.map((review, index) => (
                   <ReviewCard
@@ -665,18 +663,18 @@ const ReviewCard = ({ review, productId, onViewDetails, delay = 0 }) => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, height: 0, margin: 0, paddingTop: 0, paddingBottom: 0 }}
       transition={{ duration: 0.2 }}
-      className="p-6 hover:bg-green-50 transition-all duration-200 group"
+      className="p-6 hover:bg-gray-50 transition-all duration-200 group"
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-yellow-500 flex items-center justify-center text-white font-bold">
+          <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center text-white font-bold">
             {reviewerName.charAt(0).toUpperCase() || "A"}
           </div>
           <div>
-            <p className="font-semibold text-slate-900">{reviewerName}</p>
+            <p className="font-semibold text-gray-900">{reviewerName}</p>
             <div className="flex items-center gap-2 mt-1">
               <StarRating rating={review.rating} />
-              <span className="text-sm text-slate-500">{formatDate(review.createdAt)}</span>
+              <span className="text-sm text-gray-500">{formatDate(review.createdAt)}</span>
             </div>
           </div>
         </div>
@@ -684,7 +682,7 @@ const ReviewCard = ({ review, productId, onViewDetails, delay = 0 }) => {
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onViewDetails(review)}
-            className="p-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white transition-all hover:shadow-lg"
+            className="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-all"
             title="View Details"
           >
             <Eye className="w-4 h-4" />
@@ -692,7 +690,7 @@ const ReviewCard = ({ review, productId, onViewDetails, delay = 0 }) => {
         </div>
       </div>
 
-      <p className="text-slate-700 leading-relaxed">
+      <p className="text-gray-700 leading-relaxed">
         {review.comment || "No comment provided"}
       </p>
     </motion.div>
@@ -714,12 +712,12 @@ const ReviewDetailsModal = ({ review, productName, productImage, onClose }) => {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-4 border-green-200"
+        className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold text-slate-900">Review Details</h3>
+            <h3 className="text-2xl font-bold text-gray-900">Review Details</h3>
             <button
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -730,28 +728,28 @@ const ReviewDetailsModal = ({ review, productName, productImage, onClose }) => {
 
           <div className="space-y-6">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-yellow-500 flex items-center justify-center text-white font-bold text-xl">
+              <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-xl">
                 {reviewerName.charAt(0).toUpperCase() || "A"}
               </div>
               <div className="flex-1">
-                <h4 className="text-xl font-semibold text-slate-900">{reviewerName}</h4>
+                <h4 className="text-xl font-semibold text-gray-900">{reviewerName}</h4>
                 <div className="flex items-center gap-3 mt-2">
                   <StarRating rating={review.rating} size="lg" />
-                  <span className="text-slate-600">{formatDate(review.createdAt)}</span>
+                  <span className="text-gray-600">{formatDate(review.createdAt)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-xl p-4 bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-100">
-              <p className="text-slate-700 leading-relaxed text-lg">
+            <div className="rounded-lg p-4 bg-gray-50 border border-gray-200">
+              <p className="text-gray-700 leading-relaxed text-lg">
                 {review.comment || "No comment provided"}
               </p>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t-2 border-green-100">
+            <div className="flex gap-3 pt-4 border-t border-gray-200">
               <button
                 onClick={onClose}
-                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold transition-all shadow-md hover:shadow-lg"
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
               >
                 Close
               </button>
@@ -762,15 +760,3 @@ const ReviewDetailsModal = ({ review, productName, productImage, onClose }) => {
     </motion.div>
   );
 };
-
-
-
-
-
-
-
-
-
-
-
-
