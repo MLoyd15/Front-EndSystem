@@ -99,9 +99,9 @@ const Loyalty = () => {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="relative">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4" style={{ borderTopColor: '#52943A', borderBottomColor: '#52943A' }}></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500"></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <FaAward className="text-xl" style={{ color: '#52943A' }} />
+            <FaAward className="text-xl text-green-600" />
           </div>
         </div>
       </div>
@@ -111,24 +111,18 @@ const Loyalty = () => {
   if (error) {
     return (
       <div className="p-6">
-        <div className="border-l-4 rounded-lg p-6 shadow-md" style={{ 
-          background: 'linear-gradient(to right, #fef2f2, #fee2e2)',
-          borderColor: '#dc2626'
-        }}>
+        <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-6 shadow-md">
           <div className="flex items-start gap-3">
-            <FaExclamationCircle className="text-2xl mt-1 flex-shrink-0" style={{ color: '#dc2626' }} />
+            <FaExclamationCircle className="text-2xl text-red-500 mt-1 flex-shrink-0" />
             <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-2" style={{ color: '#7f1d1d' }}>Error Loading Loyalty Data</h3>
-              <p className="mb-2" style={{ color: '#991b1b' }}>{error}</p>
-              <p className="text-sm mb-4" style={{ color: '#b91c1c' }}>
+              <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Loyalty Data</h3>
+              <p className="text-red-800 mb-2">{error}</p>
+              <p className="text-sm text-red-700 mb-4">
                 Endpoint: {API}/loyalty/rewards
               </p>
               <button 
                 onClick={fetchLoyaltyData}
-                className="px-6 py-2 text-white rounded-lg transition-all shadow-md hover:shadow-lg"
-                style={{ 
-                  background: 'linear-gradient(to right, #dc2626, #b91c1c)',
-                }}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg"
               >
                 🔄 Retry
               </button>
@@ -140,28 +134,18 @@ const Loyalty = () => {
   }
 
   return (
-    <div className="min-h-screen p-6 space-y-6" style={{ 
-      background: 'linear-gradient(to bottom right, #f0fdf4, #ecfccb, #fef3c7)'
-    }}>
+    <div className="min-h-screen bg-white p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold" style={{
-            background: 'linear-gradient(to right, #52943A, #7B6045)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }}>
+          <h1 className="text-4xl font-bold text-green-600">
             Loyalty System
           </h1>
           <p className="text-gray-600 mt-2">Manage and track customer rewards</p>
         </div>
         <button 
           onClick={fetchLoyaltyData}
-          className="px-6 py-3 text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-          style={{
-            background: 'linear-gradient(to right, #52943A, #7B6045)'
-          }}
+          className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
         >
           🔄 Refresh Data
         </button>
@@ -170,88 +154,60 @@ const Loyalty = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total Rewards Card */}
-        <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border-t-4" style={{ borderColor: '#52943A' }}>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Total Rewards</p>
-              <p className="text-4xl font-bold" style={{
-                background: 'linear-gradient(to right, #52943A, #7B6045)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>
+              <p className="text-4xl font-bold text-green-600">
                 {loyaltyData.stats.totalRewards}
               </p>
             </div>
-            <div className="p-4 rounded-2xl shadow-lg" style={{
-              background: 'linear-gradient(to bottom right, #52943A, #7B6045)'
-            }}>
+            <div className="p-4 rounded-xl bg-green-500 shadow-lg">
               <FaAward className="text-white text-3xl" />
             </div>
           </div>
         </div>
 
         {/* Active Users Card */}
-        <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border-t-4" style={{ borderColor: '#7B6045' }}>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Active Users</p>
-              <p className="text-4xl font-bold" style={{
-                background: 'linear-gradient(to right, #7B6045, #52943A)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>
+              <p className="text-4xl font-bold text-green-600">
                 {loyaltyData.stats.totalUsers}
               </p>
             </div>
-            <div className="p-4 rounded-2xl shadow-lg" style={{
-              background: 'linear-gradient(to bottom right, #7B6045, #52943A)'
-            }}>
+            <div className="p-4 rounded-xl bg-green-600 shadow-lg">
               <FaUsers className="text-white text-3xl" />
             </div>
           </div>
         </div>
 
         {/* Points Issued Card */}
-        <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border-t-4" style={{ borderColor: '#E2AD3A' }}>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Points Issued</p>
-              <p className="text-4xl font-bold" style={{
-                background: 'linear-gradient(to right, #E2AD3A, #d97706)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>
+              <p className="text-4xl font-bold text-amber-600">
                 {loyaltyData.stats.totalPointsIssued.toLocaleString()}
               </p>
             </div>
-            <div className="p-4 rounded-2xl shadow-lg" style={{
-              background: 'linear-gradient(to bottom right, #E2AD3A, #d97706)'
-            }}>
+            <div className="p-4 rounded-xl bg-amber-600 shadow-lg">
               <FaBolt className="text-white text-3xl" />
             </div>
           </div>
         </div>
 
         {/* Points Redeemed Card */}
-        <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border-t-4" style={{ borderColor: '#52943A' }}>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Points Redeemed</p>
-              <p className="text-4xl font-bold" style={{
-                background: 'linear-gradient(to right, #52943A, #16a34a)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>
+              <p className="text-4xl font-bold text-green-600">
                 {loyaltyData.stats.totalPointsRedeemed.toLocaleString()}
               </p>
             </div>
-            <div className="p-4 rounded-2xl shadow-lg" style={{
-              background: 'linear-gradient(to bottom right, #52943A, #16a34a)'
-            }}>
+            <div className="p-4 rounded-xl bg-green-500 shadow-lg">
               <FaCheckCircle className="text-white text-3xl" />
             </div>
           </div>
@@ -259,16 +215,14 @@ const Loyalty = () => {
       </div>
 
       {/* All Loyalty Members Table */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200" style={{
-          background: 'linear-gradient(to right, #f0fdf4, #ecfccb)'
-        }}>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900">All Loyalty Members</h2>
           <p className="text-sm text-gray-600 mt-1">Complete list of all loyalty program participants</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead style={{ background: 'linear-gradient(to right, #f9fafb, #f3f4f6)' }}>
+            <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   User
@@ -297,24 +251,11 @@ const Loyalty = () => {
                   .map((reward, index) => (
                     <tr 
                       key={index} 
-                      className="transition-colors cursor-pointer"
-                      style={{
-                        ':hover': {
-                          background: 'linear-gradient(to right, #f0fdf4, #ecfccb)'
-                        }
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(to right, #f0fdf4, #ecfccb)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = '';
-                      }}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold mr-3" style={{
-                            background: 'linear-gradient(to bottom right, #52943A, #7B6045)'
-                          }}>
+                          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold mr-3">
                             {reward.userId?.name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
                           <div>
@@ -329,24 +270,23 @@ const Loyalty = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <FaBolt className="mr-1" style={{ color: '#E2AD3A' }} />
-                          <span className="text-lg font-bold" style={{ color: '#52943A' }}>
+                          <FaBolt className="mr-1 text-amber-600" />
+                          <span className="text-lg font-bold text-green-600">
                             {reward.points || 0}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span 
-                          className="inline-flex px-3 py-1 text-xs font-bold rounded-full text-white"
-                          style={{
-                            background: reward.tier === 'gold' 
-                              ? 'linear-gradient(to right, #E2AD3A, #f59e0b)' 
+                          className={`inline-flex px-3 py-1 text-xs font-bold rounded-full text-white ${
+                            reward.tier === 'gold' 
+                              ? 'bg-amber-500' 
                               : reward.tier === 'silver'
-                              ? 'linear-gradient(to right, #9ca3af, #6b7280)'
+                              ? 'bg-gray-400'
                               : reward.tier === 'bronze'
-                              ? 'linear-gradient(to right, #f97316, #ea580c)'
-                              : 'linear-gradient(to right, #52943A, #7B6045)'
-                          }}
+                              ? 'bg-orange-500'
+                              : 'bg-green-500'
+                          }`}
                         >
                           {reward.tier?.toUpperCase() || 'MEMBER'}
                         </span>
