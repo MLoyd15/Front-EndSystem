@@ -114,6 +114,7 @@ export default function EnhancedSalesChart() {
       if (isNaN(date.getTime())) return null;
       if (groupBy === "day") return date.toISOString().split("T")[0];
       const y = date.getFullYear();
+      if (groupBy === "year") return String(y);
       const m = String(date.getMonth() + 1).padStart(2, "0");
       return `${y}-${m}`;
     },
@@ -254,6 +255,11 @@ export default function EnhancedSalesChart() {
   const formatCurrency = useCallback((value) => peso(value), []);
 
   const formatDateLabel = useCallback((key) => {
+    // Handle year format (e.g., "2024")
+    if (key.length === 4 && !isNaN(key)) {
+      return key;
+    }
+    // Handle day format (e.g., "2024-01-15") or month format (e.g., "2024-01")
     const date = key.length === 10 ? new Date(key) : new Date(`${key}-01`);
     return date.toLocaleDateString(undefined, key.length === 10 ? { month: "short", day: "numeric" } : { month: "short", year: "numeric" });
   }, []);
@@ -393,6 +399,7 @@ export default function EnhancedSalesChart() {
               >
                 <option value="day">Day</option>
                 <option value="month">Month</option>
+                <option value="year">Year</option>
               </select>
             </div>
 

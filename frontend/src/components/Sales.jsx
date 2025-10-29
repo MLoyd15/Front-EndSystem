@@ -51,8 +51,8 @@ const deliveryStatusConfig = {
   },
   assigned: { 
     label: "Assigned to Driver", 
-    className: "text-blue-900", 
-    bg: "bg-blue-100",
+    className: "text-green-900", 
+    bg: "bg-green-100",
     icon: <Truck className="h-3 w-3" />
   },
   completed: { 
@@ -138,14 +138,14 @@ const DeliveryStatusBadge = ({ status }) => {
 };
 
 // --- METRIC CARD ---
-const MetricCard = ({ title, value, icon }) => (
+const MetricCard = ({ title, value, icon, color = "bg-gray-50" }) => (
   <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm text-gray-500 mb-1">{title}</p>
         <p className="text-2xl font-bold">{value}</p>
       </div>
-      <div className="p-3 rounded-lg bg-gray-50">{icon}</div>
+      <div className={`p-3 rounded-lg ${color}`}>{icon}</div>
     </div>
   </div>
 );
@@ -403,6 +403,9 @@ export default function Sales() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("all");
+  const [priceFilter, setPriceFilter] = useState("all");
+  const [productFilter, setProductFilter] = useState("");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
@@ -500,17 +503,45 @@ export default function Sales() {
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
+      // Delivery status filter
       const deliveryStatus = (o.deliveryStatus ?? "pending").toLowerCase();
       const statusMatches = deliveryStatusFilter === "all" || deliveryStatus === deliveryStatusFilter;
       
-      const q = (searchQuery || "").trim().toLowerCase();
-      if (!q) return statusMatches;
+      // Price filter
+      const total = Number(o.total ?? 0);
+      let priceMatches = true;
+      if (priceFilter === "under-500") priceMatches = total < 500;
+      else if (priceFilter === "500-1000") priceMatches = total >= 500 && total <= 1000;
+      else if (priceFilter === "1000-2000") priceMatches = total >= 1000 && total <= 2000;
+      else if (priceFilter === "over-2000") priceMatches = total > 2000;
       
-      const idMatch = String(o._id ?? "").toLowerCase().includes(q);
-      const addrMatch = (o.address ?? "").toLowerCase().includes(q);
-      return statusMatches && (idMatch || addrMatch);
+      // Product filter
+      const productMatches = !productFilter.trim() || 
+        (o.items || []).some(item => 
+          (item.name || item.title || "").toLowerCase().includes(productFilter.toLowerCase())
+        );
+      
+      // Payment method filter
+      const paymentMethod = (o.paymentMethod || "").toLowerCase();
+      let paymentMatches = true;
+      if (paymentMethodFilter === "e-payment") {
+        paymentMatches = o.isEPayment || paymentMethod.includes("gcash") || paymentMethod.includes("paymaya") || paymentMethod.includes("card");
+      } else if (paymentMethodFilter === "cod") {
+        paymentMatches = paymentMethod.includes("cod") || paymentMethod.includes("cash");
+      }
+      
+      // Search query filter
+      const q = (searchQuery || "").trim().toLowerCase();
+      let searchMatches = true;
+      if (q) {
+        const idMatch = String(o._id ?? "").toLowerCase().includes(q);
+        const addrMatch = (o.address ?? "").toLowerCase().includes(q);
+        searchMatches = idMatch || addrMatch;
+      }
+      
+      return statusMatches && priceMatches && productMatches && paymentMatches && searchMatches;
     });
-  }, [orders, deliveryStatusFilter, searchQuery]);
+  }, [orders, deliveryStatusFilter, priceFilter, productFilter, paymentMethodFilter, searchQuery]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedOrders = useMemo(() => {
@@ -520,7 +551,7 @@ export default function Sales() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, deliveryStatusFilter]);
+  }, [searchQuery, deliveryStatusFilter, priceFilter, productFilter, paymentMethodFilter]);
 
   const metrics = useMemo(() => {
     const totalRevenue = orders.reduce((s, o) => s + Number(o.total ?? 0), 0);
@@ -581,7 +612,7 @@ export default function Sales() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-600 rounded-lg">
+              <div className="p-2 bg-green-600 rounded-lg">
                 <Package className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-4xl font-bold">Sales & Deliveries</h1>
@@ -596,7 +627,7 @@ export default function Sales() {
               className={cn(
                 "px-4 py-2 rounded-lg font-medium transition-colors",
                 activeTab === "orders"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-green-600 text-white"
                   : "bg-white text-gray-700 hover:bg-gray-100"
               )}
             >
@@ -619,31 +650,65 @@ export default function Sales() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <MetricCard title="Total Revenue" value={peso(metrics.totalRevenue)} icon={<CreditCard className="h-6 w-6" />} />
-          <MetricCard title="Total Orders" value={metrics.totalOrders.toLocaleString()} icon={<Package className="h-6 w-6" />} />
-          <MetricCard title="Delivered" value={metrics.delivered.toLocaleString()} icon={<CheckCircle2 className="h-6 w-6" />} />
-          <MetricCard title="Cancelled" value={metrics.cancelled.toLocaleString()} icon={<X className="h-6 w-6" />} />
+          <MetricCard title="Total Revenue" value={peso(metrics.totalRevenue)} icon={<CreditCard className="h-6 w-6 text-white" />} color="bg-green-500" />
+          <MetricCard title="Total Orders" value={metrics.totalOrders.toLocaleString()} icon={<Package className="h-6 w-6 text-white" />} color="bg-amber-600" />
+          <MetricCard title="Delivered" value={metrics.delivered.toLocaleString()} icon={<CheckCircle2 className="h-6 w-6 text-white" />} color="bg-yellow-500" />
+          <MetricCard title="Cancelled" value={metrics.cancelled.toLocaleString()} icon={<X className="h-6 w-6 text-white" />} color="bg-amber-800" />
         </div>
 
         <div className="bg-white rounded-xl border p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col gap-4">
+            {/* Search Bar */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input placeholder="Search by order ID or address..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
+            
+            {/* Filters Row */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <select
+                  className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={deliveryStatusFilter}
+                  onChange={(e) => setDeliveryStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Delivery Status</option>
+                  {Object.keys(deliveryStatusConfig).map((k) => (
+                    <option key={k} value={k}>
+                      {deliveryStatusConfig[k].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               <select
                 className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={deliveryStatusFilter}
-                onChange={(e) => setDeliveryStatusFilter(e.target.value)}
+                value={priceFilter}
+                onChange={(e) => setPriceFilter(e.target.value)}
               >
-                <option value="all">All Delivery Status</option>
-                {Object.keys(deliveryStatusConfig).map((k) => (
-                  <option key={k} value={k}>
-                    {deliveryStatusConfig[k].label}
-                  </option>
-                ))}
+                <option value="all">All Price Ranges</option>
+                <option value="under-500">Under ₱500</option>
+                <option value="500-1000">₱500 - ₱1,000</option>
+                <option value="1000-2000">₱1,000 - ₱2,000</option>
+                <option value="over-2000">Over ₱2,000</option>
+              </select>
+              
+              <Input 
+                placeholder="Filter by product name..." 
+                value={productFilter} 
+                onChange={(e) => setProductFilter(e.target.value)} 
+                className="flex-1 min-w-0"
+              />
+              
+              <select
+                className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={paymentMethodFilter}
+                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+              >
+                <option value="all">All Payment Methods</option>
+                <option value="e-payment">E-Payment</option>
+                <option value="cod">Cash on Delivery</option>
               </select>
             </div>
           </div>
@@ -654,7 +719,7 @@ export default function Sales() {
             <Package className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h2 className="text-2xl font-semibold mb-2">No orders found</h2>
             <p className="text-gray-500">
-              {searchQuery || deliveryStatusFilter !== "all" 
+              {searchQuery || deliveryStatusFilter !== "all" || priceFilter !== "all" || productFilter.trim() || paymentMethodFilter !== "all"
                 ? "Try adjusting your filters" 
                 : "Your order history will appear here once you make a purchase"}
             </p>

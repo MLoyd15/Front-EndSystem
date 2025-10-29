@@ -165,14 +165,16 @@ const StatusBadge = ({ status }) => {
 };
 
 // --- METRIC CARD ---
-const MetricCard = ({ title, value, icon, color = "gray" }) => (
+const MetricCard = ({ title, value, icon, color = "bg-gray-50" }) => (
   <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm text-gray-500 mb-1">{title}</p>
         <p className="text-2xl font-bold">{value}</p>
       </div>
-      <div className={`p-3 rounded-lg bg-${color}-50`}>{icon}</div>
+      <div className={`p-3 rounded-lg ${color}`}>
+        <div className="text-white">{icon}</div>
+      </div>
     </div>
   </div>
 );
@@ -592,7 +594,7 @@ export default function RefundTickets({ onBack }) {
             </button>
           )}
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-600 rounded-lg">
+            <div className="p-2 bg-green-600 rounded-lg">
               <DollarSign className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-4xl font-bold">Refund Tickets</h1>
@@ -606,31 +608,31 @@ export default function RefundTickets({ onBack }) {
             title="Total Refund Amount"
             value={peso(metrics.totalAmount)}
             icon={<DollarSign className="h-6 w-6" />}
-            color="blue"
+            color="bg-green-600"
           />
           <MetricCard
             title="Total Tickets"
             value={metrics.totalTickets.toLocaleString()}
             icon={<FileText className="h-6 w-6" />}
-            color="gray"
+            color="bg-amber-600"
           />
           <MetricCard
             title="Pending"
             value={metrics.pending.toLocaleString()}
             icon={<Clock className="h-6 w-6" />}
-            color="yellow"
+            color="bg-yellow-600"
           />
           <MetricCard
             title="Approved/Refunded"
             value={metrics.approved.toLocaleString()}
             icon={<CheckCircle2 className="h-6 w-6" />}
-            color="green"
+            color="bg-green-600"
           />
           <MetricCard
             title="Rejected"
             value={metrics.rejected.toLocaleString()}
             icon={<XCircle className="h-6 w-6" />}
-            color="red"
+            color="bg-amber-700"
           />
         </div>
 
