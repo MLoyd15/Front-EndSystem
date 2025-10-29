@@ -58,8 +58,8 @@ const statusConfig = {
   },
   under_review: {
     label: "Under Review",
-    className: "text-blue-900",
-    bg: "bg-blue-100",
+    className: "text-amber-900",
+    bg: "bg-amber-100",
     icon: <Eye className="h-3 w-3" />
   },
   approved: {
@@ -70,8 +70,8 @@ const statusConfig = {
   },
   rejected: {
     label: "Rejected",
-    className: "text-red-900",
-    bg: "bg-red-100",
+    className: "text-yellow-900",
+    bg: "bg-yellow-50",
     icon: <XCircle className="h-3 w-3" />
   },
   refunded: {
@@ -82,8 +82,8 @@ const statusConfig = {
   },
   closed: {
     label: "Closed",
-    className: "text-gray-900",
-    bg: "bg-gray-100",
+    className: "text-stone-700",
+    bg: "bg-stone-100",
     icon: <X className="h-3 w-3" />
   }
 };
@@ -95,7 +95,7 @@ const getStatusConfig = (status) => {
 
 // --- UI COMPONENTS ---
 const Card = ({ className = "", children, onClick }) => (
-  <div className={cn("rounded-lg border bg-white shadow-sm", className)} onClick={onClick}>
+  <div className={cn("rounded-lg border border-amber-200 bg-white shadow-sm", className)} onClick={onClick}>
     {children}
   </div>
 );
@@ -118,7 +118,7 @@ const Badge = ({ className = "", children, icon }) => (
 const Input = ({ className = "", ...props }) => (
   <input
     className={cn(
-      "flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50",
+      "flex h-10 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50",
       className
     )}
     {...props}
@@ -128,7 +128,7 @@ const Input = ({ className = "", ...props }) => (
 const Textarea = ({ className = "", ...props }) => (
   <textarea
     className={cn(
-      "flex min-h-[80px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50",
+      "flex min-h-[80px] w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50",
       className
     )}
     {...props}
@@ -139,9 +139,9 @@ const Button = ({ className = "", variant = "default", size = "default", childre
   const baseClass =
     "inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
   const variants = {
-    default: "bg-blue-600 text-white hover:bg-blue-700",
-    ghost: "hover:bg-gray-100 text-gray-700",
-    destructive: "bg-red-600 text-white hover:bg-red-700",
+    default: "bg-green-700 text-white hover:bg-green-800",
+    ghost: "hover:bg-amber-50 text-stone-700",
+    destructive: "bg-yellow-600 text-white hover:bg-yellow-700",
     success: "bg-green-600 text-white hover:bg-green-700",
   };
   const sizes = {
@@ -157,7 +157,7 @@ const Button = ({ className = "", variant = "default", size = "default", childre
   );
 };
 
-const Separator = ({ className = "" }) => <div className={cn("h-px bg-gray-200", className)} />;
+const Separator = ({ className = "" }) => <div className={cn("h-px bg-amber-200", className)} />;
 
 const StatusBadge = ({ status }) => {
   const cfg = getStatusConfig(status);
@@ -165,11 +165,11 @@ const StatusBadge = ({ status }) => {
 };
 
 // --- METRIC CARD ---
-const MetricCard = ({ title, value, icon, color = "gray" }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
+const MetricCard = ({ title, value, icon, color = "stone" }) => (
+  <div className="bg-white rounded-xl border border-amber-200 p-4 hover:shadow-md transition-shadow">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm text-gray-500 mb-1">{title}</p>
+        <p className="text-sm text-stone-500 mb-1">{title}</p>
         <p className="text-2xl font-bold">{value}</p>
       </div>
       <div className={`p-3 rounded-lg bg-${color}-50`}>{icon}</div>
@@ -189,7 +189,7 @@ const TicketCard = ({ ticket, onClick }) => {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-500">Ticket ID</p>
+            <p className="text-sm text-stone-500">Ticket ID</p>
             <p className="font-mono text-sm font-medium truncate">#{idShort}</p>
           </div>
           <StatusBadge status={ticket.status} />
@@ -197,34 +197,34 @@ const TicketCard = ({ ticket, onClick }) => {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500">Refund Amount</span>
-          <span className="font-semibold text-lg text-blue-600">{peso(amount)}</span>
+          <span className="text-sm text-stone-500">Refund Amount</span>
+          <span className="font-semibold text-lg text-green-700">{peso(amount)}</span>
         </div>
         
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-stone-500">
           <User className="h-4 w-4" />
           <span className="truncate">{userName}</span>
         </div>
         
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-stone-500">
           <Package className="h-4 w-4" />
           <span>Order: #{orderIdShort}</span>
         </div>
         
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-stone-500">
           <CreditCard className="h-4 w-4" />
           <span className="truncate font-mono text-xs">{ticket.paymentId}</span>
         </div>
         
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-stone-500">
           <Calendar className="h-4 w-4" />
           <span>{formatDate(ticket.createdAt)}</span>
         </div>
 
         {ticket.reason && (
-          <div className="pt-2 border-t">
-            <p className="text-xs text-gray-500">Reason:</p>
-            <p className="text-sm text-gray-700 line-clamp-2">{ticket.reason}</p>
+          <div className="pt-2 border-t border-amber-200">
+            <p className="text-xs text-stone-500">Reason:</p>
+            <p className="text-sm text-stone-700 line-clamp-2">{ticket.reason}</p>
           </div>
         )}
       </CardContent>
@@ -282,7 +282,7 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
           <X className="h-4 w-4" />
         </Button>
         <h3 className="text-2xl font-semibold leading-none tracking-tight">Refund Ticket Details</h3>
-        <p className="text-sm text-gray-500 font-mono">#{String(ticket._id).slice(-12)}</p>
+        <p className="text-sm text-stone-500 font-mono">#{String(ticket._id).slice(-12)}</p>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -294,8 +294,8 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
           </div>
           <div>
             <h4 className="font-semibold mb-2">Refund Amount</h4>
-            <p className="text-2xl font-bold text-blue-600">{peso(amount)}</p>
-            <p className="text-xs text-gray-500 mt-1">Currency: {ticket.currency || "PHP"}</p>
+            <p className="text-2xl font-bold text-green-700">{peso(amount)}</p>
+            <p className="text-xs text-stone-500 mt-1">Currency: {ticket.currency || "PHP"}</p>
           </div>
         </div>
 
@@ -306,14 +306,14 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
             <h4 className="font-semibold flex items-center gap-2 mb-3">
               <User className="h-4 w-4" /> Customer Information
             </h4>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="bg-amber-50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Name:</span>
+                <span className="text-stone-600">Name:</span>
                 <span className="font-medium">{userName}</span>
               </div>
               {ticket.user?.email && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Email:</span>
+                  <span className="text-stone-600">Email:</span>
                   <span className="font-medium">{ticket.user.email}</span>
                 </div>
               )}
@@ -327,13 +327,13 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
             <h4 className="font-semibold flex items-center gap-2 mb-3">
               <Package className="h-4 w-4" /> Related Order
             </h4>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="bg-amber-50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Order ID:</span>
+                <span className="text-stone-600">Order ID:</span>
                 <span className="font-mono font-medium">#{orderIdFull.slice(-12)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Payment ID:</span>
+                <span className="text-stone-600">Payment ID:</span>
                 <span className="font-mono font-medium text-xs">{ticket.paymentId}</span>
               </div>
             </div>
@@ -346,8 +346,8 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
             <h4 className="font-semibold flex items-center gap-2 mb-3">
               <MessageSquare className="h-4 w-4" /> Refund Reason
             </h4>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{ticket.reason}</p>
+            <div className="bg-amber-50 rounded-lg p-4">
+              <p className="text-sm text-stone-700 whitespace-pre-wrap">{ticket.reason}</p>
             </div>
           </div>
 
@@ -366,7 +366,7 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                      className="flex items-center gap-2 text-sm text-green-700 hover:text-green-800 hover:underline"
                     >
                       <ExternalLink className="h-3 w-3" />
                       Attachment {i + 1}
@@ -386,7 +386,7 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
             <div>
               <label className="block text-sm font-medium mb-2">Update Status</label>
               <select
-                className="w-full px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 rounded-lg border border-amber-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
               >
@@ -421,7 +421,7 @@ const TicketDetailsModal = ({ ticket, onClose, onUpdate }) => {
           <Separator />
 
           {/* Processing Info */}
-          <div className="text-sm text-gray-500 space-y-1">
+          <div className="text-sm text-stone-500 space-y-1">
             <div className="flex items-center gap-2">
               <Calendar className="h-3 w-3" />
               <span>Created: {formatDate(ticket.createdAt)}</span>
@@ -543,13 +543,13 @@ export default function RefundTickets({ onBack }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-amber-50 p-6">
         <div className="container mx-auto max-w-7xl">
           <div className="animate-pulse space-y-6">
-            <div className="h-12 bg-gray-200 rounded w-64"></div>
+            <div className="h-12 bg-stone-200 rounded w-64"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-white rounded-xl border p-4 h-24"></div>
+                <div key={i} className="bg-white rounded-xl border border-amber-200 p-4 h-24"></div>
               ))}
             </div>
           </div>
@@ -560,12 +560,12 @@ export default function RefundTickets({ onBack }) {
 
   if (errorMsg) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-amber-50 p-6">
         <div className="container mx-auto max-w-7xl">
-          <div className="bg-white rounded-xl border border-red-200 p-12 text-center">
-            <AlertCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
-            <h3 className="text-xl font-semibold text-red-600 mb-2">Unable to load refund tickets</h3>
-            <p className="text-gray-500 mb-4">{errorMsg}</p>
+          <div className="bg-white rounded-xl border border-yellow-200 p-12 text-center">
+            <AlertCircle className="h-16 w-16 mx-auto text-yellow-600 mb-4" />
+            <h3 className="text-xl font-semibold text-yellow-700 mb-2">Unable to load refund tickets</h3>
+            <p className="text-stone-500 mb-4">{errorMsg}</p>
             <Button onClick={fetchTickets}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
@@ -577,7 +577,7 @@ export default function RefundTickets({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-amber-50">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
@@ -585,19 +585,19 @@ export default function RefundTickets({ onBack }) {
           {onBack && (
             <button
               onClick={onBack}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors group"
+              className="flex items-center gap-2 text-stone-600 hover:text-stone-900 mb-4 transition-colors group"
             >
               <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
               <span className="font-medium">Back to Orders</span>
             </button>
           )}
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-600 rounded-lg">
+            <div className="p-2 bg-green-700 rounded-lg">
               <DollarSign className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-4xl font-bold">Refund Tickets</h1>
           </div>
-          <p className="text-gray-500 text-lg">Manage and process customer refund requests</p>
+          <p className="text-stone-500 text-lg">Manage and process customer refund requests</p>
         </div>
 
         {/* Metrics */}
@@ -606,13 +606,13 @@ export default function RefundTickets({ onBack }) {
             title="Total Refund Amount"
             value={peso(metrics.totalAmount)}
             icon={<DollarSign className="h-6 w-6" />}
-            color="blue"
+            color="green"
           />
           <MetricCard
             title="Total Tickets"
             value={metrics.totalTickets.toLocaleString()}
             icon={<FileText className="h-6 w-6" />}
-            color="gray"
+            color="stone"
           />
           <MetricCard
             title="Pending"
@@ -630,15 +630,15 @@ export default function RefundTickets({ onBack }) {
             title="Rejected"
             value={metrics.rejected.toLocaleString()}
             icon={<XCircle className="h-6 w-6" />}
-            color="red"
+            color="yellow"
           />
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl border p-4 mb-6">
+        <div className="bg-white rounded-xl border border-amber-200 p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
               <Input
                 placeholder="Search by ticket ID, reason, payment ID, or customer..."
                 value={searchQuery}
@@ -647,9 +647,9 @@ export default function RefundTickets({ onBack }) {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
+              <Filter className="h-4 w-4 text-stone-500" />
               <select
-                className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 rounded-lg border border-amber-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -669,10 +669,10 @@ export default function RefundTickets({ onBack }) {
 
         {/* Tickets Grid */}
         {filtered.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl border">
-            <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+          <div className="text-center py-16 bg-white rounded-xl border border-amber-200">
+            <FileText className="h-16 w-16 mx-auto text-stone-400 mb-4" />
             <h2 className="text-2xl font-semibold mb-2">No tickets found</h2>
-            <p className="text-gray-500">
+            <p className="text-stone-500">
               {searchQuery || statusFilter !== "all"
                 ? "Try adjusting your filters"
                 : "Refund tickets will appear here when customers request refunds"}
@@ -692,11 +692,11 @@ export default function RefundTickets({ onBack }) {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-between bg-white rounded-xl border p-4">
-                <div className="text-sm text-gray-600">
-                  Showing <span className="font-medium text-gray-900">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
-                  <span className="font-medium text-gray-900">{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of{" "}
-                  <span className="font-medium text-gray-900">{filtered.length}</span> tickets
+              <div className="mt-8 flex items-center justify-between bg-white rounded-xl border border-amber-200 p-4">
+                <div className="text-sm text-stone-600">
+                  Showing <span className="font-medium text-stone-900">{((currentPage - 1) * itemsPerPage) + 1}</span> to{" "}
+                  <span className="font-medium text-stone-900">{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of{" "}
+                  <span className="font-medium text-stone-900">{filtered.length}</span> tickets
                 </div>
 
                 <div className="flex items-center gap-2">
