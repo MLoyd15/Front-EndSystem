@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config.js';
-import { FaAward, FaUsers, FaBolt, FaCheckCircle, FaExclamationCircle, FaHistory, FaTimes, FaShoppingCart, FaCalendar, FaCoins } from 'react-icons/fa';
+import { FaAward, FaUsers, FaBolt, FaCheckCircle, FaExclamationCircle, FaHistory, FaTimes, FaCalendar, FaCoins } from 'react-icons/fa';
 
 const API = VITE_API_BASE;
 const CURRENCY = "₱";
@@ -103,23 +103,13 @@ const Loyalty = () => {
       setLoadingDetails(true);
       setSelectedUser(reward);
       
-      const token = localStorage.getItem('pos-token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      
-      const userId = reward.userId?._id || reward.userId;
-      
-      // Fetch user's orders
-      const ordersResponse = await axios.get(`${API}/orders?userId=${userId}`, { headers });
-      const orders = Array.isArray(ordersResponse.data) ? ordersResponse.data 
-        : ordersResponse.data?.orders || ordersResponse.data?.data || [];
-      
+      // Since we removed order fetching, we just set the reward and points history
       setUserDetails({
         reward,
-        orders,
         pointsHistory: reward.pointsHistory || []
       });
     } catch (err) {
-      console.error('❌ Error fetching user details:', err);
+      console.error('❌ Error loading user details:', err);
       alert('Failed to load user details. Please try again.');
     } finally {
       setLoadingDetails(false);
@@ -364,18 +354,18 @@ const Loyalty = () => {
         </div>
       </div>
 
-      {/* User Details Modal */}
+      {/* User Details Modal with Transparent Background */}
       {selectedUser && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={closeModal}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
+            className="bg-white bg-opacity-95 backdrop-blur-md rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden border border-gray-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-5 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-green-500 to-green-600 bg-opacity-90 px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-green-600 font-bold text-2xl shadow-lg">
                   {selectedUser.userId?.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -394,7 +384,7 @@ const Loyalty = () => {
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-120px)]">
               {loadingDetails ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-green-500"></div>
@@ -403,39 +393,39 @@ const Loyalty = () => {
                 <div className="space-y-6">
                   {/* User Stats */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="bg-green-50 bg-opacity-80 border border-green-200 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <FaBolt className="text-green-600" />
                         <p className="text-sm font-semibold text-gray-600">Current Points</p>
                       </div>
                       <p className="text-3xl font-bold text-green-600">{userDetails.reward.points || 0}</p>
                     </div>
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="bg-amber-50 bg-opacity-80 border border-amber-200 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <FaCoins className="text-amber-600" />
                         <p className="text-sm font-semibold text-gray-600">Total Spent</p>
                       </div>
                       <p className="text-2xl font-bold text-gray-900">{peso(userDetails.reward.totalSpent || 0)}</p>
                     </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="bg-blue-50 bg-opacity-80 border border-blue-200 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <FaShoppingCart className="text-blue-600" />
-                        <p className="text-sm font-semibold text-gray-600">Purchases</p>
+                        <FaHistory className="text-blue-600" />
+                        <p className="text-sm font-semibold text-gray-600">Total Purchases</p>
                       </div>
                       <p className="text-3xl font-bold text-blue-600">{userDetails.reward.purchaseCount || 0}</p>
                     </div>
-                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                    <div className="bg-purple-50 bg-opacity-80 border border-purple-200 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <FaAward className="text-purple-600" />
-                        <p className="text-sm font-semibold text-gray-600">Tier</p>
+                        <p className="text-sm font-semibold text-gray-600">Loyalty Tier</p>
                       </div>
                       <p className="text-2xl font-bold text-purple-600">{userDetails.reward.tier?.toUpperCase() || 'MEMBER'}</p>
                     </div>
                   </div>
 
                   {/* Points History */}
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                  <div className="bg-white bg-opacity-90 border border-gray-200 rounded-xl overflow-hidden shadow-lg">
+                    <div className="bg-gray-50 bg-opacity-90 px-6 py-4 border-b border-gray-200">
                       <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                         <FaHistory className="text-green-600" />
                         Points History
@@ -443,14 +433,14 @@ const Loyalty = () => {
                     </div>
                     <div className="p-6">
                       {userDetails.pointsHistory && userDetails.pointsHistory.length > 0 ? (
-                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
                           {userDetails.pointsHistory.map((history, idx) => (
                             <div 
                               key={idx}
                               className={`flex items-center justify-between p-4 rounded-lg border ${
                                 history.change > 0 
-                                  ? 'bg-green-50 border-green-200' 
-                                  : 'bg-red-50 border-red-200'
+                                  ? 'bg-green-50 bg-opacity-70 border-green-200' 
+                                  : 'bg-red-50 bg-opacity-70 border-red-200'
                               }`}
                             >
                               <div className="flex items-center gap-3">
@@ -484,78 +474,6 @@ const Loyalty = () => {
                         <div className="text-center py-8 text-gray-500">
                           <FaHistory className="text-4xl mx-auto mb-2 text-gray-300" />
                           <p>No points history available</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Order History */}
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <FaShoppingCart className="text-green-600" />
-                        Order History
-                      </h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      {userDetails.orders && userDetails.orders.length > 0 ? (
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Order ID</th>
-                              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Items</th>
-                              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Total</th>
-                              <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {userDetails.orders.map((order, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="font-mono text-sm text-gray-900">
-                                    {order._id?.slice(-8) || 'N/A'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                  <div className="flex items-center gap-2">
-                                    <FaCalendar className="text-gray-400" />
-                                    {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    }) : 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {order.items?.length || 0} items
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="text-lg font-bold text-gray-900">
-                                    {peso(order.total || order.totalAmount || 0)}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-full ${
-                                    order.status === 'completed' || order.status === 'delivered' 
-                                      ? 'bg-green-100 text-green-800'
-                                      : order.status === 'pending'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : order.status === 'cancelled'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {order.status?.toUpperCase() || 'UNKNOWN'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="text-center py-12 text-gray-500">
-                          <FaShoppingCart className="text-4xl mx-auto mb-2 text-gray-300" />
-                          <p>No orders found</p>
                         </div>
                       )}
                     </div>
