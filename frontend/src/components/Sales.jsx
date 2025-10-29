@@ -15,7 +15,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
-import RefundsTicket from "./refundsTicket"; // Import with correct casing
+import RefundsTicket from "./refundsTicket";
 
 // --- CONFIG / HELPERS ---
 const API = (VITE_API_BASE || "").replace(/\/+$/, "");
@@ -214,7 +214,143 @@ const OrderCard = ({ order, onClick }) => {
   );
 };
 
-// --- PRINTABLE RECEIPT (FIXED VERSION) ---
+// --- PRINT PREVIEW MODAL ---
+const PrintPreviewModal = ({ order, onClose, onConfirmPrint }) => {
+  if (!order) return null;
+  
+  const items = Array.isArray(order.items) ? order.items : order.products || [];
+  const subtotal = Number(
+    order.subtotal ??
+      items.reduce((sum, it) => sum + (Number(it.price ?? it.unitPrice ?? 0) * Number(it.quantity ?? 1)), 0)
+  );
+  const deliveryFee = Number(order.deliveryFee ?? order.shipping ?? 0);
+  const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <CardHeader className="relative">
+          <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+          <h3 className="text-xl font-semibold">Print Preview</h3>
+          <p className="text-sm text-gray-500">Review before printing</p>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* Receipt Preview */}
+          <div className="border-2 border-gray-300 rounded-lg p-6 bg-white" style={{ fontFamily: "'Courier New', monospace" }}>
+            {/* Header */}
+            <div className="text-center border-b-2 border-black pb-3 mb-4">
+              <h1 className="text-xl font-bold mb-1">YOUR STORE NAME</h1>
+              <p className="text-xs">123 Store Address</p>
+              <p className="text-xs">Contact: (123) 456-7890</p>
+            </div>
+
+            {/* Order Info */}
+            <div className="mb-4 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span>Order ID:</span>
+                <strong>#{String(order._id).slice(-12)}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Date:</span>
+                <span>{formatDate(order.createdAt)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Payment:</span>
+                <span>{order.paymentMethod ?? "N/A"}</span>
+              </div>
+            </div>
+
+            <div className="border-t-2 border-dashed border-black my-3"></div>
+
+            {/* Items */}
+            <div className="mb-4">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-black">
+                    <th className="text-left py-2">Item</th>
+                    <th className="text-center">Qty</th>
+                    <th className="text-right">Price</th>
+                    <th className="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, i) => {
+                    const name = it.name ?? it.productName ?? it.product?.name ?? "Item";
+                    const qty = Number(it.quantity ?? it.qty ?? 1);
+                    const price = Number(it.price ?? it.unitPrice ?? it.product?.price ?? 0);
+                    const itemTotal = price * qty;
+                    
+                    return (
+                      <tr key={i} className="border-b border-gray-300">
+                        <td className="py-2">{name}</td>
+                        <td className="text-center">{qty}</td>
+                        <td className="text-right">{peso(price)}</td>
+                        <td className="text-right font-bold">{peso(itemTotal)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t-2 border-dashed border-black my-3"></div>
+
+            {/* Totals */}
+            <div className="text-xs space-y-2 mb-4">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span>{peso(subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Delivery Fee:</span>
+                <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+              </div>
+              <div className="flex justify-between text-base font-bold border-t-2 border-black pt-2">
+                <span>TOTAL:</span>
+                <span>{peso(total)}</span>
+              </div>
+            </div>
+
+            {/* Delivery Address */}
+            {order.address && (
+              <>
+                <div className="border-t-2 border-dashed border-black my-3"></div>
+                <div className="text-xs">
+                  <p className="font-bold mb-1">Delivery Address:</p>
+                  <p>{order.address}</p>
+                </div>
+              </>
+            )}
+
+            {/* Footer */}
+            <div className="text-center mt-4 pt-3 border-t-2 border-black text-xs">
+              <p className="mb-1">Thank you for your order!</p>
+              <p>Please come again</p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button onClick={onConfirmPrint} className="flex-1 bg-green-600 hover:bg-green-700">
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Confirm & Print
+            </Button>
+            <Button variant="ghost" onClick={onClose} className="border">
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// --- PRINTABLE RECEIPT (FOR ACTUAL PRINTING) ---
 const PrintableReceipt = React.forwardRef(({ order }, ref) => {
   if (!order) return null;
   
@@ -228,15 +364,12 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
 
   return (
     <div ref={ref} className="print-receipt-container">
-      {/* Add print-specific styles */}
       <style>{`
         @media print {
-          /* Hide everything except the receipt */
           body > * {
             display: none !important;
           }
           
-          /* Show only the receipt container */
           .print-receipt-container {
             display: block !important;
             position: fixed !important;
@@ -250,7 +383,6 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
             z-index: 999999 !important;
           }
           
-          /* Style for the receipt content */
           .receipt-content {
             display: block !important;
             width: 400px !important;
@@ -262,7 +394,6 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
             background: white !important;
           }
           
-          /* Ensure all receipt elements are visible */
           .receipt-content * {
             color: black !important;
             background: white !important;
@@ -275,7 +406,6 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
           }
         }
         
-        /* Hide receipt in normal view */
         @media screen {
           .print-receipt-container {
             display: none;
@@ -284,14 +414,12 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
       `}</style>
       
       <div className="receipt-content">
-        {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2px solid black', paddingBottom: '16px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>YOUR STORE NAME</h1>
           <p style={{ fontSize: '10px' }}>123 Store Address</p>
           <p style={{ fontSize: '10px' }}>Contact: (123) 456-7890</p>
         </div>
 
-        {/* Order Info */}
         <div style={{ marginBottom: '16px', fontSize: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span>Order ID:</span>
@@ -309,7 +437,6 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
 
         <div style={{ borderTop: '2px dashed black', margin: '16px 0' }}></div>
 
-        {/* Items */}
         <div style={{ marginBottom: '16px' }}>
           <table style={{ width: '100%', fontSize: '10px' }}>
             <thead>
@@ -342,7 +469,6 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
 
         <div style={{ borderTop: '2px dashed black', margin: '16px 0' }}></div>
 
-        {/* Totals */}
         <div style={{ fontSize: '10px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span>Subtotal:</span>
@@ -358,7 +484,6 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
           </div>
         </div>
 
-        {/* Delivery Address */}
         {order.address && (
           <>
             <div style={{ borderTop: '2px dashed black', margin: '16px 0' }}></div>
@@ -369,7 +494,6 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
           </>
         )}
 
-        {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '24px', paddingTop: '16px', borderTop: '2px solid black', fontSize: '10px' }}>
           <p style={{ marginBottom: '4px' }}>Thank you for your order!</p>
           <p>Please come again</p>
@@ -382,6 +506,7 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
 // --- ORDER DETAILS MODAL ---
 const OrderDetailsModal = ({ order, onClose }) => {
   const printRef = React.useRef(null);
+  const [showPrintPreview, setShowPrintPreview] = React.useState(false);
   
   if (!order) return null;
   
@@ -399,15 +524,26 @@ const OrderDetailsModal = ({ order, onClose }) => {
   const deliverySteps = ["pending", "assigned", "completed"];
   const currentIndex = Math.max(0, deliverySteps.indexOf(deliveryStatus));
 
-  const handlePrint = () => {
+  const handlePrintClick = () => {
+    setShowPrintPreview(true);
+  };
+
+  const handleConfirmPrint = () => {
+    setShowPrintPreview(false);
+    
     // Create a new window for printing
     const printWindow = window.open('', 'PRINT', 'width=400,height=600');
     
-    // Receipt HTML content
+    if (!printWindow) {
+      alert('Please allow pop-ups for printing receipts');
+      return;
+    }
+    
     const receiptHTML = `
       <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="UTF-8">
         <title>Receipt - Order #${String(order._id).slice(-12)}</title>
         <style>
           * {
@@ -416,13 +552,18 @@ const OrderDetailsModal = ({ order, onClose }) => {
             box-sizing: border-box;
           }
           body {
-            font-family: 'Courier New', monospace;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 12px;
             line-height: 1.5;
             color: #000;
             padding: 20px;
             max-width: 400px;
             margin: 0 auto;
+            background: white;
+          }
+          .receipt-wrapper {
+            background: white;
+            padding: 20px;
           }
           .header {
             text-align: center;
@@ -433,6 +574,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
           .header h1 {
             font-size: 20px;
             margin-bottom: 5px;
+            font-weight: bold;
           }
           .header p {
             font-size: 10px;
@@ -459,6 +601,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
             text-align: left;
             border-bottom: 1px solid #000;
             padding: 5px 0;
+            font-weight: bold;
           }
           th:nth-child(2) { text-align: center; }
           th:nth-child(3), th:nth-child(4) { text-align: right; }
@@ -492,112 +635,133 @@ const OrderDetailsModal = ({ order, onClose }) => {
             font-size: 10px;
           }
           @media print {
-            body { margin: 0; padding: 10px; }
+            body { 
+              margin: 0; 
+              padding: 0;
+            }
+            .receipt-wrapper {
+              padding: 10px;
+            }
+            @page {
+              margin: 0;
+              size: 80mm 297mm;
+            }
           }
         </style>
       </head>
-      <body>
-        <div class="header">
-          <h1>YOUR STORE NAME</h1>
-          <p>123 Store Address</p>
-          <p>Contact: (123) 456-7890</p>
-        </div>
-        
-        <div class="order-info">
-          <div class="info-row">
-            <span>Order ID:</span>
-            <strong>#${String(order._id).slice(-12)}</strong>
+      <body onload="window.print(); window.onafterprint = function(){ window.close(); }">
+        <div class="receipt-wrapper">
+          <div class="header">
+            <h1>YOUR STORE NAME</h1>
+            <p>123 Store Address</p>
+            <p>Contact: (123) 456-7890</p>
           </div>
-          <div class="info-row">
-            <span>Date:</span>
-            <span>${formatDate(order.createdAt)}</span>
+          
+          <div class="order-info">
+            <div class="info-row">
+              <span>Order ID:</span>
+              <strong>#${String(order._id).slice(-12)}</strong>
+            </div>
+            <div class="info-row">
+              <span>Date:</span>
+              <span>${formatDate(order.createdAt)}</span>
+            </div>
+            <div class="info-row">
+              <span>Payment:</span>
+              <span>${order.paymentMethod ?? "N/A"}</span>
+            </div>
           </div>
-          <div class="info-row">
-            <span>Payment:</span>
-            <span>${order.paymentMethod ?? "N/A"}</span>
-          </div>
-        </div>
-        
-        <div class="divider"></div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Qty</th>
-              <th>Price</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(it => {
-              const name = it.name ?? it.productName ?? it.product?.name ?? "Item";
-              const qty = Number(it.quantity ?? it.qty ?? 1);
-              const price = Number(it.price ?? it.unitPrice ?? it.product?.price ?? 0);
-              const itemTotal = price * qty;
-              return `
-                <tr>
-                  <td>${name}</td>
-                  <td>${qty}</td>
-                  <td>${peso(price)}</td>
-                  <td><strong>${peso(itemTotal)}</strong></td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-        
-        <div class="divider"></div>
-        
-        <div class="totals">
-          <div class="total-row">
-            <span>Subtotal:</span>
-            <span>${peso(subtotal)}</span>
-          </div>
-          <div class="total-row">
-            <span>Delivery Fee:</span>
-            <span>${deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
-          </div>
-          <div class="total-row grand-total">
-            <span>TOTAL:</span>
-            <span>${peso(total)}</span>
-          </div>
-        </div>
-        
-        ${order.address ? `
+          
           <div class="divider"></div>
-          <div style="font-size: 11px;">
-            <strong>Delivery Address:</strong><br>
-            ${order.address}
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(it => {
+                const name = it.name ?? it.productName ?? it.product?.name ?? "Item";
+                const qty = Number(it.quantity ?? it.qty ?? 1);
+                const price = Number(it.price ?? it.unitPrice ?? it.product?.price ?? 0);
+                const itemTotal = price * qty;
+                return `
+                  <tr>
+                    <td>${name}</td>
+                    <td>${qty}</td>
+                    <td>${peso(price)}</td>
+                    <td><strong>${peso(itemTotal)}</strong></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          
+          <div class="divider"></div>
+          
+          <div class="totals">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>${peso(subtotal)}</span>
+            </div>
+            <div class="total-row">
+              <span>Delivery Fee:</span>
+              <span>${deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+            </div>
+            <div class="total-row grand-total">
+              <span>TOTAL:</span>
+              <span>${peso(total)}</span>
+            </div>
           </div>
-        ` : ''}
-        
-        <div class="footer">
-          <p>Thank you for your order!</p>
-          <p>Please come again</p>
+          
+          ${order.address ? `
+            <div class="divider"></div>
+            <div style="font-size: 11px;">
+              <strong>Delivery Address:</strong><br>
+              ${order.address}
+            </div>
+          ` : ''}
+          
+          <div class="footer">
+            <p>Thank you for your order!</p>
+            <p>Please come again</p>
+          </div>
         </div>
+        
+        <script>
+          setTimeout(function() {
+            window.print();
+            setTimeout(function() {
+              window.close();
+            }, 100);
+          }, 250);
+        </script>
       </body>
       </html>
     `;
     
-    // Write the HTML to the new window
+    printWindow.document.open();
     printWindow.document.write(receiptHTML);
     printWindow.document.close();
-    
-    // Wait for content to load then print
-    printWindow.onload = function() {
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    };
+    printWindow.focus();
   };
 
   return (
     <>
-      {/* Hidden printable receipt (backup method) */}
       <PrintableReceipt order={order} ref={printRef} />
       
-      {/* Modal */}
+      {showPrintPreview && (
+        <PrintPreviewModal 
+          order={order} 
+          onClose={() => setShowPrintPreview(false)} 
+          onConfirmPrint={handleConfirmPrint}
+        />
+      )}
+      
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <CardHeader className="relative">
@@ -754,9 +918,8 @@ const OrderDetailsModal = ({ order, onClose }) => {
               )}
             </div>
 
-            {/* Print Button */}
             <div className="flex gap-3 pt-4">
-              <Button onClick={handlePrint} className="flex-1">
+              <Button onClick={handlePrintClick} className="flex-1">
                 <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
@@ -775,7 +938,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
 
 // --- MAIN COMPONENT ---
 export default function Sales() {
-  const [activeTab, setActiveTab] = useState("orders"); // Tab state
+  const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
@@ -882,11 +1045,9 @@ export default function Sales() {
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
-      // Delivery status filter
       const deliveryStatus = (o.deliveryStatus ?? "pending").toLowerCase();
       const statusMatches = deliveryStatusFilter === "all" || deliveryStatus === deliveryStatusFilter;
       
-      // Price filter
       const total = Number(o.total ?? 0);
       let priceMatches = true;
       if (priceFilter === "under-500") priceMatches = total < 500;
@@ -894,13 +1055,11 @@ export default function Sales() {
       else if (priceFilter === "1000-2000") priceMatches = total >= 1000 && total <= 2000;
       else if (priceFilter === "over-2000") priceMatches = total > 2000;
       
-      // Product filter
       const productMatches = !productFilter.trim() || 
         (o.items || []).some(item => 
           (item.name || item.title || "").toLowerCase().includes(productFilter.toLowerCase())
         );
       
-      // Payment method filter
       const paymentMethod = (o.paymentMethod || "").toLowerCase();
       let paymentMatches = true;
       if (paymentMethodFilter === "e-payment") {
@@ -909,7 +1068,6 @@ export default function Sales() {
         paymentMatches = paymentMethod.includes("cod") || paymentMethod.includes("cash");
       }
       
-      // Search query filter
       const q = (searchQuery || "").trim().toLowerCase();
       let searchMatches = true;
       if (q) {
@@ -941,7 +1099,6 @@ export default function Sales() {
     return { totalRevenue, totalOrders, delivered, cancelled, pending };
   }, [orders]);
 
-  // Render RefundsTicket component when refunds tab is active
   if (activeTab === "refunds") {
     return <RefundsTicket onBack={() => setActiveTab("orders")} />;
   }
@@ -999,7 +1156,6 @@ export default function Sales() {
           </div>
           <p className="text-gray-500 text-lg">Track orders and delivery status in one place</p>
           
-          {/* NEW: Tab Navigation */}
           <div className="flex gap-2 mt-4">
             <button
               onClick={() => setActiveTab("orders")}
@@ -1037,13 +1193,11 @@ export default function Sales() {
 
         <div className="bg-white rounded-xl border p-4 mb-6">
           <div className="flex flex-col gap-4">
-            {/* Search Bar */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input placeholder="Search by order ID or address..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
             </div>
             
-            {/* Filters Row */}
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-gray-500" />
@@ -1180,7 +1334,6 @@ export default function Sales() {
       {selectedOrder && (
         <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       )}
-
     </div>
   );
 }
