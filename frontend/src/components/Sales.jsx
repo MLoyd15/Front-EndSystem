@@ -242,9 +242,9 @@ const PrintPreviewModal = ({ order, onClose, onConfirmPrint }) => {
           <div className="border-2 border-gray-300 rounded-lg p-6 bg-white" style={{ fontFamily: "'Courier New', monospace" }}>
             {/* Header */}
             <div className="text-center border-b-2 border-black pb-3 mb-4">
-              <h1 className="text-xl font-bold mb-1">YOUR STORE NAME</h1>
-              <p className="text-xs">123 Store Address</p>
-              <p className="text-xs">Contact: (123) 456-7890</p>
+              <h1 className="text-xl font-bold mb-1">GO AGRI TRADING CO.</h1>
+              <p className="text-xs">Poblacion 1, Moncada, Tarlac</p>
+              <p className="text-xs">Contact: (0995) 473 07 90</p>
             </div>
 
             {/* Order Info */}
