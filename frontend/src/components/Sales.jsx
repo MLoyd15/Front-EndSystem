@@ -214,8 +214,128 @@ const OrderCard = ({ order, onClick }) => {
   );
 };
 
+// --- PRINTABLE RECEIPT ---
+const PrintableReceipt = React.forwardRef(({ order }, ref) => {
+  if (!order) return null;
+  
+  const items = Array.isArray(order.items) ? order.items : order.products || [];
+  const subtotal = Number(
+    order.subtotal ??
+      items.reduce((sum, it) => sum + (Number(it.price ?? it.unitPrice ?? 0) * Number(it.quantity ?? 1)), 0)
+  );
+  const deliveryFee = Number(order.deliveryFee ?? order.shipping ?? 0);
+  const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
+
+  return (
+    <div ref={ref} className="hidden print:block">
+      <style>{`
+        @media print {
+          @page { margin: 0.5in; }
+          body { margin: 0; padding: 0; }
+          .print\\:block { display: block !important; }
+        }
+      `}</style>
+      
+      <div className="max-w-[400px] mx-auto p-6 font-mono text-sm">
+        {/* Header */}
+        <div className="text-center mb-6 border-b-2 border-black pb-4">
+          <h1 className="text-2xl font-bold mb-2">YOUR STORE NAME</h1>
+          <p className="text-xs">123 Store Address</p>
+          <p className="text-xs">Contact: (123) 456-7890</p>
+        </div>
+
+        {/* Order Info */}
+        <div className="mb-4 text-xs">
+          <div className="flex justify-between mb-1">
+            <span>Order ID:</span>
+            <span className="font-bold">#{String(order._id).slice(-12)}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span>Date:</span>
+            <span>{formatDate(order.createdAt)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Payment:</span>
+            <span>{order.paymentMethod ?? "N/A"}</span>
+          </div>
+        </div>
+
+        <div className="border-t-2 border-dashed border-black my-4"></div>
+
+        {/* Items */}
+        <div className="mb-4">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-black">
+                <th className="text-left py-2">Item</th>
+                <th className="text-center">Qty</th>
+                <th className="text-right">Price</th>
+                <th className="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => {
+                const name = it.name ?? it.productName ?? it.product?.name ?? "Item";
+                const qty = Number(it.quantity ?? it.qty ?? 1);
+                const price = Number(it.price ?? it.unitPrice ?? it.product?.price ?? 0);
+                const itemTotal = price * qty;
+                
+                return (
+                  <tr key={i} className="border-b border-gray-300">
+                    <td className="py-2">{name}</td>
+                    <td className="text-center">{qty}</td>
+                    <td className="text-right">{peso(price)}</td>
+                    <td className="text-right font-bold">{peso(itemTotal)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t-2 border-dashed border-black my-4"></div>
+
+        {/* Totals */}
+        <div className="space-y-2 text-xs mb-4">
+          <div className="flex justify-between">
+            <span>Subtotal:</span>
+            <span>{peso(subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Delivery Fee:</span>
+            <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+          </div>
+          <div className="flex justify-between text-lg font-bold border-t-2 border-black pt-2">
+            <span>TOTAL:</span>
+            <span>{peso(total)}</span>
+          </div>
+        </div>
+
+        {/* Delivery Address */}
+        {order.address && (
+          <>
+            <div className="border-t-2 border-dashed border-black my-4"></div>
+            <div className="text-xs">
+              <p className="font-bold mb-1">Delivery Address:</p>
+              <p>{order.address}</p>
+            </div>
+          </>
+        )}
+
+        {/* Footer */}
+        <div className="text-center mt-6 pt-4 border-t-2 border-black text-xs">
+          <p className="mb-1">Thank you for your order!</p>
+          <p>Please come again</p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // --- ORDER DETAILS MODAL ---
 const OrderDetailsModal = ({ order, onClose }) => {
+  const printRef = React.useRef(null);
+  
   if (!order) return null;
   
   const items = Array.isArray(order.items) ? order.items : order.products || [];
@@ -232,165 +352,188 @@ const OrderDetailsModal = ({ order, onClose }) => {
   const deliverySteps = ["pending", "assigned", "completed"];
   const currentIndex = Math.max(0, deliverySteps.indexOf(deliveryStatus));
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="relative">
-          <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">Order Details</h3>
-          <p className="text-sm text-gray-500 font-mono">#{String(order._id ?? order.id ?? "").slice(-12)}</p>
-        </CardHeader>
+    <>
+      {/* Hidden printable receipt */}
+      <PrintableReceipt order={order} ref={printRef} />
+      
+      {/* Modal (hidden when printing) */}
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
+        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <CardHeader className="relative">
+            <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+            <h3 className="text-2xl font-semibold leading-none tracking-tight">Order Details</h3>
+            <p className="text-sm text-gray-500 font-mono">#{String(order._id ?? order.id ?? "").slice(-12)}</p>
+          </CardHeader>
 
-        <CardContent className="space-y-6">
-          {!isEPayment && (
-            <>
-              <div>
-                <h4 className="font-semibold flex items-center gap-2 mb-3">
-                  <Truck className="h-4 w-4" /> Delivery Status
-                </h4>
-                <div className="mb-4">
-                  <DeliveryStatusBadge status={deliveryStatus} />
-                </div>
+          <CardContent className="space-y-6">
+            {!isEPayment && (
+              <>
+                <div>
+                  <h4 className="font-semibold flex items-center gap-2 mb-3">
+                    <Truck className="h-4 w-4" /> Delivery Status
+                  </h4>
+                  <div className="mb-4">
+                    <DeliveryStatusBadge status={deliveryStatus} />
+                  </div>
 
-                <div className="space-y-3">
-                  {deliverySteps.map((step, idx) => {
-                    const complete = idx <= currentIndex;
-                    const current = idx === currentIndex;
-                    const cfg = getDeliveryStatusConfig(step);
-                    
-                    return (
-                      <div key={step} className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-full border-2",
-                            complete ? "border-blue-600 bg-blue-600 text-white" : "border-gray-300 bg-white"
-                          )}
-                        >
-                          {complete ? "✓" : idx + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className={cn("text-sm font-medium", current && "text-blue-600")}>
-                            {cfg.label}
-                          </p>
-                          {current && order.delivery?.assignedDriver && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Driver: {order.delivery.assignedDriver.name}
+                  <div className="space-y-3">
+                    {deliverySteps.map((step, idx) => {
+                      const complete = idx <= currentIndex;
+                      const current = idx === currentIndex;
+                      const cfg = getDeliveryStatusConfig(step);
+                      
+                      return (
+                        <div key={step} className="flex items-center gap-3">
+                          <div
+                            className={cn(
+                              "flex h-8 w-8 items-center justify-center rounded-full border-2",
+                              complete ? "border-blue-600 bg-blue-600 text-white" : "border-gray-300 bg-white"
+                            )}
+                          >
+                            {complete ? "✓" : idx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <p className={cn("text-sm font-medium", current && "text-blue-600")}>
+                              {cfg.label}
                             </p>
-                          )}
+                            {current && order.delivery?.assignedDriver && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Driver: {order.delivery.assignedDriver.name}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {order.delivery && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
-                    {order.delivery.type && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Delivery Type:</span>
-                        <span className="font-medium capitalize">{order.delivery.type.replace("-", " ")}</span>
-                      </div>
-                    )}
-                    {order.delivery.scheduledDate && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Scheduled:</span>
-                        <span className="font-medium">{formatDate(order.delivery.scheduledDate)}</span>
-                      </div>
-                    )}
-                    {order.delivery.deliveredAt && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Delivered At:</span>
-                        <span className="font-medium">{formatDate(order.delivery.deliveredAt)}</span>
-                      </div>
-                    )}
-                    {order.delivery.assignedVehicle && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Vehicle:</span>
-                        <span className="font-medium">{order.delivery.assignedVehicle.plate || "Assigned"}</span>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-              <Separator />
-            </>
-          )}
 
-          <div>
-            <h4 className="font-semibold">Items Ordered</h4>
-            <div className="space-y-2 mt-3">
-              {items.map((it, i) => {
-                const name = it.name ?? it.productName ?? it.product?.name ?? "Unnamed item";
-                const qty = Number(it.quantity ?? it.qty ?? 1);
-                const price = Number(it.price ?? it.unitPrice ?? it.product?.price ?? 0);
-                return (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{name}</p>
-                      <p className="text-sm text-gray-500">Qty: {qty}</p>
+                  {order.delivery && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                      {order.delivery.type && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Delivery Type:</span>
+                          <span className="font-medium capitalize">{order.delivery.type.replace("-", " ")}</span>
+                        </div>
+                      )}
+                      {order.delivery.scheduledDate && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Scheduled:</span>
+                          <span className="font-medium">{formatDate(order.delivery.scheduledDate)}</span>
+                        </div>
+                      )}
+                      {order.delivery.deliveredAt && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Delivered At:</span>
+                          <span className="font-medium">{formatDate(order.delivery.deliveredAt)}</span>
+                        </div>
+                      )}
+                      {order.delivery.assignedVehicle && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Vehicle:</span>
+                          <span className="font-medium">{order.delivery.assignedVehicle.plate || "Assigned"}</span>
+                        </div>
+                      )}
                     </div>
-                    <p className="font-semibold">{peso(price * qty)}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <h4 className="font-semibold flex items-center gap-2">
-                <MapPin className="h-4 w-4" /> Delivery Address
-              </h4>
-              <p className="text-sm text-gray-500 mt-2">
-                {order.delivery?.deliveryAddress ?? order.address ?? order.deliveryAddress ?? "No address provided"}
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold flex items-center gap-2">
-                <CreditCard className="h-4 w-4" /> Payment
-              </h4>
-              <p className="text-sm text-gray-500 mt-2">{order.paymentMethod ?? order.payment ?? "Not specified"}</p>
-
-              <div className="mt-4 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Subtotal</span>
-                  <span>{peso(subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Delivery Fee</span>
-                  <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+                  )}
                 </div>
                 <Separator />
-                <div className="flex justify-between text-base font-semibold">
-                  <span>Total</span>
-                  <span className="text-blue-600">{peso(total)}</span>
+              </>
+            )}
+
+            <div>
+              <h4 className="font-semibold">Items Ordered</h4>
+              <div className="space-y-2 mt-3">
+                {items.map((it, i) => {
+                  const name = it.name ?? it.productName ?? it.product?.name ?? "Unnamed item";
+                  const qty = Number(it.quantity ?? it.qty ?? 1);
+                  const price = Number(it.price ?? it.unitPrice ?? it.product?.price ?? 0);
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium">{name}</p>
+                        <p className="text-sm text-gray-500">Qty: {qty}</p>
+                      </div>
+                      <p className="font-semibold">{peso(price * qty)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <h4 className="font-semibold flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> Delivery Address
+                </h4>
+                <p className="text-sm text-gray-500 mt-2">
+                  {order.delivery?.deliveryAddress ?? order.address ?? order.deliveryAddress ?? "No address provided"}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" /> Payment
+                </h4>
+                <p className="text-sm text-gray-500 mt-2">{order.paymentMethod ?? order.payment ?? "Not specified"}</p>
+
+                <div className="mt-4 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Subtotal</span>
+                    <span>{peso(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Delivery Fee</span>
+                    <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-base font-semibold">
+                    <span>Total</span>
+                    <span className="text-blue-600">{peso(total)}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <Separator />
+            <Separator />
 
-          <div className="space-y-2 text-sm text-gray-500">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>Ordered on {formatDate(order.createdAt ?? order.created)}</span>
-            </div>
-            {order.updatedAt && (
+            <div className="space-y-2 text-sm text-gray-500">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>Last updated {formatDate(order.updatedAt)}</span>
+                <Calendar className="h-4 w-4" />
+                <span>Ordered on {formatDate(order.createdAt ?? order.created)}</span>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              {order.updatedAt && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>Last updated {formatDate(order.updatedAt)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Print Button */}
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handlePrint} className="flex-1">
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print Receipt
+              </Button>
+              <Button variant="ghost" onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 };
 
