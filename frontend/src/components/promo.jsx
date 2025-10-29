@@ -68,28 +68,28 @@ const Field = ({
     min={min}
     max={max}
     step={step}
-    className={`w-full rounded-lg border ${error ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50 disabled:text-gray-500`}
+    className={`w-full rounded-lg border ${error ? 'border-red-500 ring-2 ring-red-200' : 'border-stone-300'} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-stone-50 disabled:text-stone-500`}
   />
 );
 
 const KpiCard = ({ label, value, color, icon }) => {
   const colorClasses = {
-    gray: "bg-gray-600",
-    green: "bg-green-500",
-    yellow: "bg-yellow-500",
-    amber: "bg-amber-600",
-    brown: "bg-amber-700",
+    brown: "from-amber-700 to-amber-800",
+    green: "from-green-600 to-green-700",
+    yellow: "from-yellow-500 to-yellow-600",
+    amber: "from-yellow-600 to-amber-600",
+    rose: "from-red-600 to-red-700",
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5 hover:shadow-lg transition-all duration-200">
+    <div className="bg-white rounded-2xl shadow-md ring-1 ring-stone-200/50 p-5 hover:shadow-lg transition-all duration-200">
       <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-xl ${colorClasses[color]} text-white shadow-lg`}>
+        <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClasses[color]} text-white shadow-lg`}>
           {icon}
         </div>
         <div>
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</div>
-          <div className="text-3xl font-bold text-gray-900">{value}</div>
+          <div className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">{label}</div>
+          <div className="text-3xl font-bold text-stone-900">{value}</div>
         </div>
       </div>
     </div>
@@ -300,39 +300,16 @@ const Promo = () => {
     }
   };
 
-  const archive = async (id) => {
-    try {
-      console.log("📦 Archiving promo:", id);
-      const response = await axios.patch(`${API}/${id}/archive`, {}, { headers: auth() });
-      console.log("✅ Archive response:", response.data);
-      load();
-    } catch (e) {
-      console.error("❌ Error archiving promo:", e.response?.data || e);
-      showModal("Error", e?.response?.data?.message || "Error archiving promo", "error");
-    }
-  };
-
-  const unarchive = async (id) => {
-    try {
-      console.log("📤 Unarchiving promo:", id);
-      const response = await axios.patch(`${API}/${id}/unarchive`, {}, { headers: auth() });
-      console.log("✅ Unarchive response:", response.data);
-      load();
-    } catch (e) {
-      console.error("❌ Error unarchiving promo:", e.response?.data || e);
-      showModal("Error", e?.response?.data?.message || "Error unarchiving promo", "error");
-    }
-  };
-
   const remove = async (id) => {
     showConfirm(
-      "Delete Promo?",
-      "Are you sure you want to permanently delete this promo? This action cannot be undone.",
+      "Delete Promo",
+      "Delete this promo? This action cannot be undone.",
       async () => {
         try {
           console.log("🗑️ Deleting promo:", id);
           const response = await axios.delete(`${API}/${id}`, { headers: auth() });
           console.log("✅ Delete response:", response.data);
+          showModal("Success", "Promo deleted successfully!", "success");
           load();
         } catch (e) {
           console.error("❌ Error deleting promo:", e.response?.data || e);
@@ -344,59 +321,82 @@ const Promo = () => {
 
   const openReactivate = (p) => {
     setReactivateTarget(p);
-    setSched({ startsAt: "", endsAt: "" });
+    setSched({ startsAt: nowLocalInput(), endsAt: "" });
     setReactivateOpen(true);
   };
-
-  const saveReactivate = async () => {
-    if (!reactivateTarget) return;
-    setSavingReactivate(true);
+  
+  const closeReactivate = () => {
+    setReactivateOpen(false);
+    setReactivateTarget(null);
+  };
+  
+  const submitReactivate = async () => {
+    const s = sched.startsAt ? new Date(sched.startsAt) : null;
+    const e = sched.endsAt ? new Date(sched.endsAt) : null;
+    if (!s || !e) return showModal("Validation Error", "Please pick both Start and End.", "error");
+    if (e <= s) return showModal("Validation Error", "End must be after Start.", "error");
+    
     try {
+      setSavingReactivate(true);
+      console.log("🔄 Reactivating promo:", reactivateTarget._id);
+      
       const response = await axios.patch(
         `${API}/${reactivateTarget._id}/reactivate`,
-        sched,
+        { startsAt: s.toISOString(), endsAt: e.toISOString() },
         { headers: auth() }
       );
       console.log("✅ Reactivate response:", response.data);
+      
       showModal("Success", "Promo reactivated successfully!", "success");
+      closeReactivate();
       load();
-      setReactivateOpen(false);
-      setReactivateTarget(null);
-      setSched({ startsAt: "", endsAt: "" });
-    } catch (e) {
-      console.error("❌ Error reactivating promo:", e.response?.data || e);
-      showModal("Error", e?.response?.data?.message || "Error reactivating promo", "error");
+    } catch (err) {
+      console.error("❌ Failed to reactivate promo:", err.response?.data || err);
+      showModal("Error", err?.response?.data?.message || "Failed to reactivate promo", "error");
     } finally {
       setSavingReactivate(false);
     }
   };
 
-  /* --------- Computed data --------- */
-  const enrichedPromos = useMemo(() => {
-    return promos.map((p) => ({ ...p, _displayStatus: computeDisplayStatus(p) }));
-  }, [promos]);
+  /* --------- rows / filters / pagination --------- */
+  const withDisplay = useMemo(
+    () => (promos || []).map((p) => ({ ...p, _displayStatus: computeDisplayStatus(p) })),
+    [promos]
+  );
 
-  const filtered = useMemo(() => {
-    let data = enrichedPromos.filter((p) =>
-      showArchived ? p.archived : !p.archived
-    );
-    if (type) data = data.filter((p) => p.type === type);
-    if (statusFilter) data = data.filter((p) => p._displayStatus === statusFilter);
-    return data;
-  }, [enrichedPromos, showArchived, type, statusFilter]);
+  const viewRows = useMemo(
+    () => withDisplay.filter((p) => (showArchived ? p._displayStatus === "Expired" : p._displayStatus !== "Expired")),
+    [withDisplay, showArchived]
+  );
 
-  const total = filtered.length;
-  const active = filtered.filter((p) => p._displayStatus === "Active").length;
-  const scheduled = filtered.filter((p) => p._displayStatus === "Scheduled").length;
-  const paused = filtered.filter((p) => p._displayStatus === "Paused").length;
-  const expired = filtered.filter((p) => p._displayStatus === "Expired").length;
+  const rows = useMemo(() => {
+    const qq = q.toLowerCase();
+    return viewRows.filter((p) => {
+      const matchSearch = !q || p.code.toLowerCase().includes(qq) || p.name.toLowerCase().includes(qq);
+      const matchType = !type || p.type === type;
+      const matchStatus = !statusFilter || p._displayStatus === statusFilter;
+      return matchSearch && matchType && matchStatus;
+    });
+  }, [viewRows, q, type, statusFilter]);
 
-  const paginatedItems = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
+  useEffect(() => setPage(1), [showArchived, q, type, statusFilter, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
+  const total = rows.length;
+  const active = rows.filter((p) => p._displayStatus === "Active").length;
+  const scheduled = rows.filter((p) => p._displayStatus === "Scheduled").length;
+  const paused = rows.filter((p) => p._displayStatus === "Paused").length;
+  const expired = rows.filter((p) => p._displayStatus === "Expired").length;
+
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const startIdx = (page - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const pageRows = rows.slice(startIdx, endIdx);
+
+  const renderValue = (p) => {
+    if (p.type === "Percentage") return `${p.value}%`;
+    if (p.type === "Fixed Amount") return peso(p.value);
+    return "Free Shipping";
+  };
 
   const statusPill = (status) => {
     const styles = {
@@ -444,7 +444,7 @@ const Promo = () => {
       switch (type) {
         case "success": return "bg-green-100 text-green-700 ring-green-200";
         case "error": return "bg-red-100 text-red-700 ring-red-200";
-        case "warning": return "bg-amber-100 text-amber-700 ring-amber-200";
+        case "warning": return "bg-yellow-100 text-yellow-700 ring-yellow-200";
         default: return "bg-blue-100 text-blue-700 ring-blue-200";
       }
     };
@@ -530,23 +530,23 @@ const Promo = () => {
         message={confirmModal.message}
       />
       
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-stone-50">
         <div className="max-w-[1600px] mx-auto px-6 py-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-green-600 mb-2">
+                <h1 className="text-3xl font-bold text-stone-900 mb-2">
                   Product Promo & Discounts
                 </h1>
-                <p className="text-sm text-gray-600 flex items-center gap-2">
+                <p className="text-sm text-stone-600 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" />
                   Configure discounts, limits, and schedules for your promotions
                 </p>
               </div>
               <button
                 onClick={() => setShowArchived((v) => !v)}
-                className="bg-white hover:bg-gray-50 transition-all duration-200 px-5 py-2.5 rounded-xl ring-1 ring-gray-200 text-sm font-medium inline-flex items-center gap-2 shadow-sm hover:shadow"
+                className="bg-white hover:bg-stone-50 transition-all duration-200 px-5 py-2.5 rounded-xl ring-1 ring-stone-200 text-sm font-medium inline-flex items-center gap-2 shadow-sm hover:shadow"
               >
                 <Archive className="w-4 h-4" />
                 {showArchived ? "Show Active" : "Show Archived"}
@@ -556,29 +556,29 @@ const Promo = () => {
 
           {/* KPI Cards */}
           <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <KpiCard label="Total Promos" value={total} color="gray" icon={<Percent className="w-5 h-5" />} />
+            <KpiCard label="Total Promos" value={total} color="brown" icon={<Percent className="w-5 h-5" />} />
             <KpiCard label="Active" value={active} color="green" icon={<CheckCircle2 className="w-5 h-5" />} />
             <KpiCard label="Scheduled" value={scheduled} color="yellow" icon={<Clock className="w-5 h-5" />} />
             <KpiCard label="Paused" value={paused} color="amber" icon={<Pause className="w-5 h-5" />} />
-            <KpiCard label="Expired" value={expired} color="brown" icon={<XCircle className="w-5 h-5" />} />
+            <KpiCard label="Expired" value={expired} color="rose" icon={<XCircle className="w-5 h-5" />} />
           </div>
 
           {/* Filters */}
           <div className="mb-6 flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-[300px] bg-white rounded-xl shadow-sm ring-1 ring-gray-200 px-4 py-3 flex items-center gap-3 hover:ring-gray-300 transition-all">
-              <Search className="w-5 h-5 text-gray-400" />
+            <div className="flex-1 min-w-[300px] bg-white rounded-xl shadow-sm ring-1 ring-stone-200 px-4 py-3 flex items-center gap-3 hover:ring-stone-300 transition-all">
+              <Search className="w-5 h-5 text-stone-400" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search by code or name..."
-                className="outline-none bg-transparent flex-1 text-sm placeholder:text-gray-400"
+                className="outline-none bg-transparent flex-1 text-sm placeholder:text-stone-400"
               />
             </div>
 
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="px-4 py-3 rounded-xl ring-1 ring-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:ring-gray-300 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm"
+              className="px-4 py-3 rounded-xl ring-1 ring-stone-200 bg-white text-sm font-medium text-stone-700 hover:bg-stone-50 hover:ring-stone-300 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm"
             >
               <option value="">All types</option>
               <option>Percentage</option>
@@ -589,7 +589,7 @@ const Promo = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 rounded-xl ring-1 ring-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:ring-gray-300 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm"
+              className="px-4 py-3 rounded-xl ring-1 ring-stone-200 bg-white text-sm font-medium text-stone-700 hover:bg-stone-50 hover:ring-stone-300 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm"
             >
               <option value="">All status</option>
               <option>Active</option>
@@ -599,469 +599,458 @@ const Promo = () => {
             </select>
 
             <button
-              onClick={() => setPage(1)}
-              className="px-4 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-medium shadow-sm hover:shadow transition-all inline-flex items-center gap-2"
+              onClick={load}
+              className="bg-green-600 hover:bg-green-700 active:bg-green-800 transition-all duration-200 px-5 py-3 rounded-xl text-sm font-medium text-white inline-flex items-center gap-2 shadow-md hover:shadow-lg"
             >
-              <Filter className="w-4 h-4" />
-              Apply
+              <Filter className="w-4 h-4" /> Apply Filters
             </button>
           </div>
 
-          {/* Create Form */}
-          <div className="mb-8 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <Percent className="w-5 h-5 text-green-600" />
-              Create New Promo
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Promo Code *</label>
-                <Field name="code" value={form.code} onChange={onChange} placeholder="SUMMER2025" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Internal Label *</label>
-                <Field name="name" value={form.name} onChange={onChange} placeholder="Summer Sale 2025" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Type</label>
-                <select
-                  name="type"
-                  value={form.type}
-                  onChange={onChange}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option>Percentage</option>
-                  <option>Fixed Amount</option>
-                  <option>Free Shipping</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  {form.type === "Percentage" ? "Percentage (1-99%)" : form.type === "Fixed Amount" ? "Amount (₱)" : "Value"}
-                </label>
-                <Field
-                  name="value"
-                  type="number"
-                  value={form.value}
-                  onChange={onChange}
-                  placeholder={form.type === "Percentage" ? "10" : form.type === "Fixed Amount" ? "100" : "0"}
-                  disabled={form.type === "Free Shipping"}
-                  error={valueError}
-                />
-                {valueError && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {form.type === "Percentage" ? "Must be 1-99%" : "Must be 0-₱10,000"}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Min Spend (₱50+)</label>
-                <Field
-                  name="minSpend"
-                  type="number"
-                  value={form.minSpend}
-                  onChange={onChange}
-                  placeholder="500"
-                  error={minSpendError}
-                />
-                {minSpendError && <p className="text-xs text-red-600 mt-1">Must be at least ₱50</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Max Discount (₱50-1000 or 0)</label>
-                <Field
-                  name="maxDiscount"
-                  type="number"
-                  value={form.maxDiscount}
-                  onChange={onChange}
-                  placeholder="0"
-                  error={maxDiscountError}
-                />
-                {maxDiscountError && <p className="text-xs text-red-600 mt-1">Must be ₱50-1,000 or 0 for no cap</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Usage Limit (0 = unlimited)</label>
-                <Field
-                  name="limit"
-                  type="number"
-                  value={form.limit}
-                  onChange={onChange}
-                  placeholder="0"
-                  error={limitError}
-                />
-                {limitError && <p className="text-xs text-red-600 mt-1">Cannot exceed 10,000</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Status</label>
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={onChange}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option>Active</option>
-                  <option>Paused</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-amber-600" />
-                  Start Date (Optional)
-                </label>
-                <Field
-                  name="startsAt"
-                  type="date"
-                  value={form.startsAt}
-                  onChange={onChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-amber-600" />
-                  End Date (Optional)
-                </label>
-                <Field
-                  name="endsAt"
-                  type="date"
-                  value={form.endsAt}
-                  onChange={onChange}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={createPromo}
-                disabled={valueError || minSpendError || maxDiscountError || limitError}
-                className="px-6 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold shadow-sm hover:shadow transition-all"
-              >
-                Create Promo
-              </button>
-            </div>
-          </div>
-
-          {/* Promos Table */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Code</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Value</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Used</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 pb-12">
+            {/* Table Section */}
+            <div className="bg-white rounded-2xl shadow-lg ring-1 ring-stone-200/50 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="bg-gradient-to-r from-stone-50 to-stone-100 border-b border-stone-200">
                     <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center">
-                        <div className="flex justify-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-600"></div>
-                        </div>
-                      </td>
+                      {["Code", "Name", "Type", "Value", "Min Spend", "Used / Limit", "Status", "Actions"].map((h) => (
+                        <th key={h} className="px-6 py-4 text-left text-xs font-bold text-stone-700 uppercase tracking-wider">
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ) : paginatedItems.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                        No promos found
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedItems.map((promo) => {
-                      const toggleBtn = getToggleButton(promo);
-                      return (
-                        <tr key={promo._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="font-mono text-sm font-semibold text-green-700 bg-green-50 px-2 py-1 rounded">
-                              {promo.code}
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={8} className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-sm text-stone-500">Loading promos...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : pageRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <AlertCircle className="w-12 h-12 text-stone-300" />
+                            <span className="text-sm text-stone-500 font-medium">
+                              {showArchived ? "No expired promos found" : "No promos found"}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {promo.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {promo.type}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-amber-700">
-                            {promo.type === "Percentage"
-                              ? `${promo.value}%`
-                              : promo.type === "Fixed Amount"
-                              ? peso(promo.value)
-                              : "Free"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {statusPill(promo._displayStatus)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {promo.used || 0} / {promo.limit || "∞"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <div className="flex items-center gap-2">
-                              {toggleBtn && (
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      pageRows.map((p) => {
+                        const status = computeDisplayStatus(p);
+                        const toggleButton = getToggleButton({ ...p, _displayStatus: status });
+                        return (
+                          <tr key={p._id} className="hover:bg-green-50/30 transition-colors duration-150">
+                            <td className="px-6 py-4">
+                              <code className="px-2.5 py-1 bg-stone-100 rounded-md text-xs font-mono font-semibold text-stone-700">
+                                {p.code}
+                              </code>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium text-stone-800">{p.name}</td>
+                            <td className="px-6 py-4 text-sm text-stone-600">{p.type}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-stone-700">{renderValue(p)}</td>
+                            <td className="px-6 py-4 text-sm text-stone-600">{p.minSpend ? peso(p.minSpend) : "—"}</td>
+                            <td className="px-6 py-4 text-sm font-medium text-stone-700">
+                              {Number(p.used || 0)}/{Number(p.limit || 0) || "∞"}
+                            </td>
+                            <td className="px-6 py-4">{statusPill(status)}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-2">
                                 <button
-                                  onClick={toggleBtn.action}
-                                  className="p-2 hover:bg-green-50 text-green-600 rounded-lg transition-colors"
-                                  title={toggleBtn.text}
+                                  onClick={() => duplicate(p._id)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg ring-1 ring-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 hover:ring-stone-300 transition-all"
                                 >
-                                  {toggleBtn.icon}
+                                  <Copy className="h-3.5 w-3.5" />
+                                  Copy
                                 </button>
-                              )}
-                              {promo._displayStatus === "Expired" && !promo.archived && (
-                                <button
-                                  onClick={() => openReactivate(promo)}
-                                  className="p-2 hover:bg-yellow-50 text-yellow-600 rounded-lg transition-colors"
-                                  title="Reactivate"
-                                >
-                                  <Play className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => openDetails(promo)}
-                                className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors"
-                                title="View Details"
-                              >
-                                <AlertCircle className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => duplicate(promo._id)}
-                                className="p-2 hover:bg-amber-50 text-amber-600 rounded-lg transition-colors"
-                                title="Duplicate"
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                              </button>
-                              {!promo.archived ? (
-                                <button
-                                  onClick={() => archive(promo._id)}
-                                  className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors"
-                                  title="Archive"
-                                >
-                                  <Archive className="h-3.5 w-3.5" />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => unarchive(promo._id)}
-                                  className="p-2 hover:bg-green-50 text-green-600 rounded-lg transition-colors"
-                                  title="Unarchive"
-                                >
-                                  <Archive className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => remove(promo._id)}
-                                className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-                <div className="text-sm text-gray-600">
-                  Showing {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, total)} of {total}
+                                {!showArchived && canToggle(status) && toggleButton && (
+                                  <button
+                                    onClick={toggleButton.action}
+                                    className="inline-flex items-center gap-1.5 rounded-lg ring-1 ring-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 hover:ring-stone-300 transition-all"
+                                  >
+                                    {toggleButton.icon}
+                                    {toggleButton.text}
+                                  </button>
+                                )}
+
+                                {showArchived && status === "Expired" && (
+                                  <button
+                                    onClick={() => openReactivate(p)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg ring-1 ring-green-300 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-all"
+                                  >
+                                    <Play className="h-3.5 w-3.5" />
+                                    Reactivate
+                                  </button>
+                                )}
+                                
+                                <button
+                                  onClick={() => openDetails(p)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg ring-1 ring-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 hover:ring-stone-300 transition-all"
+                                >
+                                  Details
+                                </button>
+
+                                <button
+                                  onClick={() => remove(p._id)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 active:bg-red-800 transition-all shadow-sm"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r from-stone-50 to-stone-100 border-t border-stone-200">
+                <div className="text-sm text-stone-600">
+                  Showing <span className="font-bold text-stone-900">{total === 0 ? 0 : startIdx + 1}</span>–
+                  <span className="font-bold text-stone-900">{endIdx}</span> of{" "}
+                  <span className="font-bold text-stone-900">{total}</span> results
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1.5 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+                    disabled={page <= 1}
+                    className="px-4 py-2 rounded-lg ring-1 ring-stone-200 bg-white text-sm font-medium hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
                   >
                     Previous
                   </button>
-                  <span className="text-sm text-gray-600">
-                    Page {page} of {totalPages}
+                  <span className="px-4 py-2 text-sm font-medium text-stone-700">
+                    Page <span className="font-bold text-stone-900">{page}</span> of <span className="font-bold">{pageCount}</span>
                   </span>
                   <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="px-3 py-1.5 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    disabled={page >= pageCount}
+                    className="px-4 py-2 rounded-lg ring-1 ring-stone-200 bg-white text-sm font-medium hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
                   >
                     Next
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Create Promo Sidebar */}
+            {!showArchived && (
+              <div className="bg-white rounded-2xl shadow-lg ring-1 ring-stone-200/50 p-6 h-max sticky top-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-green-600 to-green-700 text-white shadow-lg">
+                    <Percent className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-lg font-bold text-stone-900">Create New Promo</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-stone-700 mb-1.5">Promo Code</label>
+                    <Field name="code" value={form.code} onChange={onChange} placeholder="e.g., SAVE20" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-stone-700 mb-1.5">Internal Label</label>
+                    <Field name="name" value={form.name} onChange={onChange} placeholder="Admin reference name" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-stone-700 mb-1.5">Type</label>
+                      <select
+                        name="type"
+                        value={form.type}
+                        onChange={onChange}
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      >
+                        <option>Percentage</option>
+                        <option>Fixed Amount</option>
+                        <option>Free Shipping</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-stone-700 mb-1.5">
+                        {form.type === "Percentage" ? "Discount (%)" : form.type === "Fixed Amount" ? "Amount (₱)" : "Value"}
+                      </label>
+                      <Field
+                        name="value"
+                        type="number"
+                        value={form.value}
+                        onChange={onChange}
+                        placeholder={form.type === "Percentage" ? "10" : form.type === "Fixed Amount" ? "100" : "—"}
+                        disabled={form.type === "Free Shipping"}
+                        min={form.type === "Percentage" ? 1 : 0}
+                        max={form.type === "Percentage" ? 99 : form.type === "Fixed Amount" ? 10000 : undefined}
+                        step="1"
+                        error={valueError}
+                      />
+                      {valueError && (
+                        <p className="mt-1 text-[10px] text-red-600 font-semibold">
+                          {form.type === "Percentage" ? "Must be 1-99%" : "Must be ₱0-10,000"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-stone-200 pt-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-semibold text-stone-700 mb-1.5">Min Spend</label>
+                        <Field
+                          name="minSpend"
+                          type="number"
+                          value={form.minSpend}
+                          onChange={onChange}
+                          placeholder="50"
+                          min={50}
+                          step="1"
+                          error={minSpendError}
+                        />
+                        <p className={`mt-1 text-[10px] ${minSpendError ? 'text-red-600 font-semibold' : 'text-stone-500'}`}>
+                          Minimum cart value (≥ ₱50)
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-stone-700 mb-1.5">Max Discount</label>
+                        <Field
+                          name="maxDiscount"
+                          type="number"
+                          value={form.maxDiscount}
+                          onChange={onChange}
+                          placeholder="0"
+                          min={0}
+                          max={1000}
+                          step="1"
+                          error={maxDiscountError}
+                        />
+                        <p className={`mt-1 text-[10px] ${maxDiscountError ? 'text-red-600 font-semibold' : 'text-stone-500'}`}>
+                          ₱50-1,000 or 0 for no cap
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="block text-sm font-semibold text-stone-700 mb-1.5">Usage Limit</label>
+                      <Field
+                        name="limit"
+                        type="number"
+                        value={form.limit}
+                        onChange={onChange}
+                        placeholder="0"
+                        max={10000}
+                        step="1"
+                        error={limitError}
+                      />
+                      <p className={`mt-1 text-[10px] ${limitError ? 'text-red-600 font-semibold' : 'text-stone-500'}`}>
+                        Max 10,000 uses (0 = unlimited)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-stone-200 pt-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-stone-700 mb-1.5">Status</label>
+                      <select
+                        name="status"
+                        value={form.status}
+                        onChange={onChange}
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      >
+                        <option>Active</option>
+                        <option>Paused</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label className="block text-sm font-semibold text-stone-700 mb-1.5">Start Date</label>
+                        <input
+                          type="date"
+                          name="startsAt"
+                          value={form.startsAt}
+                          onChange={onChange}
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-stone-700 mb-1.5">End Date</label>
+                        <input
+                          type="date"
+                          name="endsAt"
+                          value={form.endsAt}
+                          onChange={onChange}
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={createPromo}
+                    className="w-full rounded-xl bg-gradient-to-r from-green-600 to-green-700 py-3 text-sm font-bold text-white shadow-lg hover:shadow-xl hover:from-green-700 hover:to-green-800 active:scale-[0.98] transition-all duration-200"
+                  >
+                    + Add Promo
                   </button>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Details Modal */}
-      {detailsOpen && detailsPromo && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
-          onClick={closeDetails}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Promo Details</h3>
-                <button
-                  onClick={closeDetails}
-                  className="text-gray-400 hover:text-gray-600 transition"
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Code</p>
-                    <p className="font-mono text-lg font-bold text-green-700">{detailsPromo.code}</p>
+        {/* Reactivate Modal */}
+        {reactivateOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeReactivate} />
+            <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-green-100 text-green-700">
+                    <Calendar className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Status</p>
-                    {statusPill(detailsPromo._displayStatus)}
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-semibold text-gray-500 mb-1">Internal Name</p>
-                  <p className="text-gray-900">{detailsPromo.name}</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Type</p>
-                    <p className="text-gray-900">{detailsPromo.type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Value</p>
-                    <p className="text-amber-700 font-bold">
-                      {detailsPromo.type === "Percentage"
-                        ? `${detailsPromo.value}%`
-                        : detailsPromo.type === "Fixed Amount"
-                        ? peso(detailsPromo.value)
-                        : "Free Shipping"}
+                    <h3 className="text-lg font-bold text-stone-900">Reactivate Promo</h3>
+                    <p className="text-sm text-stone-600 mt-0.5">
+                      Set new schedule for{" "}
+                      <code className="px-1.5 py-0.5 bg-stone-100 rounded text-xs font-mono">
+                        {reactivateTarget?.code}
+                      </code>
                     </p>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Min Spend</p>
-                    <p className="text-gray-900">{peso(detailsPromo.minSpend || 0)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Max Discount</p>
-                    <p className="text-gray-900">{detailsPromo.maxDiscount ? peso(detailsPromo.maxDiscount) : "No cap"}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Usage</p>
-                    <p className="text-gray-900">{detailsPromo.used || 0} / {detailsPromo.limit || "Unlimited"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Archived</p>
-                    <p className="text-gray-900">{detailsPromo.archived ? "Yes" : "No"}</p>
-                  </div>
-                </div>
-                
-                {detailsPromo.startsAt && (
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">Start Date</p>
-                    <p className="text-gray-900">{new Date(detailsPromo.startsAt).toLocaleDateString()}</p>
-                  </div>
-                )}
-                
-                {detailsPromo.endsAt && (
-                  <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">End Date</p>
-                    <p className="text-gray-900">{new Date(detailsPromo.endsAt).toLocaleDateString()}</p>
-                  </div>
-                )}
+                <button
+                  onClick={closeReactivate}
+                  className="p-2 rounded-lg hover:bg-stone-100 transition-colors text-stone-400 hover:text-stone-600"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
               </div>
-              
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSched((x) => ({ ...x, startsAt: nowLocalInput() }))}
+                    className="px-4 py-2 text-sm font-medium rounded-lg border border-stone-200 bg-stone-50 hover:bg-stone-100 transition-colors"
+                  >
+                    Start Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const s = nowLocalInput();
+                      const d = new Date();
+                      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                      d.setDate(d.getDate() + 7);
+                      const e = d.toISOString().slice(0, 16);
+                      setSched({ startsAt: s, endsAt: e });
+                    }}
+                    className="px-4 py-2 text-sm font-medium rounded-lg border border-stone-200 bg-stone-50 hover:bg-stone-100 transition-colors"
+                  >
+                    +7 Days
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-stone-700 mb-2">Start Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={sched.startsAt}
+                    onChange={(e) => setSched((x) => ({ ...x, startsAt: e.target.value }))}
+                    className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-stone-700 mb-2">End Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={sched.endsAt}
+                    onChange={(e) => setSched((x) => ({ ...x, endsAt: e.target.value }))}
+                    className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={closeReactivate}
+                  className="px-5 py-2.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 font-medium text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitReactivate}
+                  disabled={savingReactivate}
+                  className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-sm hover:from-green-700 hover:to-green-800 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                >
+                  {savingReactivate ? "Reactivating..." : "Reactivate Promo"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Details Modal */}
+        {detailsOpen && detailsPromo && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={closeDetails}
+            />
+            <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl p-6 z-[210]">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-stone-900">Promo Details</h3>
+                  <p className="text-sm text-stone-600">
+                    Full information for code{" "}
+                    <code className="bg-stone-100 px-1.5 py-0.5 rounded">{detailsPromo.code}</code>
+                  </p>
+                </div>
+                <button
+                  onClick={closeDetails}
+                  className="p-2 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm text-stone-700">
+                <p><span className="font-semibold">Name:</span> {detailsPromo.name}</p>
+                <p><span className="font-semibold">Type:</span> {detailsPromo.type}</p>
+                <p><span className="font-semibold">Value:</span> {renderValue(detailsPromo)}</p>
+                <p><span className="font-semibold">Min Spend:</span> {peso(detailsPromo.minSpend)}</p>
+                <p><span className="font-semibold">Max Discount:</span> {detailsPromo.maxDiscount ? peso(detailsPromo.maxDiscount) : "No cap"}</p>
+                <p><span className="font-semibold">Limit:</span> {detailsPromo.limit || "Unlimited"} | Used: {detailsPromo.used || 0}</p>
+                <p><span className="font-semibold">Status:</span> {statusPill(detailsPromo._displayStatus)}</p>
+                <p><span className="font-semibold">Start:</span> {detailsPromo.startsAt ? new Date(detailsPromo.startsAt).toLocaleString() : "—"}</p>
+                <p><span className="font-semibold">End:</span> {detailsPromo.endsAt ? new Date(detailsPromo.endsAt).toLocaleString() : "—"}</p>
+              </div>
+
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={closeDetails}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition"
+                  className="px-5 py-2.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 font-medium text-sm"
                 >
                   Close
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Reactivate Modal */}
-      {reactivateOpen && reactivateTarget && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
-          onClick={() => setReactivateOpen(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Reactivate Promo</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Set new dates to reactivate <span className="font-mono font-bold text-green-700">{reactivateTarget.code}</span>
-            </p>
-            
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">New Start Date</label>
-                <Field
-                  name="startsAt"
-                  type="date"
-                  value={sched.startsAt}
-                  onChange={(e) => setSched({ ...sched, startsAt: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">New End Date</label>
-                <Field
-                  name="endsAt"
-                  type="date"
-                  value={sched.endsAt}
-                  onChange={(e) => setSched({ ...sched, endsAt: e.target.value })}
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setReactivateOpen(false)}
-                className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveReactivate}
-                disabled={savingReactivate}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg text-sm font-medium transition"
-              >
-                {savingReactivate ? "Saving..." : "Reactivate"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 };

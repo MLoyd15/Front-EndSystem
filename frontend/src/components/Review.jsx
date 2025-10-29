@@ -761,3 +761,4 @@ const ReviewDetailsModal = ({ review, productName, productImage, onClose }) => {
     </motion.div>
   );
 };
+
