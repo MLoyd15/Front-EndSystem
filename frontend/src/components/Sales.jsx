@@ -214,7 +214,7 @@ const OrderCard = ({ order, onClick }) => {
   );
 };
 
-// --- PRINTABLE RECEIPT ---
+// --- PRINTABLE RECEIPT (FIXED VERSION) ---
 const PrintableReceipt = React.forwardRef(({ order }, ref) => {
   if (!order) return null;
   
@@ -227,50 +227,97 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
   const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
 
   return (
-    <div ref={ref} className="hidden print:block">
+    <div ref={ref} className="print-receipt-container">
+      {/* Add print-specific styles */}
       <style>{`
         @media print {
-          @page { margin: 0.5in; }
-          body { margin: 0; padding: 0; }
-          .print\\:block { display: block !important; }
+          /* Hide everything except the receipt */
+          body > * {
+            display: none !important;
+          }
+          
+          /* Show only the receipt container */
+          .print-receipt-container {
+            display: block !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            z-index: 999999 !important;
+          }
+          
+          /* Style for the receipt content */
+          .receipt-content {
+            display: block !important;
+            width: 400px !important;
+            margin: 0 auto !important;
+            padding: 20px !important;
+            font-family: 'Courier New', monospace !important;
+            font-size: 12px !important;
+            color: black !important;
+            background: white !important;
+          }
+          
+          /* Ensure all receipt elements are visible */
+          .receipt-content * {
+            color: black !important;
+            background: white !important;
+            border-color: black !important;
+          }
+          
+          @page {
+            size: 80mm 297mm;
+            margin: 0;
+          }
+        }
+        
+        /* Hide receipt in normal view */
+        @media screen {
+          .print-receipt-container {
+            display: none;
+          }
         }
       `}</style>
       
-      <div className="max-w-[400px] mx-auto p-6 font-mono text-sm">
+      <div className="receipt-content">
         {/* Header */}
-        <div className="text-center mb-6 border-b-2 border-black pb-4">
-          <h1 className="text-2xl font-bold mb-2">YOUR STORE NAME</h1>
-          <p className="text-xs">123 Store Address</p>
-          <p className="text-xs">Contact: (123) 456-7890</p>
+        <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2px solid black', paddingBottom: '16px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>YOUR STORE NAME</h1>
+          <p style={{ fontSize: '10px' }}>123 Store Address</p>
+          <p style={{ fontSize: '10px' }}>Contact: (123) 456-7890</p>
         </div>
 
         {/* Order Info */}
-        <div className="mb-4 text-xs">
-          <div className="flex justify-between mb-1">
+        <div style={{ marginBottom: '16px', fontSize: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span>Order ID:</span>
-            <span className="font-bold">#{String(order._id).slice(-12)}</span>
+            <span style={{ fontWeight: 'bold' }}>#{String(order._id).slice(-12)}</span>
           </div>
-          <div className="flex justify-between mb-1">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span>Date:</span>
             <span>{formatDate(order.createdAt)}</span>
           </div>
-          <div className="flex justify-between">
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Payment:</span>
             <span>{order.paymentMethod ?? "N/A"}</span>
           </div>
         </div>
 
-        <div className="border-t-2 border-dashed border-black my-4"></div>
+        <div style={{ borderTop: '2px dashed black', margin: '16px 0' }}></div>
 
         {/* Items */}
-        <div className="mb-4">
-          <table className="w-full text-xs">
+        <div style={{ marginBottom: '16px' }}>
+          <table style={{ width: '100%', fontSize: '10px' }}>
             <thead>
-              <tr className="border-b border-black">
-                <th className="text-left py-2">Item</th>
-                <th className="text-center">Qty</th>
-                <th className="text-right">Price</th>
-                <th className="text-right">Total</th>
+              <tr style={{ borderBottom: '1px solid black' }}>
+                <th style={{ textAlign: 'left', padding: '8px 0' }}>Item</th>
+                <th style={{ textAlign: 'center' }}>Qty</th>
+                <th style={{ textAlign: 'right' }}>Price</th>
+                <th style={{ textAlign: 'right' }}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -281,11 +328,11 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
                 const itemTotal = price * qty;
                 
                 return (
-                  <tr key={i} className="border-b border-gray-300">
-                    <td className="py-2">{name}</td>
-                    <td className="text-center">{qty}</td>
-                    <td className="text-right">{peso(price)}</td>
-                    <td className="text-right font-bold">{peso(itemTotal)}</td>
+                  <tr key={i} style={{ borderBottom: '1px solid #ccc' }}>
+                    <td style={{ padding: '8px 0' }}>{name}</td>
+                    <td style={{ textAlign: 'center' }}>{qty}</td>
+                    <td style={{ textAlign: 'right' }}>{peso(price)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{peso(itemTotal)}</td>
                   </tr>
                 );
               })}
@@ -293,19 +340,19 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
           </table>
         </div>
 
-        <div className="border-t-2 border-dashed border-black my-4"></div>
+        <div style={{ borderTop: '2px dashed black', margin: '16px 0' }}></div>
 
         {/* Totals */}
-        <div className="space-y-2 text-xs mb-4">
-          <div className="flex justify-between">
+        <div style={{ fontSize: '10px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span>Subtotal:</span>
             <span>{peso(subtotal)}</span>
           </div>
-          <div className="flex justify-between">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span>Delivery Fee:</span>
             <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
           </div>
-          <div className="flex justify-between text-lg font-bold border-t-2 border-black pt-2">
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: 'bold', borderTop: '2px solid black', paddingTop: '8px' }}>
             <span>TOTAL:</span>
             <span>{peso(total)}</span>
           </div>
@@ -314,17 +361,17 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
         {/* Delivery Address */}
         {order.address && (
           <>
-            <div className="border-t-2 border-dashed border-black my-4"></div>
-            <div className="text-xs">
-              <p className="font-bold mb-1">Delivery Address:</p>
+            <div style={{ borderTop: '2px dashed black', margin: '16px 0' }}></div>
+            <div style={{ fontSize: '10px' }}>
+              <p style={{ fontWeight: 'bold', marginBottom: '4px' }}>Delivery Address:</p>
               <p>{order.address}</p>
             </div>
           </>
         )}
 
         {/* Footer */}
-        <div className="text-center mt-6 pt-4 border-t-2 border-black text-xs">
-          <p className="mb-1">Thank you for your order!</p>
+        <div style={{ textAlign: 'center', marginTop: '24px', paddingTop: '16px', borderTop: '2px solid black', fontSize: '10px' }}>
+          <p style={{ marginBottom: '4px' }}>Thank you for your order!</p>
           <p>Please come again</p>
         </div>
       </div>
@@ -353,16 +400,205 @@ const OrderDetailsModal = ({ order, onClose }) => {
   const currentIndex = Math.max(0, deliverySteps.indexOf(deliveryStatus));
 
   const handlePrint = () => {
-    window.print();
+    // Create a new window for printing
+    const printWindow = window.open('', 'PRINT', 'width=400,height=600');
+    
+    // Receipt HTML content
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - Order #${String(order._id).slice(-12)}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #000;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+          }
+          .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+          }
+          .header p {
+            font-size: 10px;
+          }
+          .order-info {
+            margin-bottom: 15px;
+            font-size: 11px;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+          }
+          .divider {
+            border-top: 2px dashed #000;
+            margin: 15px 0;
+          }
+          table {
+            width: 100%;
+            font-size: 11px;
+            border-collapse: collapse;
+          }
+          th {
+            text-align: left;
+            border-bottom: 1px solid #000;
+            padding: 5px 0;
+          }
+          th:nth-child(2) { text-align: center; }
+          th:nth-child(3), th:nth-child(4) { text-align: right; }
+          td {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+          }
+          td:nth-child(2) { text-align: center; }
+          td:nth-child(3), td:nth-child(4) { text-align: right; }
+          .totals {
+            margin: 15px 0;
+            font-size: 11px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+          }
+          .grand-total {
+            font-size: 14px;
+            font-weight: bold;
+            border-top: 2px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+          }
+          .footer {
+            text-align: center;
+            border-top: 2px solid #000;
+            padding-top: 10px;
+            margin-top: 20px;
+            font-size: 10px;
+          }
+          @media print {
+            body { margin: 0; padding: 10px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>YOUR STORE NAME</h1>
+          <p>123 Store Address</p>
+          <p>Contact: (123) 456-7890</p>
+        </div>
+        
+        <div class="order-info">
+          <div class="info-row">
+            <span>Order ID:</span>
+            <strong>#${String(order._id).slice(-12)}</strong>
+          </div>
+          <div class="info-row">
+            <span>Date:</span>
+            <span>${formatDate(order.createdAt)}</span>
+          </div>
+          <div class="info-row">
+            <span>Payment:</span>
+            <span>${order.paymentMethod ?? "N/A"}</span>
+          </div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => {
+              const name = it.name ?? it.productName ?? it.product?.name ?? "Item";
+              const qty = Number(it.quantity ?? it.qty ?? 1);
+              const price = Number(it.price ?? it.unitPrice ?? it.product?.price ?? 0);
+              const itemTotal = price * qty;
+              return `
+                <tr>
+                  <td>${name}</td>
+                  <td>${qty}</td>
+                  <td>${peso(price)}</td>
+                  <td><strong>${peso(itemTotal)}</strong></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        
+        <div class="divider"></div>
+        
+        <div class="totals">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>${peso(subtotal)}</span>
+          </div>
+          <div class="total-row">
+            <span>Delivery Fee:</span>
+            <span>${deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+          </div>
+          <div class="total-row grand-total">
+            <span>TOTAL:</span>
+            <span>${peso(total)}</span>
+          </div>
+        </div>
+        
+        ${order.address ? `
+          <div class="divider"></div>
+          <div style="font-size: 11px;">
+            <strong>Delivery Address:</strong><br>
+            ${order.address}
+          </div>
+        ` : ''}
+        
+        <div class="footer">
+          <p>Thank you for your order!</p>
+          <p>Please come again</p>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    // Write the HTML to the new window
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    printWindow.onload = function() {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
   };
 
   return (
     <>
-      {/* Hidden printable receipt */}
+      {/* Hidden printable receipt (backup method) */}
       <PrintableReceipt order={order} ref={printRef} />
       
-      {/* Modal (hidden when printing) */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
+      {/* Modal */}
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <CardHeader className="relative">
             <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
