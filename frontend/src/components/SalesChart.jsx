@@ -43,6 +43,382 @@ const toIdString = (v) => {
   return String(v);
 };
 
+// ============================================================================
+// SIMPLE RECEIPT COMPONENT
+// ============================================================================
+const SimpleReceipt = ({ orderData, onClose }) => {
+  if (!orderData) return null;
+
+  const items = Array.isArray(orderData.items) ? orderData.items : [];
+  const subtotal = Number(
+    orderData.subtotal ??
+      items.reduce((sum, it) => sum + (Number(it.price ?? 0) * Number(it.quantity ?? 1)), 0)
+  );
+  const deliveryFee = Number(orderData.deliveryFee ?? 0);
+  const total = Number(orderData.total ?? subtotal + deliveryFee);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return dateString;
+    const month = d.toLocaleDateString("en-US", { month: "short" });
+    const day = d.getDate();
+    const year = d.getFullYear();
+    const hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours % 12 || 12;
+    return `${month} ${day}, ${year} at ${h12}:${minutes} ${ampm}`;
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', 'PRINT', 'width=400,height=600');
+    
+    if (!printWindow) {
+      alert('Please allow pop-ups for printing receipts');
+      return;
+    }
+    
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Receipt - Order #${String(orderData._id || orderData.id).slice(-12)}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #000;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+          }
+          .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+            font-weight: bold;
+          }
+          .header p {
+            font-size: 10px;
+          }
+          .order-info {
+            margin-bottom: 15px;
+            font-size: 11px;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+          }
+          .divider {
+            border-top: 2px dashed #000;
+            margin: 15px 0;
+          }
+          table {
+            width: 100%;
+            font-size: 11px;
+            border-collapse: collapse;
+          }
+          th {
+            text-align: left;
+            border-bottom: 1px solid #000;
+            padding: 5px 0;
+            font-weight: bold;
+          }
+          th:nth-child(2) { text-align: center; }
+          th:nth-child(3), th:nth-child(4) { text-align: right; }
+          td {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+          }
+          td:nth-child(2) { text-align: center; }
+          td:nth-child(3), td:nth-child(4) { text-align: right; }
+          .totals {
+            margin: 15px 0;
+            font-size: 11px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+          }
+          .grand-total {
+            font-size: 14px;
+            font-weight: bold;
+            border-top: 2px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+          }
+          .footer {
+            text-align: center;
+            border-top: 2px solid #000;
+            padding-top: 10px;
+            margin-top: 20px;
+            font-size: 10px;
+          }
+          @media print {
+            body { 
+              margin: 0; 
+              padding: 0;
+            }
+            @page {
+              margin: 0;
+              size: 80mm 297mm;
+            }
+          }
+        </style>
+      </head>
+      <body onload="window.print(); window.onafterprint = function(){ window.close(); }">
+        <div class="header">
+          <h1>YOUR STORE NAME</h1>
+          <p>123 Store Address</p>
+          <p>Contact: (123) 456-7890</p>
+        </div>
+        
+        <div class="order-info">
+          <div class="info-row">
+            <span>Order ID:</span>
+            <strong>#${String(orderData._id || orderData.id).slice(-12)}</strong>
+          </div>
+          <div class="info-row">
+            <span>Date:</span>
+            <span>${formatDate(orderData.createdAt)}</span>
+          </div>
+          <div class="info-row">
+            <span>Payment:</span>
+            <span>${orderData.paymentMethod || "N/A"}</span>
+          </div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => {
+              const name = it.name || it.productName || it.product?.name || "Item";
+              const qty = Number(it.quantity || it.qty || 1);
+              const price = Number(it.price || it.unitPrice || it.product?.price || 0);
+              const itemTotal = price * qty;
+              return `
+                <tr>
+                  <td>${name}</td>
+                  <td>${qty}</td>
+                  <td>${peso(price)}</td>
+                  <td><strong>${peso(itemTotal)}</strong></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        
+        <div class="divider"></div>
+        
+        <div class="totals">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>${peso(subtotal)}</span>
+          </div>
+          <div class="total-row">
+            <span>Delivery Fee:</span>
+            <span>${deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+          </div>
+          <div class="total-row grand-total">
+            <span>TOTAL:</span>
+            <span>${peso(total)}</span>
+          </div>
+        </div>
+        
+        ${orderData.address ? `
+          <div class="divider"></div>
+          <div style="font-size: 11px;">
+            <strong>Delivery Address:</strong><br>
+            ${orderData.address}
+          </div>
+        ` : ''}
+        
+        <div class="footer">
+          <p>Thank you for your order!</p>
+          <p>Please come again</p>
+        </div>
+        
+        <script>
+          setTimeout(function() {
+            window.print();
+            setTimeout(function() {
+              window.close();
+            }, 100);
+          }, 250);
+        </script>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.open();
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+    printWindow.focus();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-semibold">Receipt Preview</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Receipt Preview */}
+        <div className="p-6">
+          <div className="border-2 border-gray-300 rounded-lg p-6 bg-white" style={{ fontFamily: "'Courier New', monospace" }}>
+            {/* Store Header */}
+            <div className="text-center border-b-2 border-black pb-3 mb-4">
+              <h1 className="text-xl font-bold mb-1">YOUR STORE NAME</h1>
+              <p className="text-xs">123 Store Address</p>
+              <p className="text-xs">Contact: (123) 456-7890</p>
+            </div>
+
+            {/* Order Info */}
+            <div className="mb-4 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span>Order ID:</span>
+                <strong>#{String(orderData._id || orderData.id).slice(-12)}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Date:</span>
+                <span>{formatDate(orderData.createdAt)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Payment:</span>
+                <span>{orderData.paymentMethod || "N/A"}</span>
+              </div>
+            </div>
+
+            <div className="border-t-2 border-dashed border-black my-3"></div>
+
+            {/* Items Table */}
+            <div className="mb-4">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-black">
+                    <th className="text-left py-2">Item</th>
+                    <th className="text-center">Qty</th>
+                    <th className="text-right">Price</th>
+                    <th className="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, i) => {
+                    const name = it.name || it.productName || it.product?.name || "Item";
+                    const qty = Number(it.quantity || it.qty || 1);
+                    const price = Number(it.price || it.unitPrice || it.product?.price || 0);
+                    const itemTotal = price * qty;
+                    
+                    return (
+                      <tr key={i} className="border-b border-gray-300">
+                        <td className="py-2">{name}</td>
+                        <td className="text-center">{qty}</td>
+                        <td className="text-right">{peso(price)}</td>
+                        <td className="text-right font-bold">{peso(itemTotal)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t-2 border-dashed border-black my-3"></div>
+
+            {/* Totals */}
+            <div className="text-xs space-y-2 mb-4">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span>{peso(subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Delivery Fee:</span>
+                <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
+              </div>
+              <div className="flex justify-between text-base font-bold border-t-2 border-black pt-2">
+                <span>TOTAL:</span>
+                <span>{peso(total)}</span>
+              </div>
+            </div>
+
+            {/* Delivery Address */}
+            {orderData.address && (
+              <>
+                <div className="border-t-2 border-dashed border-black my-3"></div>
+                <div className="text-xs">
+                  <p className="font-bold mb-1">Delivery Address:</p>
+                  <p>{orderData.address}</p>
+                </div>
+              </>
+            )}
+
+            {/* Footer */}
+            <div className="text-center mt-4 pt-3 border-t-2 border-black text-xs">
+              <p className="mb-1">Thank you for your order!</p>
+              <p>Please come again</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 p-4 border-t">
+          <button
+            onClick={handlePrint}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print Receipt
+          </button>
+          <button
+            onClick={onClose}
+            className="px-6 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// ENHANCED SALES CHART COMPONENT
+// ============================================================================
 export default function EnhancedSalesChart() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,10 +426,96 @@ export default function EnhancedSalesChart() {
   const [groupBy, setGroupBy] = useState("day");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
-  const [chartType, setChartType] = useState("line"); 
-
-  
+  const [chartType, setChartType] = useState("line");
   const [productIndex, setProductIndex] = useState(new Map());
+  
+  // Receipt state
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+
+  // Add print styles
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media print {
+        @page {
+          size: landscape;
+          margin: 0.4in;
+        }
+        
+        html, body {
+          height: 100%;
+          margin: 0;
+          padding: 0;
+        }
+        
+        body * {
+          visibility: hidden !important;
+        }
+        
+        #printable-sales-report,
+        #printable-sales-report * {
+          visibility: visible !important;
+        }
+        
+        #printable-sales-report {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          transform: scale(0.85);
+          transform-origin: top left;
+        }
+        
+        /* KPI cards styling */
+        #printable-sales-report > div:first-child {
+          margin-bottom: 1rem !important;
+          page-break-inside: avoid !important;
+        }
+        
+        #printable-sales-report .metric-card {
+          page-break-inside: avoid !important;
+        }
+        
+        /* Chart container */
+        #printable-sales-report .chart-container {
+          height: 400px !important;
+          page-break-inside: avoid !important;
+        }
+        
+        #printable-sales-report .chart-container > div {
+          height: 400px !important;
+        }
+        
+        .no-print {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        
+        /* Hide Brush and Legend in print to prevent extra pages */
+        #printable-sales-report .recharts-brush,
+        #printable-sales-report .recharts-legend-wrapper {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        
+        /* Prevent page breaks */
+        #printable-sales-report,
+        #printable-sales-report > * {
+          page-break-after: avoid !important;
+          page-break-before: avoid !important;
+          page-break-inside: avoid !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   useEffect(() => {
     const headers = {
@@ -121,10 +583,9 @@ export default function EnhancedSalesChart() {
     [groupBy]
   );
 
-  /* ---------- item/line helpers ---------- */
   const getItemsArray = (o) => {
     const candidates = [o?.products, o?.items, o?.orderItems, o?.cart?.items];
-    for (const c of candidates) if (Array.isArray(c) && c.length) return c; // prefer non-empty
+    for (const c of candidates) if (Array.isArray(c) && c.length) return c;
     for (const c of candidates) if (Array.isArray(c)) return c;
     return [];
   };
@@ -170,12 +631,11 @@ export default function EnhancedSalesChart() {
     }
     if (Number.isFinite(Number(it?.amount))) {
       const a = Number(it.amount);
-      return a > 1000 ? a / 100 : a; // centavos heuristic
+      return a > 1000 ? a / 100 : a;
     }
     return 0;
   };
 
-  /* ---------- series data for chart ---------- */
   const processedData = useMemo(() => {
     const grouped = orders.reduce((acc, order) => {
       const key = getDateKey(order?.createdAt);
@@ -187,7 +647,6 @@ export default function EnhancedSalesChart() {
 
       const items = getItemsArray(order);
 
-      // revenue
       let orderRevenue = Number(order?.total ?? order?.totalAmount);
       if (!Number.isFinite(orderRevenue)) {
         orderRevenue = items.reduce((s, it) => s + getUnitPrice(it) * getQty(it), 0);
@@ -195,7 +654,6 @@ export default function EnhancedSalesChart() {
       acc[key].revenue += orderRevenue;
       acc[key].orderCount += 1;
 
-      // units
       for (const it of items) acc[key].units += getQty(it);
 
       return acc;
@@ -209,7 +667,6 @@ export default function EnhancedSalesChart() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [orders, getDateKey]);
 
-  /* ---------- KPIs ---------- */
   const metrics = useMemo(() => {
     const totalRevenue = processedData.reduce((s, d) => s + d.revenue, 0);
     const totalUnits = processedData.reduce((s, d) => s + d.units, 0);
@@ -218,7 +675,6 @@ export default function EnhancedSalesChart() {
     return { totalRevenue, totalUnits, totalOrders, avgOrderValue };
   }, [processedData]);
 
-  /* ---------- axis max ---------- */
   const { maxRevenue, maxUnits } = useMemo(() => {
     let mr = 0, mu = 0;
     for (const d of processedData) {
@@ -228,14 +684,13 @@ export default function EnhancedSalesChart() {
     return { maxRevenue: Math.ceil(mr * 1.1), maxUnits: Math.ceil(mu * 1.1) };
   }, [processedData]);
 
-  /* ---------- Top 5 Products (by units) ---------- */
   const topProductsByUnits = useMemo(() => {
-    const stats = new Map(); // key -> { id, name, totalUnits, totalRevenue, orderCount }
+    const stats = new Map();
 
     for (const order of orders) {
       const items = getItemsArray(order);
       for (const it of items) {
-        const id = getProductId(it) || getProductName(it); // fallback to name
+        const id = getProductId(it) || getProductName(it);
         const name = getProductName(it);
         const qty = getQty(it);
         const price = getUnitPrice(it);
@@ -251,15 +706,12 @@ export default function EnhancedSalesChart() {
     return [...stats.values()].sort((a, b) => b.totalUnits - a.totalUnits).slice(0, 5);
   }, [orders, productIndex]);
 
-  /* ---------- formatters & small UI bits ---------- */
   const formatCurrency = useCallback((value) => peso(value), []);
 
   const formatDateLabel = useCallback((key) => {
-    // Handle year format (e.g., "2024")
     if (key.length === 4 && !isNaN(key)) {
       return key;
     }
-    // Handle day format (e.g., "2024-01-15") or month format (e.g., "2024-01")
     const date = key.length === 10 ? new Date(key) : new Date(`${key}-01`);
     return date.toLocaleDateString(undefined, key.length === 10 ? { month: "short", day: "numeric" } : { month: "short", year: "numeric" });
   }, []);
@@ -306,13 +758,12 @@ export default function EnhancedSalesChart() {
     );
   };
 
-  // ⭐ Updated MetricCard: can show a small inline "aside" badge next to the main value (used for Order Volume beside AOV)
   const MetricCard = ({ title, value, icon, color, aside }) => (
     <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className={`text-2xl font-bold ${color} flex items-baseline gap-2`}>
+          <p className="text-sm text-gray-600 mb-1 metric-title">{title}</p>
+          <p className={`text-2xl font-bold ${color} flex items-baseline gap-2 metric-value`}>
             <span>{value}</span>
             {aside && (
               <span className="text-xs font-medium text-gray-700 bg-gray-100 ring-1 ring-gray-200 px-2 py-0.5 rounded-full">
@@ -364,208 +815,255 @@ export default function EnhancedSalesChart() {
     );
   };
 
-  /* ---------- states ---------- */
+  const handleShowReceipt = (orderId) => {
+    const order = orders.find(o => (o._id || o.id) === orderId);
+    if (order) {
+      setSelectedOrder(order);
+      setShowReceipt(true);
+    }
+  };
+
   if (loading) return <SkeletonChart />;
   if (error) return <ErrorState message={error} />;
   if (processedData.length === 0) return <EmptyState />;
 
-  /* ---------- UI ---------- */
   return (
-    <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
-        <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
-        <MetricCard title="Order Volume" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-blue-600" />
-        {/* ⭐ Avg Order Value with Order Volume shown BESIDE it */}
-        <MetricCard
-          title="Avg Order Value"
-          value={formatCurrency(metrics.avgOrderValue)}
-          icon="📊"
-          color="text-purple-600"
+    <>
+      {/* Receipt Modal */}
+      {showReceipt && selectedOrder && (
+        <SimpleReceipt
+          orderData={selectedOrder}
+          onClose={() => {
+            setShowReceipt(false);
+            setSelectedOrder(null);
+          }}
         />
-      </div>
+      )}
 
-      {/* Controls */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Group by</label>
-              <select
-                className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value)}
-              >
-                <option value="day">Day</option>
-                <option value="month">Month</option>
-                <option value="year">Year</option>
-              </select>
+      <div className="space-y-6">
+        <div id="printable-sales-report" className="space-y-6">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="metric-card">
+              <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
             </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Chart Type</label>
-              <select
-                className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                value={chartType}
-                onChange={(e) => setChartType(e.target.value)}
-              >
-                <option value="line">Line</option>
-                <option value="bar">Bar</option>
-                <option value="area">Area</option>
-              </select>
+            <div className="metric-card">
+              <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
+            </div>
+            <div className="metric-card">
+              <MetricCard title="Order Volume" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-blue-600" />
+            </div>
+            <div className="metric-card">
+              <MetricCard
+                title="Avg Order Value"
+                value={formatCurrency(metrics.avgOrderValue)}
+                icon="📊"
+                color="text-purple-600"
+              />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                showRevenue ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-              onClick={() => setShowRevenue(!showRevenue)}
-            >
-              {showRevenue ? "Hide" : "Show"} Revenue
-            </button>
-            <button
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                showUnits ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-              onClick={() => setShowUnits(!showUnits)}
-            >
-              {showUnits ? "Hide" : "Show"} Units
-            </button>
+
+          {/* Chart */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 chart-container">
+            <div className="h-[500px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={processedData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                  <XAxis
+                    dataKey="date"
+                    stroke={COLORS.text}
+                    tick={{ fontSize: 12, fill: COLORS.text }}
+                    tickFormatter={formatDateLabel}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    stroke={COLORS.revenue}
+                    tick={{ fontSize: 12, fill: COLORS.text }}
+                    domain={[0, maxRevenue]}
+                    tickFormatter={formatCurrency}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke={COLORS.units}
+                    tick={{ fontSize: 12, fill: COLORS.text }}
+                    domain={[0, maxUnits]}
+                    tickFormatter={(n) => Number(n).toLocaleString()}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ paddingTop: 20 }} iconType="circle" />
+                  <ReferenceLine y={0} yAxisId="left" stroke={COLORS.grid} />
+                  <defs>
+                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.revenue} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={COLORS.revenue} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="unitsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.units} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={COLORS.units} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+
+                  {showRevenue && (
+                    <>
+                      {chartType === "area" && (
+                        <Area yAxisId="left" type="monotone" dataKey="revenue" stroke="none" fill="url(#revenueGradient)" />
+                      )}
+                      {chartType === "bar" && (
+                        <Bar yAxisId="left" dataKey="revenue" fill={COLORS.revenue} radius={[4, 4, 0, 0]} opacity={0.8} />
+                      )}
+                      {(chartType === "line" || chartType === "area") && (
+                        <Line
+                          yAxisId="left"
+                          name="Revenue"
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke={COLORS.revenue}
+                          strokeWidth={3}
+                          dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.revenue }}
+                          activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {showUnits && (
+                    <>
+                      {chartType === "area" && (
+                        <Area yAxisId="right" type="monotone" dataKey="units" stroke="none" fill="url(#unitsGradient)" />
+                      )}
+                      {chartType === "bar" && (
+                        <Bar yAxisId="right" dataKey="units" fill={COLORS.units} radius={[4, 4, 0, 0]} opacity={0.8} />
+                      )}
+                      {(chartType === "line" || chartType === "area") && (
+                        <Line
+                          yAxisId="right"
+                          name="Units Sold"
+                          type="monotone"
+                          dataKey="units"
+                          stroke={COLORS.units}
+                          strokeWidth={3}
+                          dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.units }}
+                          activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  <Brush height={30} travellerWidth={10} stroke={COLORS.border} fill="#f8fafc" dataKey="date" tickFormatter={formatDateLabel} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="h-[500px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={processedData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
-              <XAxis
-                dataKey="date"
-                stroke={COLORS.text}
-                tick={{ fontSize: 12, fill: COLORS.text }}
-                tickFormatter={formatDateLabel}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-              />
-              <YAxis
-                yAxisId="left"
-                stroke={COLORS.revenue}
-                tick={{ fontSize: 12, fill: COLORS.text }}
-                domain={[0, maxRevenue]}
-                tickFormatter={formatCurrency}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke={COLORS.units}
-                tick={{ fontSize: 12, fill: COLORS.text }}
-                domain={[0, maxUnits]}
-                tickFormatter={(n) => Number(n).toLocaleString()}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ paddingTop: 20 }} iconType="circle" />
-              <ReferenceLine y={0} yAxisId="left" stroke={COLORS.grid} />
-              <defs>
-                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.revenue} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={COLORS.revenue} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="unitsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.units} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={COLORS.units} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-
-              {/* Revenue */}
-              {showRevenue && (
-                <>
-                  {chartType === "area" && (
-                    <Area yAxisId="left" type="monotone" dataKey="revenue" stroke="none" fill="url(#revenueGradient)" />
-                  )}
-                  {chartType === "bar" && (
-                    <Bar yAxisId="left" dataKey="revenue" fill={COLORS.revenue} radius={[4, 4, 0, 0]} opacity={0.8} />
-                  )}
-                  {(chartType === "line" || chartType === "area") && (
-                    <Line
-                      yAxisId="left"
-                      name="Revenue"
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke={COLORS.revenue}
-                      strokeWidth={3}
-                      dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.revenue }}
-                      activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
-                    />
-                  )}
-                </>
-              )}
-
-              {/* Units */}
-              {showUnits && (
-                <>
-                  {chartType === "area" && (
-                    <Area yAxisId="right" type="monotone" dataKey="units" stroke="none" fill="url(#unitsGradient)" />
-                  )}
-                  {chartType === "bar" && (
-                    <Bar yAxisId="right" dataKey="units" fill={COLORS.units} radius={[4, 4, 0, 0]} opacity={0.8} />
-                  )}
-                  {(chartType === "line" || chartType === "area") && (
-                    <Line
-                      yAxisId="right"
-                      name="Units Sold"
-                      type="monotone"
-                      dataKey="units"
-                      stroke={COLORS.units}
-                      strokeWidth={3}
-                      dot={{ r: 4, stroke: "white", strokeWidth: 2, fill: COLORS.units }}
-                      activeDot={{ r: 6, stroke: "white", strokeWidth: 2 }}
-                    />
-                  )}
-                </>
-              )}
-
-              <Brush height={30} travellerWidth={10} stroke={COLORS.border} fill="#f8fafc" dataKey="date" tickFormatter={formatDateLabel} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Top 5 Products only */}
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <span className="text-xl">🏆</span>
-            </div>
+        {/* Print Sales Trends Button */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 no-print">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Top 5 Products Sold</h3>
-              <p className="text-sm text-gray-600">Most product sold</p>
+              <h3 className="text-lg font-bold text-gray-900">Sales Report</h3>
+              <p className="text-sm text-gray-500">Print sales trends and analytics</p>
+            </div>
+            <button
+              onClick={() => window.print()}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Print Sales Report
+            </button>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 no-print">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Group by</label>
+                <select
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value)}
+                >
+                  <option value="day">Day</option>
+                  <option value="month">Month</option>
+                  <option value="year">Year</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Chart Type</label>
+                <select
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  value={chartType}
+                  onChange={(e) => setChartType(e.target.value)}
+                >
+                  <option value="line">Line</option>
+                  <option value="bar">Bar</option>
+                  <option value="area">Area</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  showRevenue ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+                onClick={() => setShowRevenue(!showRevenue)}
+              >
+                {showRevenue ? "Hide" : "Show"} Revenue
+              </button>
+              <button
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  showUnits ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+                onClick={() => setShowUnits(!showUnits)}
+              >
+                {showUnits ? "Hide" : "Show"} Units
+              </button>
             </div>
           </div>
-          <div className="space-y-1">
-            {topProductsByUnits.length ? (
-              topProductsByUnits.map((p, idx) => (
-                <ProductRankCard key={p.id || p.name} product={p} rank={idx + 1} />
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-2">📦</div>
-                <p>No product data available</p>
+        </div>
+
+        {/* Top 5 Products - Will not be printed */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 no-print">
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <span className="text-xl">🏆</span>
               </div>
-            )}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Top 5 Products Sold</h3>
+                <p className="text-sm text-gray-600">Most product sold</p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              {topProductsByUnits.length ? (
+                topProductsByUnits.map((p, idx) => (
+                  <ProductRankCard key={p.id || p.name} product={p} rank={idx + 1} />
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">📦</div>
+                  <p>No product data available</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
-/* ---------- Helper UI states ---------- */
+// ============================================================================
+// HELPER UI STATES
+// ============================================================================
 function SkeletonChart() {
   return (
     <div className="space-y-6">
