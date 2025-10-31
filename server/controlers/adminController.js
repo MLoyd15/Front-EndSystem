@@ -98,7 +98,9 @@ export const getDrivers = async (req, res) => {
 
 export const createDriver = async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, licenseImage } = req.body;
+
+    console.log('Creating driver with data:', { name, email, phone, hasLicense: !!licenseImage }); // Debug log
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -130,16 +132,28 @@ export const createDriver = async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create new driver as user with role 'driver'
-    const newDriver = new User({
+    // Create driver data object
+    const driverData = {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       phone: phone?.trim() || '',
       password: hashedPassword,
-      role: 'driver'
-    });
+      role: 'driver',
+      active: true
+    };
 
+    // Add licenseImage if provided
+    if (licenseImage && licenseImage.trim() !== '') {
+      driverData.licenseImage = licenseImage.trim();
+      console.log('License image URL added:', licenseImage); // Debug log
+    }
+
+    // Create new driver as user with role 'driver'
+    const newDriver = new User(driverData);
     await newDriver.save();
+
+    console.log('Driver created successfully with ID:', newDriver._id); // Debug log
+    console.log('Saved license image:', newDriver.licenseImage); // Debug log
 
     // Return success response (without password)
     const driverResponse = {
@@ -148,6 +162,8 @@ export const createDriver = async (req, res) => {
       email: newDriver.email,
       phone: newDriver.phone,
       role: newDriver.role,
+      licenseImage: newDriver.licenseImage,
+      active: newDriver.active,
       createdAt: newDriver.createdAt
     };
 
@@ -170,7 +186,8 @@ export const createDriver = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Internal server error while creating driver account"
+      message: "Internal server error while creating driver account",
+      error: err.message
     });
   }
 };
