@@ -60,8 +60,18 @@ const Login = () => {
 
       const data = await response.json();
 
+    // ✅ Handle inactive account (403 status)
+      if (response.status === 403 && data.accountStatus === 'inactive') {
+        setError(data.message || "Your account has been deactivated. Please contact the administrator.");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Handle other errors
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+        setError(data.message || 'Login failed. Please check your credentials.');
+        setLoading(false);
+        return;
       }
 
       if (data?.success) {

@@ -17,6 +17,14 @@ const login = async (req, res) => {
             return res.status(401).json({success:false, message: "Invalid email or password"})
         }
 
+           if (user.role === 'driver' && user.active === false) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Your account has been deactivated. Please contact the administrator.",
+                    accountStatus: "inactive"
+                });
+                }
+
         const isMatch = await bcrypt.compare(password, user.password)
         if (!isMatch) {
             console.log(`❌ Login failed - Invalid password for: ${email}`);
@@ -53,10 +61,13 @@ const login = async (req, res) => {
 
         return res.status(200).json(response);
         
+        
     } catch (error) {
         console.error('❌ Login error:', error);
         return res.status(500).json({success:false, message: "Internal server error"})
     }
+
+    
 }
 
 // Logout function
