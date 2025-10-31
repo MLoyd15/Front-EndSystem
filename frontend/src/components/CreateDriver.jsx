@@ -44,6 +44,7 @@ const CreateDriver = () => {
   const [licenseFile, setLicenseFile] = useState(null);
   const [licensePreview, setLicensePreview] = useState(null);
   const [uploadingLicense, setUploadingLicense] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
 
   const fetchDrivers = async () => {
     setLoadingDrivers(true);
