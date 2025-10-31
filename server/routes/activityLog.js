@@ -8,12 +8,12 @@ import {
   getActivityStats,
 } from "../controlers/activityLogController.js";
 import { requireSuperAdmin } from "../middleware/activityLogMiddleware.js";
-import { authenticate } from "../middleware/auth.js"; // Your auth middleware
+import { authMiddleware } from "../middleware/authMiddleware.js"; // Your auth middleware
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(authMiddleware);
 
 // Get all activity logs (accessible by all admins)
 router.get("/", getActivityLogs);
