@@ -6,7 +6,7 @@ import {
   approveActivityLog,
   rejectActivityLog,
   getActivityStats,
-} from "../controllers/activityLogController.js";
+} from "../controlers/activityLogController.js";
 import { requireSuperAdmin } from "../middleware/activityLogMiddleware.js";
 import { authenticate } from "../middleware/auth.js"; // Your auth middleware
 
