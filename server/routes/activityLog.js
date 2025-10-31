@@ -8,7 +8,7 @@ import {
   getActivityStats,
 } from "../controlers/activityLogController.js";
 import { requireSuperAdmin } from "../middleware/activityLogMiddleware.js";
-import { authMiddleware } from "../middleware/authMiddleware.js"; // Your auth middleware
+import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
