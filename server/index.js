@@ -25,7 +25,6 @@ import maintenanceRoutes from './routes/maintenance.js';
 import lalamoveRoutes from './routes/lalalmove.js';
 import supportChatRoutes from "./routes/supportChatRoutes.js";
 import deliveryChatRoutes from "./routes/deliveryChat.js";
-import Message from "./models/Message.js"; // ⚠️ ADD THIS - Import Message model
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
