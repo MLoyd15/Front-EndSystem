@@ -1,5 +1,6 @@
 import ActivityLog from "../models/ActivityLog.js";
-import Product from "../models/Products.js";
+import Product from "../models/Product.js";
+import Category from "../models/category.js";
 
 /**
  * Get all activity logs with filters
@@ -304,33 +305,75 @@ export const getActivityStats = async (req, res) => {
 async function executeApprovedAction(log) {
   try {
     switch (log.action) {
+      // ============ PRODUCT ACTIONS ============
       case "CREATE_PRODUCT":
         // Product already created, just mark as active
         if (log.entityId) {
           await Product.findByIdAndUpdate(log.entityId, { 
             catalog: true 
           });
+          console.log(`✅ Product ${log.entityId} marked as active`);
         }
         break;
 
       case "UPDATE_PRODUCT":
         if (log.entityId && log.changes?.after) {
           await Product.findByIdAndUpdate(log.entityId, log.changes.after);
+          console.log(`✅ Product ${log.entityId} updated`);
         }
         break;
 
       case "DELETE_PRODUCT":
         if (log.entityId) {
           await Product.findByIdAndDelete(log.entityId);
+          console.log(`✅ Product ${log.entityId} deleted`);
         }
         break;
 
-      // Add other entity handlers as needed
+      // ============ CATEGORY ACTIONS ============
+      case "CREATE_CATEGORY":
+        // Category already created, just mark as active if you have an active flag
+        if (log.entityId) {
+          // If your category model has an 'active' or 'status' field
+          await Category.findByIdAndUpdate(log.entityId, { 
+            active: true 
+          });
+          console.log(`✅ Category ${log.entityId} marked as active`);
+        }
+        break;
+
+      case "UPDATE_CATEGORY":
+        if (log.entityId && log.changes?.after) {
+          await Category.findByIdAndUpdate(log.entityId, log.changes.after);
+          console.log(`✅ Category ${log.entityId} updated`);
+        }
+        break;
+
+      case "DELETE_CATEGORY":
+        if (log.entityId) {
+          // Check if category has products before deleting
+          const productsCount = await Product.countDocuments({ category: log.entityId });
+          
+          if (productsCount > 0) {
+            console.warn(`⚠️  Category ${log.entityId} has ${productsCount} products. Consider handling orphaned products.`);
+            // Option 1: Move products to "Uncategorized"
+            // await Product.updateMany({ category: log.entityId }, { category: null });
+            
+            // Option 2: Delete products too
+            // await Product.deleteMany({ category: log.entityId });
+          }
+          
+          await Category.findByIdAndDelete(log.entityId);
+          console.log(`✅ Category ${log.entityId} deleted`);
+        }
+        break;
+
+      // Add other entity handlers as needed (orders, users, etc.)
       default:
-        console.log(`No specific action handler for: ${log.action}`);
+        console.log(`⚠️  No specific action handler for: ${log.action}`);
     }
   } catch (error) {
-    console.error("Error executing approved action:", error);
+    console.error("❌ Error executing approved action:", error);
     throw error;
   }
 }
@@ -341,12 +384,14 @@ async function executeApprovedAction(log) {
 async function rollbackAction(log) {
   try {
     switch (log.action) {
+      // ============ PRODUCT ROLLBACKS ============
       case "CREATE_PRODUCT":
         // Mark as inactive or delete draft
         if (log.entityId) {
           await Product.findByIdAndUpdate(log.entityId, { 
             catalog: false 
           });
+          console.log(`🔄 Product ${log.entityId} marked as inactive (rollback)`);
         }
         break;
 
@@ -354,15 +399,60 @@ async function rollbackAction(log) {
         // Restore previous values
         if (log.entityId && log.changes?.before) {
           await Product.findByIdAndUpdate(log.entityId, log.changes.before);
+          console.log(`🔄 Product ${log.entityId} restored to previous state`);
+        }
+        break;
+
+      case "DELETE_PRODUCT":
+        // If product was soft-deleted, restore it
+        if (log.entityId && log.changes?.before) {
+          // Recreate the product with previous data
+          await Product.findByIdAndUpdate(
+            log.entityId, 
+            { ...log.changes.before, catalog: true },
+            { upsert: true }
+          );
+          console.log(`🔄 Product ${log.entityId} restored from deletion`);
+        }
+        break;
+
+      // ============ CATEGORY ROLLBACKS ============
+      case "CREATE_CATEGORY":
+        // Mark as inactive or delete draft
+        if (log.entityId) {
+          await Category.findByIdAndUpdate(log.entityId, { 
+            active: false 
+          });
+          console.log(`🔄 Category ${log.entityId} marked as inactive (rollback)`);
+        }
+        break;
+
+      case "UPDATE_CATEGORY":
+        // Restore previous values
+        if (log.entityId && log.changes?.before) {
+          await Category.findByIdAndUpdate(log.entityId, log.changes.before);
+          console.log(`🔄 Category ${log.entityId} restored to previous state`);
+        }
+        break;
+
+      case "DELETE_CATEGORY":
+        // Restore the category
+        if (log.entityId && log.changes?.before) {
+          await Category.findByIdAndUpdate(
+            log.entityId, 
+            { ...log.changes.before, active: true },
+            { upsert: true }
+          );
+          console.log(`🔄 Category ${log.entityId} restored from deletion`);
         }
         break;
 
       // Add other rollback handlers as needed
       default:
-        console.log(`No specific rollback handler for: ${log.action}`);
+        console.log(`⚠️  No specific rollback handler for: ${log.action}`);
     }
   } catch (error) {
-    console.error("Error rolling back action:", error);
+    console.error("❌ Error rolling back action:", error);
     throw error;
   }
 }
