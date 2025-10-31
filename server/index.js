@@ -25,6 +25,7 @@ import maintenanceRoutes from './routes/maintenance.js';
 import lalamoveRoutes from './routes/lalalmove.js';
 import supportChatRoutes from "./routes/supportChatRoutes.js";
 import deliveryChatRoutes from "./routes/deliveryChat.js";
+import activityLogRoutes from "./routes/activityLog.js"
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,6 +69,7 @@ app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/lalamove', lalamoveRoutes);
 app.use("/api/support-chat", supportChatRoutes);
 app.use("/api/delivery-chat", deliveryChatRoutes);
+app.use('/api/activity-logs', activityLogRoutes);
 
 // ✅ IMPROVED: Health check with more details
 app.get("/health", (_req, res) => {
