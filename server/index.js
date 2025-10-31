@@ -1,4 +1,6 @@
 import dotenv from 'dotenv';
+dotenv.config(); // ⚠️ ADD THIS - Load environment variables first!
+
 import express from "express";
 import cors from "cors";
 import http from "http";
@@ -21,38 +23,37 @@ import path from "path";
 import adminRefundTicketsRouter from "./routes/adminRefundTickets.js";
 import maintenanceRoutes from './routes/maintenance.js';
 import lalamoveRoutes from './routes/lalalmove.js';
-import supportChatRoutes from "./routes/supportChatRoutes.js"; // ✅ Already imported
+import supportChatRoutes from "./routes/supportChatRoutes.js";
 import deliveryChatRoutes from "./routes/deliveryChat.js";
+import Message from "./models/Message.js"; // ⚠️ ADD THIS - Import Message model
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ✅ CORS — set your actual dev origins here (optional but recommended)
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",   // Vite admin
+      "http://localhost:5173",
       "http://127.0.0.1:5173",
-      "http://localhost:19006",  // Expo web preview (if used)
+      "http://localhost:19006",
       "http://localhost:8081",
-      "http://localhost:8082",   // Expo mobile dev server
-      "exp://localhost:19000",   // Expo development
-      "exp://192.168.1.100:19000", // Expo on local network (adjust IP as needed)
+      "http://localhost:8082",
+      "exp://localhost:19000",
+      "exp://192.168.1.100:19000",
       "https://goagritrading.org",
       'https://goat-agritrading-frontend.vercel.app',
-      "*" // Allow all origins for mobile development (remove in production)
+      "*"
     ],
     credentials: true,
   })
 );
 
-// ✅ Body parsers (once is enough)
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Routes
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/admin", adminRoutes);
@@ -66,13 +67,32 @@ app.use("/api/driver", driverRoutes);
 app.use("/api/refund-tickets", adminRefundTicketsRouter);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/lalamove', lalamoveRoutes);
-app.use("/api/support-chat", supportChatRoutes); // ✅ ADD THIS LINE
+app.use("/api/support-chat", supportChatRoutes);
 app.use("/api/delivery-chat", deliveryChatRoutes);
 
-// (Optional) simple health check
-app.get("/health", (_req, res) => res.json({ ok: true }));
+// ✅ IMPROVED: Health check with more details
+app.get("/health", (_req, res) => {
+  res.status(200).json({ 
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
-// ✅ Socket.IO
+// ✅ ADD: Root endpoint
+app.get("/", (_req, res) => {
+  res.status(200).json({ 
+    message: "Goat-Agri-Trading API is running",
+    version: "1.0.0",
+    endpoints: {
+      health: "/health",
+      api: "/api/*"
+    }
+  });
+});
+
+// Socket.IO setup
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { 
@@ -81,42 +101,39 @@ const io = new Server(server, {
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
   },
-  allowEIO3: true, // Allow Engine.IO v3 clients (for older mobile apps)
+  allowEIO3: true,
 });
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// ✅ UPDATED: Socket.IO authentication middleware
+// Socket.IO authentication middleware
 io.use((socket, next) => {
   const token =
     socket.handshake.auth?.token ||
     socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, "") ||
     socket.handshake.query?.token;
 
-  if (!token) return next(); // allow anonymous if you want
+  if (!token) return next();
   
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    // ✅ CHANGED: Store user info consistently
     socket.userId = decoded.id || decoded._id || decoded.sub || decoded.userId;
     socket.userEmail = decoded.email;
-    socket.user = decoded; // Keep for backward compatibility with existing order chat
+    socket.user = decoded;
   } catch (err) {
-    // ignore or: return next(new Error("Invalid token"));
+    console.error('JWT verification error:', err.message);
   }
   next();
 });
 
-// ✅ UPDATED: Socket.IO connection handling
+// Socket.IO connection handling
 io.on("connection", async (socket) => {
-  console.log(`User ${socket.userId} connected`);
+  console.log(`User ${socket.userId || 'anonymous'} connected`);
   
-  // ✅ NEW: Join user to their personal room for notifications
   if (socket.userId) {
     socket.join(`user_${socket.userId}`);
   }
   
-  // ✅ NEW: Check if user is admin and join admin room
   try {
     if (socket.userId) {
       const User = (await import('./models/user.js')).default;
@@ -131,7 +148,7 @@ io.on("connection", async (socket) => {
     console.error('Error checking user role:', error);
   }
 
-  // ✅ EXISTING: Order chat functionality (keep this)
+  // Order chat functionality
   const initialOrderId =
     socket.handshake.auth?.orderId || socket.handshake.query?.orderId;
   if (initialOrderId) socket.join(String(initialOrderId));
@@ -144,22 +161,26 @@ io.on("connection", async (socket) => {
     if (!orderId || !text?.trim()) return;
     const from = socket.user?.role === "driver" ? "driver" : "customer";
 
-    const msg = await Message.create({
-      orderId,
-      from,
-      fromUser: socket.user?._id,
-      text: text.trim(),
-    });
+    try {
+      const msg = await Message.create({
+        orderId,
+        from,
+        fromUser: socket.user?._id,
+        text: text.trim(),
+      });
 
-    io.to(String(orderId)).emit("message", {
-      _id: msg._id,
-      orderId: String(orderId),
-      from,
-      fromUser: socket.user?._id,
-      text: msg.text,
-      createdAt: msg.createdAt,
-      readBy: msg.readBy || [],
-    });
+      io.to(String(orderId)).emit("message", {
+        _id: msg._id,
+        orderId: String(orderId),
+        from,
+        fromUser: socket.user?._id,
+        text: msg.text,
+        createdAt: msg.createdAt,
+        readBy: msg.readBy || [],
+      });
+    } catch (error) {
+      console.error('Error creating message:', error);
+    }
   });
 
   socket.on("typing", ({ orderId, isTyping }) => {
@@ -174,14 +195,18 @@ io.on("connection", async (socket) => {
 
   socket.on("read", async ({ orderId }) => {
     if (!orderId) return;
-    await Message.updateMany(
-      { orderId },
-      { $addToSet: { readBy: socket.user?._id } }
-    );
-    io.to(String(orderId)).emit("read", { orderId, userId: socket.user?._id });
+    try {
+      await Message.updateMany(
+        { orderId },
+        { $addToSet: { readBy: socket.user?._id } }
+      );
+      io.to(String(orderId)).emit("read", { orderId, userId: socket.user?._id });
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
   });
 
-  // ✅ NEW: Support chat functionality
+  // Support chat functionality
   socket.on('join_support_room', (roomId) => {
     socket.join(`support_${roomId}`);
     console.log(`User ${socket.userId} joined support room: support_${roomId}`);
@@ -192,7 +217,6 @@ io.on("connection", async (socket) => {
     console.log(`User ${socket.userId} left support room: support_${roomId}`);
   });
   
-  // ✅ NEW: Handle typing indicators for support chat
   socket.on('typing_support', ({ roomId, isTyping }) => {
     socket.to(`support_${roomId}`).emit('user_typing_support', {
       userId: socket.userId,
@@ -201,26 +225,27 @@ io.on("connection", async (socket) => {
     });
   });
 
-  // ✅ NEW: Disconnect handler
   socket.on('disconnect', () => {
-    console.log(`User ${socket.userId} disconnected`);
+    console.log(`User ${socket.userId || 'anonymous'} disconnected`);
   });
 });
 
-// Expose io to routes/controllers that broadcast
 app.set("io", io);
 
-server.listen(process.env.PORT || 5000, () => {
-  connectDB();
-  console.log("The server is live with WebSocket");
-  console.log("✅ Socket.IO server ready for support chat");
-});
+// ✅ CRITICAL FIX: Bind to 0.0.0.0 and use Render's PORT
+const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0'; // ⚠️ THIS IS CRITICAL FOR RENDER
 
-console.log('🔍 Environment Check:', {
-  nodeEnv: process.env.NODE_ENV,
-  port: process.env.PORT,
-  hasMongoUrl: !!process.env.MONGO_URL,
-  hasLalamoveKey: !!process.env.LALAMOVE_API_KEY,
-  hasLalamoveSecret: !!process.env.LALAMOVE_API_SECRET,
-  lalamoveKeyPreview: process.env.LALAMOVE_API_KEY?.substring(0, 10) + '...',
+server.listen(PORT, HOST, () => {
+  connectDB();
+  console.log(`✅ Server is live on ${HOST}:${PORT}`);
+  console.log("✅ Socket.IO server ready");
+  console.log('🔍 Environment Check:', {
+    nodeEnv: process.env.NODE_ENV,
+    port: PORT,
+    host: HOST,
+    hasMongoUrl: !!process.env.MONGO_URL,
+    hasLalamoveKey: !!process.env.LALAMOVE_API_KEY,
+    hasLalamoveSecret: !!process.env.LALAMOVE_API_SECRET,
+  });
 });
