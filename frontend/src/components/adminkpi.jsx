@@ -1,9 +1,10 @@
-// COMPLETE UPDATED AdminKpi.jsx with Loyalty Data and Modal
+// COMPLETE UPDATED AdminKpi.jsx with Loyalty Data, Modal, and Dropdown Navigation
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FaUsers, FaBoxes, FaExclamationTriangle, FaTruck, FaAward, FaTimes } from "react-icons/fa";
+import { FaUsers, FaBoxes, FaExclamationTriangle, FaTruck, FaAward, FaTimes, FaChevronDown, FaChartLine, FaTachometerAlt } from "react-icons/fa";
 import SalesChart from "./SalesChart";
+import Loyalty from "./Loyalty";
 import { VITE_API_BASE } from "../config";
 
 const API = VITE_API_BASE;
@@ -12,6 +13,34 @@ const peso = (n) =>
   `${CURRENCY}${Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
+
+// View options for dropdown
+const VIEWS = {
+  DASHBOARD: "dashboard",
+  LOYALTY: "loyalty",
+  SALES: "sales",
+};
+
+const VIEW_OPTIONS = [
+  {
+    id: VIEWS.DASHBOARD,
+    label: "KPI Dashboard",
+    icon: <FaTachometerAlt />,
+    description: "Business overview and metrics",
+  },
+  {
+    id: VIEWS.LOYALTY,
+    label: "Loyalty Program",
+    icon: <FaAward />,
+    description: "Manage rewards and members",
+  },
+  {
+    id: VIEWS.SALES,
+    label: "Sales Analytics",
+    icon: <FaChartLine />,
+    description: "Revenue and trends",
+  },
+];
 
 const countDeliveredInRange = (deliveries, startMs, endMs) =>
   deliveries.reduce((count, d) => {
@@ -111,18 +140,16 @@ function StockAlertCard({ title, items, type = "low" }) {
   );
 }
 
-// ✅ NEW: User Points History Modal
+// User Points History Modal
 function UserHistoryModal({ user, onClose, allRewards }) {
   if (!user) return null;
 
-  // Find the user's full reward data
   const userReward = allRewards.find(r => r.userId?._id === user.userId || r.userId === user.userId);
   const pointsHistory = userReward?.pointsHistory || [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        {/* Header */}
         <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -142,7 +169,6 @@ function UserHistoryModal({ user, onClose, allRewards }) {
             </button>
           </div>
 
-          {/* User Stats */}
           <div className="grid grid-cols-3 gap-4 mt-4">
             <div className="bg-white/10 rounded-lg p-3">
               <p className="text-xs text-white/70">Total Points</p>
@@ -159,7 +185,6 @@ function UserHistoryModal({ user, onClose, allRewards }) {
           </div>
         </div>
 
-        {/* Points History */}
         <div className="p-6 overflow-y-auto max-h-[calc(80vh-280px)]">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Points History</h3>
           
@@ -196,7 +221,6 @@ function UserHistoryModal({ user, onClose, allRewards }) {
           )}
         </div>
 
-        {/* Footer */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
@@ -210,7 +234,104 @@ function UserHistoryModal({ user, onClose, allRewards }) {
   );
 }
 
+// Sales Analytics View Component
+function SalesAnalyticsView() {
+  return (
+    <div className="p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Sales Analytics</h2>
+          <p className="text-gray-500 mt-1">Detailed revenue and sales trends</p>
+        </div>
+        
+        <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Sales Trends (Revenue & Units Sold)</h3>
+          <div className="rounded-xl border border-gray-100 p-4">
+            <SalesChart />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main Dashboard View Component
+function DashboardView({ stats, err, lowStockItems, outOfStockItems, deliveryCount, deliveryLabel }) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="lg:col-span-1 space-y-6">
+        <div className="space-y-4">
+          <SectionHeader icon={<FaTruck />} title="Business Overview" subtitle="Key performance metrics" />
+
+          {err && (
+            <div className="rounded-xl border-l-4 border-red-500 bg-red-50 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <FaExclamationTriangle className="text-red-600 mt-0.5" />
+                <p className="text-sm text-red-700">{err}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <EnhancedKpiCard
+              title="Total Users"
+              value={stats.totalUsers.toLocaleString()}
+              icon={<FaUsers />}
+              gradient="from-blue-500 to-cyan-600"
+            />
+            
+            <EnhancedKpiCard
+              title="Total Delivery (Month)"
+              value={deliveryCount.toLocaleString()}
+              icon={<FaTruck />}
+              gradient="from-teal-500 to-emerald-600"
+              subtitle={deliveryLabel}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <SectionHeader icon={<FaBoxes />} title="Inventory Status" subtitle="Stock management" />
+          <div className="space-y-3">
+            <EnhancedKpiCard
+              title="Categories"
+              value={stats.totalCategories}
+              icon={<FaBoxes />}
+              gradient="from-indigo-500 to-blue-600"
+              subtitle="Product categories"
+            />
+            <EnhancedKpiCard
+              title="Low Stock Items"
+              value={stats.lowStock}
+              icon={<FaExclamationTriangle />}
+              gradient="from-amber-500 to-yellow-600"
+              subtitle="Needs restocking"
+            />
+          </div>
+        </div>
+
+
+      </div>
+
+      <div className="lg:col-span-3 space-y-6">
+        <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Sales Trends (Revenue &amp; Units Sold)</h3>
+          </div>
+          <div className="rounded-xl border border-gray-100 p-2">
+            <SalesChart />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminKpi() {
+  // View state
+  const [currentView, setCurrentView] = useState(VIEWS.DASHBOARD);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalSales: 0,
@@ -220,7 +341,7 @@ export default function AdminKpi() {
     avgOrderValue: 0,
     lowStock: 0,
     topLoyaltyUsers: [],
-    allLoyaltyRewards: [], // ✅ Store all rewards for modal
+    allLoyaltyRewards: [],
   });
 
   const [err, setErr] = useState("");
@@ -229,8 +350,6 @@ export default function AdminKpi() {
   const [deliveries, setDeliveries] = useState([]);
   const [deliveryCount, setDeliveryCount] = useState(0);
   const [deliveryLabel, setDeliveryLabel] = useState("This month");
-  
-  // ✅ NEW: Modal state
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
@@ -321,7 +440,7 @@ export default function AdminKpi() {
 
         const topLoyaltyUsers = loyaltyRewards
           .sort((a, b) => (b.points || 0) - (a.points || 0))
-          .slice(0, 10) // ✅ Show top 10
+          .slice(0, 10)
           .map(reward => ({
             userId: reward.userId?._id || reward.userId,
             userName: reward.userId?.name || 'Unknown User',
@@ -335,7 +454,7 @@ export default function AdminKpi() {
         setStats(prev => ({
           ...prev,
           topLoyaltyUsers,
-          allLoyaltyRewards: loyaltyRewards // ✅ Store all for modal
+          allLoyaltyRewards: loyaltyRewards
         }));
         
       } catch (e) {
@@ -356,133 +475,134 @@ export default function AdminKpi() {
     setDeliveryCount(countDeliveredInRange(deliveries, start, end));
   }, [deliveries]);
 
+  const currentOption = VIEW_OPTIONS.find((opt) => opt.id === currentView);
+
+  const handleViewChange = (viewId) => {
+    setCurrentView(viewId);
+    setDropdownOpen(false);
+  };
+
+  const renderView = () => {
+    switch (currentView) {
+      case VIEWS.DASHBOARD:
+        return (
+          <DashboardView 
+            stats={stats}
+            err={err}
+            lowStockItems={lowStockItems}
+            outOfStockItems={outOfStockItems}
+            deliveryCount={deliveryCount}
+            deliveryLabel={deliveryLabel}
+            selectedUser={selectedUser}
+            setSelectedUser={setSelectedUser}
+          />
+        );
+      case VIEWS.LOYALTY:
+        return <Loyalty />;
+      case VIEWS.SALES:
+        return <SalesAnalyticsView />;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <div className="space-y-4">
-            <SectionHeader icon={<FaTruck />} title="Business Overview" subtitle="Key performance metrics" />
-
-            {err && (
-              <div className="rounded-xl border-l-4 border-red-500 bg-red-50 p-4 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <FaExclamationTriangle className="text-red-600 mt-0.5" />
-                  <p className="text-sm text-red-700">{err}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <EnhancedKpiCard
-                title="Total Users"
-                value={stats.totalUsers.toLocaleString()}
-                icon={<FaUsers />}
-                gradient="from-blue-500 to-cyan-600"
-              />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header with Dropdown */}
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               
-              <EnhancedKpiCard
-                title="Total Delivery (Month)"
-                value={deliveryCount.toLocaleString()}
-                icon={<FaTruck />}
-                gradient="from-teal-500 to-emerald-600"
-                subtitle={deliveryLabel}
-              />
-            </div>
-          </div>
+              {/* Dropdown Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg"
+                >
+                  <span className="text-lg">{currentOption?.icon}</span>
+                  <span className="font-medium">{currentOption?.label}</span>
+                  <FaChevronDown
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      dropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
 
-          <div className="space-y-4">
-            <SectionHeader icon={<FaBoxes />} title="Inventory Status" subtitle="Stock management" />
-            <div className="space-y-3">
-              <EnhancedKpiCard
-                title="Categories"
-                value={stats.totalCategories}
-                icon={<FaBoxes />}
-                gradient="from-indigo-500 to-blue-600"
-                subtitle="Product categories"
-              />
-              <EnhancedKpiCard
-                title="Low Stock Items"
-                value={stats.lowStock}
-                icon={<FaExclamationTriangle />}
-                gradient="from-amber-500 to-yellow-600"
-                subtitle="Needs restocking"
-              />
-            </div>
-          </div>
+                {/* Dropdown Menu */}
+                {dropdownOpen && (
+                  <>
+                    {/* Backdrop */}
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setDropdownOpen(false)}
+                    />
 
-          <div className="space-y-4">
-            <SectionHeader icon={<FaExclamationTriangle />} title="Stock Alerts" subtitle="Inventory warnings" />
-            <StockAlertCard title="Low Stock" items={lowStockItems} type="low" />
-            <StockAlertCard title="Out of Stock" items={outOfStockItems} type="out" />
-          </div>
-        </div>
-
-        <div className="lg:col-span-3 space-y-6">
-          <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Sales Trends (Revenue &amp; Units Sold)</h3>
-            </div>
-            <div className="rounded-xl border border-gray-100 p-2">
-              <SalesChart />
-            </div>
-          </div>
-
-          {/* ✅ UPDATED: Top Loyalty Members with Click */}
-          <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5 p-4">
-            <div className="mb-3">
-              <h2 className="text-xl font-bold text-gray-900">Top Loyalty Members</h2>
-              <p className="text-sm text-gray-500">Click on a user to view their points history</p>
-            </div>
-            
-            {stats.topLoyaltyUsers?.length ? (
-              <div className="space-y-3">
-                {stats.topLoyaltyUsers.map((user, i) => (
-                  <div 
-                    key={i} 
-                    onClick={() => setSelectedUser(user)}
-                    className="p-4 rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold">
-                          {user.userName?.charAt(0)?.toUpperCase() || 'U'}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{user.userName}</h3>
-                          <p className="text-xs text-gray-500">{user.userEmail}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-purple-600">{user.points} pts</div>
-                        {user.tier && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-                            {user.tier}
+                    {/* Menu */}
+                    <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-20">
+                      {VIEW_OPTIONS.map((option) => (
+                        <button
+                          key={option.id}
+                          onClick={() => handleViewChange(option.id)}
+                          className={`w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors ${
+                            currentView === option.id
+                              ? "bg-indigo-50 border-l-4 border-indigo-500"
+                              : "border-l-4 border-transparent"
+                          }`}
+                        >
+                          <span
+                            className={`text-xl mt-0.5 ${
+                              currentView === option.id
+                                ? "text-indigo-600"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {option.icon}
                           </span>
-                        )}
-                      </div>
+                          <div className="flex-1 text-left">
+                            <p
+                              className={`font-semibold ${
+                                currentView === option.id
+                                  ? "text-indigo-900"
+                                  : "text-gray-900"
+                              }`}
+                            >
+                              {option.label}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {option.description}
+                            </p>
+                          </div>
+                          {currentView === option.id && (
+                            <div className="flex items-center">
+                              <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
-                      <div>
-                        <span className="text-xs text-gray-500">Total Spent</span>
-                        <p className="font-semibold text-gray-900">{peso(user.totalSpent)}</p>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-500">Purchases</span>
-                        <p className="font-semibold text-gray-900">{user.purchaseCount}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
-                <p className="text-gray-500">No loyalty members yet.</p>
-              </div>
-            )}
+            </div>
+
+            {/* Optional: Additional header actions */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                {currentOption?.description}
+              </span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Main Content Area */}
+      <div className="p-6 transition-all duration-300">
+        {renderView()}
+      </div>
+
+      {/* User History Modal */}
       {selectedUser && (
         <UserHistoryModal 
           user={selectedUser} 

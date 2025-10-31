@@ -1,6 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Loader, UserPlus, Users, Trash2 } from 'lucide-react';
 import axios from 'axios';
+import { 
+  UserPlus, 
+  Users, 
+  Eye, 
+  EyeOff, 
+  Loader, 
+  Mail, 
+  Phone, 
+  User,
+  Lock,
+  Upload,
+  Image,
+  ToggleLeft,
+  ToggleRight,
+  CheckCircle,
+  XCircle,
+  AlertCircle
+} from 'lucide-react';
 import { VITE_API_BASE } from '../config';
 
 const API = VITE_API_BASE;
@@ -13,6 +30,7 @@ const CreateDriver = () => {
     password: '',
     confirmPassword: ''
   });
+  
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,9 +38,13 @@ const CreateDriver = () => {
   const [success, setSuccess] = useState('');
   const [drivers, setDrivers] = useState([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
-  const [activeTab, setActiveTab] = useState('create'); // 'create' or 'list'
+  const [activeTab, setActiveTab] = useState('create');
+  
+  // New states for image upload
+  const [licenseFile, setLicenseFile] = useState(null);
+  const [licensePreview, setLicensePreview] = useState(null);
+  const [uploadingLicense, setUploadingLicense] = useState(false);
 
-  // Fetch drivers with driver role
   const fetchDrivers = async () => {
     setLoadingDrivers(true);
     try {
@@ -94,6 +116,106 @@ const CreateDriver = () => {
     return true;
   };
 
+  const handleLicenseUpload = async (file) => {
+    if (!file) return null;
+    
+    setUploadingLicense(true);
+    try {
+      const token = localStorage.getItem('pos-token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const formData = new FormData();
+      formData.append('license', file);
+
+      const response = await axios.post(
+        `${API}/admin/upload-license`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        return response.data.licenseImage.url;
+      } else {
+        throw new Error(response.data.message || 'License upload failed');
+      }
+    } catch (err) {
+      console.error('License upload error:', err);
+      throw err;
+    } finally {
+      setUploadingLicense(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setError('Please select a valid image file (JPEG, PNG, or WebP)');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB');
+        return;
+      }
+
+      setLicenseFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLicensePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
+  };
+
+  const toggleDriverStatus = async (driverId, currentStatus) => {
+    try {
+      const token = localStorage.getItem('pos-token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await axios.patch(
+        `${API}/admin/drivers/${driverId}/status`,
+        { active: !currentStatus },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // Update the drivers list
+        setDrivers(drivers.map(driver => 
+          driver._id === driverId 
+            ? { ...driver, active: !currentStatus }
+            : driver
+        ));
+        setSuccess(`Driver ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      } else {
+        throw new Error(response.data.message || 'Failed to update driver status');
+      }
+    } catch (err) {
+      console.error('Toggle driver status error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to update driver status');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -109,6 +231,12 @@ const CreateDriver = () => {
         throw new Error('Authentication required');
       }
 
+      // Upload license image if provided
+      let licenseImageUrl = null;
+      if (licenseFile) {
+        licenseImageUrl = await handleLicenseUpload(licenseFile);
+      }
+
       const response = await axios.post(
         `${API}/admin/create-driver`,
         {
@@ -116,7 +244,8 @@ const CreateDriver = () => {
           email: formData.email.trim().toLowerCase(),
           phone: formData.phone.trim(),
           password: formData.password,
-          role: 'driver'
+          role: 'driver',
+          licenseImage: licenseImageUrl
         },
         {
           headers: {
@@ -135,6 +264,8 @@ const CreateDriver = () => {
           password: '',
           confirmPassword: ''
         });
+        setLicenseFile(null);
+        setLicensePreview(null);
         // Refresh drivers list
         fetchDrivers();
       } else {
@@ -357,6 +488,63 @@ const CreateDriver = () => {
               </div>
             </div>
 
+            {/* Driver's License Image Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Driver's License Image (Optional)
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-green-400 transition-colors duration-200">
+                <div className="space-y-1 text-center">
+                  {licensePreview ? (
+                    <div className="relative">
+                      <img 
+                        src={licensePreview} 
+                        alt="License preview" 
+                        className="mx-auto h-32 w-auto rounded-lg shadow-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLicenseFile(null);
+                          setLicensePreview(null);
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Image className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="flex text-sm text-gray-600">
+                        <label
+                          htmlFor="license-upload"
+                          className="relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-green-500"
+                        >
+                          <span>Upload license image</span>
+                          <input
+                            id="license-upload"
+                            name="license-upload"
+                            type="file"
+                            className="sr-only"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                          />
+                        </label>
+                        <p className="pl-1">or drag and drop</p>
+                      </div>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                    </>
+                  )}
+                </div>
+              </div>
+              {uploadStatus && (
+                <div className={`mt-2 text-sm ${uploadStatus.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                  {uploadStatus}
+                </div>
+              )}
+            </div>
+
             {/* Submit Button */}
             <button
               type="submit"
@@ -463,10 +651,38 @@ const CreateDriver = () => {
                             {driver.phone}
                           </div>
                         )}
-                        <div className="flex items-center text-sm text-gray-600">
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Status: {driver.active ? 'Active' : 'Inactive'}
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center text-gray-600">
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Status: {driver.active ? 'Active' : 'Inactive'}
+                          </div>
+                          <button
+                            onClick={() => toggleDriverStatus(driver._id, driver.active)}
+                            className={`flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+                              driver.active 
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            }`}
+                          >
+                            {driver.active ? (
+                              <>
+                                <ToggleLeft className="w-4 h-4 mr-1" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <ToggleRight className="w-4 h-4 mr-1" />
+                                Activate
+                              </>
+                            )}
+                          </button>
                         </div>
+                        {driver.licenseImage && (
+                          <div className="flex items-center text-sm text-gray-600 mt-2">
+                            <Image className="w-4 h-4 mr-2" />
+                            License uploaded
+                          </div>
+                        )}
                         {driver.createdAt && (
                           <div className="text-xs text-gray-500 mt-2">
                             Created: {new Date(driver.createdAt).toLocaleDateString()}

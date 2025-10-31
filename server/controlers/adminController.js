@@ -174,3 +174,85 @@ export const createDriver = async (req, res) => {
     });
   }
 };
+
+// Update driver status (activate/deactivate)
+export const updateDriverStatus = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { active } = req.body;
+
+    if (typeof active !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: "Active status must be a boolean value"
+      });
+    }
+
+    const driver = await User.findOneAndUpdate(
+      { _id: driverId, role: 'driver' },
+      { active },
+      { new: true }
+    ).select('-password');
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Driver ${active ? 'activated' : 'deactivated'} successfully`,
+      driver
+    });
+
+  } catch (err) {
+    console.error("Error updating driver status:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while updating driver status"
+    });
+  }
+};
+
+// Update driver license image
+export const updateDriverLicense = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { licenseImage } = req.body;
+
+    if (!licenseImage) {
+      return res.status(400).json({
+        success: false,
+        message: "License image URL is required"
+      });
+    }
+
+    const driver = await User.findOneAndUpdate(
+      { _id: driverId, role: 'driver' },
+      { licenseImage },
+      { new: true }
+    ).select('-password');
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Driver license updated successfully",
+      driver
+    });
+
+  } catch (err) {
+    console.error("Error updating driver license:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while updating driver license"
+    });
+  }
+};

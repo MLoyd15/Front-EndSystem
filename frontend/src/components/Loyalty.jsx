@@ -60,8 +60,8 @@ const Loyalty = () => {
       const totalPointsRedeemed = loyaltyRewards.reduce((sum, reward) => {
         if (reward.pointsHistory && Array.isArray(reward.pointsHistory)) {
           return sum + reward.pointsHistory
-            .filter(h => h.change < 0)
-            .reduce((s, h) => s + Math.abs(h.change), 0);
+            .filter(h => h.source === 'redeem')
+            .reduce((s, h) => s + Math.abs(h.points || 0), 0);
         }
         return sum + (reward.redeemedPoints || 0);
       }, 0);
@@ -103,7 +103,7 @@ const Loyalty = () => {
       setLoadingDetails(true);
       setSelectedUser(reward);
       
-      // Since we removed order fetching, we just set the reward and points history
+      // ✅ Use pointsHistory from the reward object
       setUserDetails({
         reward,
         pointsHistory: reward.pointsHistory || []
@@ -354,10 +354,10 @@ const Loyalty = () => {
         </div>
       </div>
 
-      {/* User Details Modal with Transparent Background */}
+      {/* User Details Modal with Blurred Background */}
       {selectedUser && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={closeModal}
         >
           <div 
@@ -434,25 +434,29 @@ const Loyalty = () => {
                     <div className="p-6">
                       {userDetails.pointsHistory && userDetails.pointsHistory.length > 0 ? (
                         <div className="space-y-3 max-h-96 overflow-y-auto">
-                          {userDetails.pointsHistory.map((history, idx) => (
+                          {userDetails.pointsHistory
+                            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                            .map((entry, idx) => (
                             <div 
                               key={idx}
                               className={`flex items-center justify-between p-4 rounded-lg border ${
-                                history.change > 0 
-                                  ? 'bg-green-50 bg-opacity-70 border-green-200' 
-                                  : 'bg-red-50 bg-opacity-70 border-red-200'
+                                entry.source === 'redeem' 
+                                  ? 'bg-red-50 bg-opacity-70 border-red-200' 
+                                  : 'bg-green-50 bg-opacity-70 border-green-200'
                               }`}
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 flex-1">
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                  history.change > 0 ? 'bg-green-500' : 'bg-red-500'
+                                  entry.source === 'redeem' ? 'bg-red-500' : 'bg-green-500'
                                 }`}>
                                   <FaBolt className="text-white" />
                                 </div>
-                                <div>
-                                  <p className="font-semibold text-gray-900">{history.reason || 'Points update'}</p>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-gray-900">
+                                    {entry.source || 'order_processed'}
+                                  </p>
                                   <p className="text-sm text-gray-600">
-                                    {history.date ? new Date(history.date).toLocaleString('en-US', {
+                                    {entry.createdAt ? new Date(entry.createdAt).toLocaleString('en-US', {
                                       year: 'numeric',
                                       month: 'short',
                                       day: 'numeric',
@@ -463,9 +467,9 @@ const Loyalty = () => {
                                 </div>
                               </div>
                               <div className={`text-2xl font-bold ${
-                                history.change > 0 ? 'text-green-600' : 'text-red-600'
+                                entry.source === 'redeem' ? 'text-red-600' : 'text-green-600'
                               }`}>
-                                {history.change > 0 ? '+' : ''}{history.change}
+                                {entry.source === 'redeem' ? '-' : '+'}{entry.points || 0}
                               </div>
                             </div>
                           ))}

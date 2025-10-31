@@ -12,8 +12,6 @@ const authHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("pos-token")}`,
 });
 
-
-
 const DATA_PLACEHOLDER_48 =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -108,7 +106,7 @@ export default function ProductsPage() {
 
   const [categories, setCategories] = useState([]);
 
-  // NEW: Add category modal state
+  // Add category modal state
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -131,20 +129,20 @@ export default function ProductsPage() {
   const [stockProduct, setStockProduct] = useState(null);
   const [newStock, setNewStock] = useState(0);
 
-const resetForm = () => {
-  setEditId(null);
-  setName("");
-  setDescription(""); // 🆕 ADD THIS
-  setPrice("");
-  setStock("");
-  setMinStock("");
-  setWeightKg("");
-  setCatForForm("");
-  setCatalog(true);
-  setImageUrlsText("");
-  setImageMode("urls");
-  setLocalFiles([]);
-};
+  const resetForm = () => {
+    setEditId(null);
+    setName("");
+    setDescription("");
+    setPrice("");
+    setStock("");
+    setMinStock("");
+    setWeightKg("");
+    setCatForForm("");
+    setCatalog(true);
+    setImageUrlsText("");
+    setImageMode("urls");
+    setLocalFiles([]);
+  };
   
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -238,7 +236,6 @@ const resetForm = () => {
     }
   };
 
-  // NEW: Function to add a new category
   const handleAddCategory = async (e) => {
     e.preventDefault();
     if (!newCategoryName.trim()) {
@@ -253,21 +250,13 @@ const resetForm = () => {
         { headers: { ...authHeader(), "Content-Type": "application/json" } }
       );
       
-      // Check for success response
       if (res.data.success) {
         const newCategory = res.data.category || res.data;
-        
-        // Add to categories list
         setCategories((prev) => [...prev, newCategory]);
-        
-        // Auto-select the new category in the form
         setCatForForm(newCategory._id);
-        
         showModal("Success", "Category added successfully!", "success");
         setShowAddCategory(false);
         setNewCategoryName("");
-        
-        // Refresh categories list to be safe
         fetchCategories();
       } else {
         showModal("Error", res.data.message || "Failed to add category", "error");
@@ -320,16 +309,16 @@ const resetForm = () => {
       const images = [...toUrlArray(imageUrlsText), ...uploadedUrls];
 
       const payload = {
-      name,
-      description, // 🆕 ADD THIS
-      price: Number(price),
-      stock: Number(stock || 0),
-      minStock: minStock === "" ? 0 : Number(minStock),
-      weightKg: weightKg === "" ? null : Number(weightKg),
-      category: catForForm,
-      catalog: !!catalog,
-      images,
-    };
+        name,
+        description,
+        price: Number(price),
+        stock: Number(stock || 0),
+        minStock: minStock === "" ? 0 : Number(minStock),
+        weightKg: weightKg === "" ? null : Number(weightKg),
+        category: catForForm,
+        catalog: !!catalog,
+        images,
+      };
 
       if (editId) {
         await axios.patch(`${API}/products/${editId}`, payload, {
@@ -352,28 +341,28 @@ const resetForm = () => {
     }
   };
 
-const onEdit = (p) => {
-  setEditId(p._id);
-  setName(p.name || "");
-  setDescription(p.description || ""); // 🆕 ADD THIS
-  setPrice(p.price ?? "");
-  setStock(p.stock ?? "");
-  setMinStock(p.minStock ?? "");
-  setWeightKg(p.weightKg ?? "");
-  setCatForForm(p.category?._id || "");
-  setCatalog(!!p.catalog);
-  setImageUrlsText(
-    Array.isArray(p.images)
-      ? p.images
-          .map((x) => (typeof x === "string" ? x : x?.url || ""))
-          .filter(Boolean)
-          .join(", ")
-      : ""
-  );
-  setImageMode("urls");
-  setLocalFiles([]);
-  setShowAdd(true);
-};
+  const onEdit = (p) => {
+    setEditId(p._id);
+    setName(p.name || "");
+    setDescription(p.description || "");
+    setPrice(p.price ?? "");
+    setStock(p.stock ?? "");
+    setMinStock(p.minStock ?? "");
+    setWeightKg(p.weightKg ?? "");
+    setCatForForm(p.category?._id || "");
+    setCatalog(!!p.catalog);
+    setImageUrlsText(
+      Array.isArray(p.images)
+        ? p.images
+            .map((x) => (typeof x === "string" ? x : x?.url || ""))
+            .filter(Boolean)
+            .join(", ")
+        : ""
+    );
+    setImageMode("urls");
+    setLocalFiles([]);
+    setShowAdd(true);
+  };
 
   const onDelete = async (id) => {
     if (!window.confirm("Delete this product?")) return;
@@ -458,8 +447,8 @@ const onEdit = (p) => {
         <KpiCard title="Out of Stock" value={outOfStockItems.length} color="bg-red-500" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="w-full">
+        <div>
           <div className="flex flex-wrap gap-3 items-center mb-4">
             <input
               className="border rounded-xl px-3 py-2 w-72"
@@ -515,77 +504,101 @@ const onEdit = (p) => {
                     </td>
                   </tr>
                 )}
-                {items.map((p) => (
-                  <tr key={p._id} className="border-t">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={firstImage(p) || DATA_PLACEHOLDER_48}
-                          alt=""
-                          className="w-10 h-10 rounded-lg object-cover"
-                          onError={(e) => (e.currentTarget.src = DATA_PLACEHOLDER_48)}
-                        />
-                        <div className="font-medium">{p.name}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {p?.category?.name || p?.category?.categoryName || "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={(p.stock ?? 0) <= 0 ? "text-red-600 font-medium" : ""}>
-                        {p.stock ?? 0}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{p.minStock ?? 0}</td>
-                    <td className="px-4 py-3">
-                      {p.weightKg != null
-                        ? Number(p.weightKg).toFixed(3).replace(/\.?0+$/, "")
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3">₱{Number(p.price || 0).toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <label className="inline-flex cursor-pointer items-center">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={!!p.catalog}
-                          onChange={(e) => toggleCatalog(p._id, e.target.checked)}
-                        />
-                        <div
-                          className="relative w-11 h-6 rounded-full bg-gray-200 transition-colors duration-200 peer-checked:bg-green-500
-                                     after:content-[''] after:absolute after:top-[2px] after:left-[2px]
-                                     after:h-5 after:w-5 after:rounded-full after:bg-white
-                                     after:transition-transform after:duration-200 peer-checked:after:translate-x-5"
-                        />
-                        <span className="ml-2 text-xs text-gray-600">
-                          {p.catalog ? "Yes" : "No"}
-                        </span>
-                      </label>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => onEdit(p)}
-                          className="px-3 py-1 text-sm rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => onDelete(p._id)}
-                          className="px-3 py-1 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={() => openStockModal(p)}
-                          className="px-3 py-1 text-sm rounded-lg bg-green-100 text-green-700 hover:bg-green-200"
-                        >
-                          Add Stock
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {items.map((p) => {
+                  const stock = p.stock ?? 0;
+                  const minStock = p.minStock ?? 0;
+                  let bgColor = "bg-white";
+                  
+                  if (stock <= 0) {
+                    bgColor = "bg-red-100";
+                  } else if (minStock > 0 && stock < minStock) {
+                    bgColor = "bg-yellow-100";
+                  }
+                  
+                  return (
+                    <tr key={p._id} className={`border-t ${bgColor}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={firstImage(p) || DATA_PLACEHOLDER_48}
+                            alt=""
+                            className="w-10 h-10 rounded-lg object-cover"
+                            onError={(e) => (e.currentTarget.src = DATA_PLACEHOLDER_48)}
+                          />
+                          <div className="font-medium">{p.name}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {p?.category?.name || p?.category?.categoryName || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className={(p.stock ?? 0) <= 0 ? "text-red-600 font-bold" : "font-medium"}>
+                            {p.stock ?? 0}
+                          </span>
+                          {(p.stock ?? 0) <= 0 && (
+                            <span className="px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full shadow-sm">
+                              No Stock
+                            </span>
+                          )}
+                          {(p.stock ?? 0) > 0 && (p.minStock ?? 0) > 0 && (p.stock < p.minStock) && (
+                            <span className="px-2 py-0.5 text-xs font-semibold bg-yellow-500 text-white rounded-full shadow-sm">
+                              Low Stock
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{p.minStock ?? 0}</td>
+                      <td className="px-4 py-3">
+                        {p.weightKg != null
+                          ? Number(p.weightKg).toFixed(3).replace(/\.?0+$/, "")
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">₱{Number(p.price || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3">
+                        <label className="inline-flex cursor-pointer items-center">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={!!p.catalog}
+                            onChange={(e) => toggleCatalog(p._id, e.target.checked)}
+                          />
+                          <div
+                            className="relative w-11 h-6 rounded-full bg-gray-200 transition-colors duration-200 peer-checked:bg-green-500
+                                       after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                                       after:h-5 after:w-5 after:rounded-full after:bg-white
+                                       after:transition-transform after:duration-200 peer-checked:after:translate-x-5"
+                          />
+                          <span className="ml-2 text-xs text-gray-600">
+                            {p.catalog ? "Yes" : "No"}
+                          </span>
+                        </label>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => onEdit(p)}
+                            className="px-3 py-1 text-sm rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => onDelete(p._id)}
+                            className="px-3 py-1 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => openStockModal(p)}
+                            className="px-3 py-1 text-sm rounded-lg bg-green-100 text-green-700 hover:bg-green-200"
+                          >
+                            Add Stock
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -607,53 +620,6 @@ const onEdit = (p) => {
               Next
             </button>
           </div>
-        </div>
-
-        <div className="space-y-6">
-          {lowStockItems.length > 0 && (
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
-              <div className="font-semibold text-amber-800 mb-3">⚠️ Low Stock Alerts</div>
-              {lowStockItems.map((p) => (
-                <div
-                  key={p._id}
-                  className="flex items-center justify-between bg-white rounded-xl p-3 mb-2 last:mb-0"
-                >
-                  <div>
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-xs text-gray-500">
-                      Stock {p.stock} / Min {p.minStock}
-                    </div>
-                  </div>
-                  <button
-                    className="px-3 py-1.5 text-sm rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200"
-                    onClick={() => openStockModal(p)}
-                  >
-                    Add Stock
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {outOfStockItems.length > 0 && (
-            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
-              <div className="font-semibold text-rose-800 mb-3">⛔ Out of Stock</div>
-              {outOfStockItems.map((p) => (
-                <div
-                  key={p._id}
-                  className="flex items-center justify-between bg-white rounded-xl p-3 mb-2 last:mb-0"
-                >
-                  <div className="font-medium">{p.name}</div>
-                  <button
-                    className="px-3 py-1.5 text-sm rounded-lg bg-rose-600 text-white hover:bg-rose-700"
-                    onClick={() => openStockModal(p)}
-                  >
-                    Restock
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -727,19 +693,19 @@ const onEdit = (p) => {
                   <label className="block text-sm font-medium mb-1">Stock</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="10000"
                     className={`w-full border rounded-lg px-3 py-2 ${
-                      stock && (Number(stock) < 1 || Number(stock) > 10000)
+                      stock && (Number(stock) < 0 || Number(stock) > 10000)
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                     value={stock}
                     onChange={(e) => setStock(e.target.value)}
                   />
-                  {stock && (Number(stock) < 1 || Number(stock) > 10000) && (
+                  {stock && (Number(stock) < 0 || Number(stock) > 10000) && (
                     <p className="text-red-600 text-xs mt-1">
-                      Stock must be between 1 and 10,000
+                      Stock must be between 0 and 10,000
                     </p>
                   )}
                 </div>
@@ -750,19 +716,19 @@ const onEdit = (p) => {
                   <label className="block text-sm font-medium mb-1">Min Stock</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="10000"
                     className={`w-full border rounded-lg px-3 py-2 ${
-                      minStock && (Number(minStock) < 1 || Number(minStock) > 10000)
+                      minStock && (Number(minStock) < 0 || Number(minStock) > 10000)
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
                   />
-                  {minStock && (Number(minStock) < 1 || Number(minStock) > 10000) && (
+                  {minStock && (Number(minStock) < 0 || Number(minStock) > 10000) && (
                     <p className="text-red-600 text-xs mt-1">
-                      Min Stock must be between 1 and 10,000
+                      Min Stock must be between 0 and 10,000
                     </p>
                   )}
                 </div>
@@ -790,7 +756,6 @@ const onEdit = (p) => {
                 </div>
               </div>
 
-              {/* UPDATED: Category section with add button */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-medium">Category</label>
@@ -894,7 +859,7 @@ const onEdit = (p) => {
         </div>
       )}
 
-      {/* NEW: Add Category Modal */}
+      {/* Add Category Modal */}
       {showAddCategory && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div
@@ -983,19 +948,19 @@ const onEdit = (p) => {
                 <div className="flex-1">
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="10000"
                     className={`w-full border rounded-lg px-3 py-2 text-center ${
-                      newStock && (Number(newStock) < 1 || Number(newStock) > 10000)
+                      newStock && (Number(newStock) < 0 || Number(newStock) > 10000)
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                     value={newStock}
                     onChange={(e) => setNewStock(e.target.value)}
                   />
-                  {newStock && (Number(newStock) < 1 || Number(newStock) > 10000) && (
+                  {newStock && (Number(newStock) < 0 || Number(newStock) > 10000) && (
                     <p className="text-red-600 text-xs mt-1 text-center">
-                      Stock must be between 1 and 10,000
+                      Stock must be between 0 and 10,000
                     </p>
                   )}
                 </div>

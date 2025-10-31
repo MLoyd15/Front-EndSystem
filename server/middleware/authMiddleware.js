@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/user.js";      // your admin/user model
-import Driver from "../models/Driver.js";  // your driver model
+import User from "../models/user.js";      // unified user model for all roles
 
 export default async function authMiddleware(req, res, next) {
   try {
@@ -12,12 +11,8 @@ export default async function authMiddleware(req, res, next) {
     const token = h.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
 
-    let account = null;
-    if (decoded.role === "driver") {
-      account = await Driver.findById(decoded.id).select("_id role active");
-    } else {
-      account = await User.findById(decoded.id).select("_id role");
-    }
+    // Use User model for all roles including drivers
+    const account = await User.findById(decoded.id).select("_id role active");
 
     if (!account || account.active === false) {
       return res.status(401).json({ success: false, message: "Account not found or inactive" });

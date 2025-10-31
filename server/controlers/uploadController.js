@@ -43,3 +43,28 @@ export async function deleteProductImage(req, res) {
     return res.status(500).json({ success: false, message: "Delete failed" });
   }
 }
+
+export async function uploadDriverLicense(req, res) {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: "No license image uploaded" });
+    }
+
+    const result = await uploadBufferToCloudinary(file.buffer);
+    
+    return res.json({ 
+      success: true, 
+      licenseImage: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        width: result.width,
+        height: result.height,
+        format: result.format,
+      }
+    });
+  } catch (err) {
+    console.error("Driver license upload error:", err);
+    return res.status(500).json({ success: false, message: "License upload failed" });
+  }
+}

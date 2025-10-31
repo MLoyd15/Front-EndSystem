@@ -5,8 +5,12 @@ const userSchema = new mongoose.Schema({
     email: {type: String, required: true, unique: true},
     password: {type: String, required: true},
     address: {type: String},
+    phone: {type: String},
     role: {type: String, enum:["admin", "superadmin","user", "driver"]},
     active:   { type: Boolean, default: true },
+
+    // Driver-specific fields
+    licenseImage: {type: String}, // URL to the uploaded license image
 
      // Loyalty fields
     loyaltyPoints: { type: Number, default: 0 },

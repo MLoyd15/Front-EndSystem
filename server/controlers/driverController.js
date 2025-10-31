@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import Driver from "../models/Driver.js";
+import User from "../models/user.js";
 
 // -------------------- Login --------------------
 export async function driverLogin(req, res) {
@@ -9,11 +9,19 @@ export async function driverLogin(req, res) {
     if (!email || !password)
       return res.status(400).json({ success: false, message: "Email and password required" });
 
-    const driver = await Driver.findOne({ email: String(email).toLowerCase().trim() });
+    const driver = await User.findOne({ 
+      email: String(email).toLowerCase().trim(),
+      role: 'driver'
+    });
 
     // Guard against missing doc or missing/empty password (legacy docs)
     if (!driver || !driver.password) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    // Check if driver account is active
+    if (driver.active === false) {
+      return res.status(401).json({ success: false, message: "Account has been deactivated. Please contact administrator." });
     }
 
     const ok = await bcrypt.compare(password, driver.password);
@@ -55,10 +63,14 @@ export async function updateDriverInfo(req, res) {
       updates.password = await bcrypt.hash(req.body.password, 10);
     }
 
-    const updated = await Driver.findByIdAndUpdate(driverId, updates, {
-      new: true,
-      runValidators: true,
-    }).select("-password");
+    const updated = await User.findOneAndUpdate(
+      { _id: driverId, role: 'driver' }, 
+      updates, 
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).select("-password");
 
     res.json({ success: true, driver: updated });
   } catch (err) {
