@@ -26,7 +26,7 @@ const Sidebar = () => {
     { name: "Delivery", path: "/admin-dashboard/delivery", icon: <FaTruck />, isParent: false },
     { name: "Product review", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
     { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false, superAdminOnly: true },
-    { name: "Loyalty System", path: "/admin-dashboard/loyalty", icon: <FaGift />, isParent: false },
+    { name: "Activity Log", path: "/admin-dashboard/activity-log", icon: <FaGift />, isParent: false },
     { name: "Sales History", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false, superAdminOnly: true },
     { name: "Support Chat", path: "/admin-dashboard/support-chat", icon: <FaComments />, isParent: false },
     { name: "Create Driver", path: "/admin-dashboard/create-driver", icon: <FaTruck />, isParent: false, superAdminOnly: true },

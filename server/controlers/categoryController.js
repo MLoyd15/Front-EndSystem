@@ -2,13 +2,34 @@
 import Category from '../models/category.js';
 import { createActivityLog } from '../middleware/activityLogMiddleware.js';
 
+// Get Categories (no logging needed)
+export const getCategories = async (req, res) => {
+  try {
+    const categories = await Category.find({ active: true })
+      .sort({ createdAt: -1 });
+
+    // ✅ FIXED: Return in the format frontend expects
+    res.json({
+      success: true,
+      categories: categories  // Frontend expects "categories" array
+    });
+
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch categories"
+    });
+  }
+};
+
 // Add Category with activity logging
 export const addCategory = async (req, res) => {
   try {
-    const { name, description, image } = req.body;
+    const { categoryName, categoryDescription } = req.body;
 
     // Validate input
-    if (!name) {
+    if (!categoryName) {
       return res.status(400).json({
         success: false,
         message: "Category name is required"
@@ -17,7 +38,7 @@ export const addCategory = async (req, res) => {
 
     // Check if category already exists
     const existingCategory = await Category.findOne({ 
-      name: name.trim().toLowerCase() 
+      categoryName: categoryName.trim().toLowerCase() 
     });
 
     if (existingCategory) {
@@ -31,9 +52,8 @@ export const addCategory = async (req, res) => {
     const requiresApproval = req.requiresApproval !== false;
     
     const newCategory = new Category({
-      name: name.trim(),
-      description: description?.trim(),
-      image,
+      categoryName: categoryName.trim(),
+      categoryDescription: categoryDescription?.trim(),
       active: !requiresApproval // Active only if no approval needed
     });
 
@@ -47,12 +67,12 @@ export const addCategory = async (req, res) => {
       action: 'CREATE_CATEGORY',
       entity: 'CATEGORY',
       entityId: newCategory._id,
-      entityName: newCategory.name,
+      entityName: newCategory.categoryName,
       changes: {
         before: null,
         after: newCategory.toObject()
       },
-      description: `Created new category: "${newCategory.name}"`,
+      description: `Created new category: "${newCategory.categoryName}"`,
       requiresApproval,
       ipAddress: req.ip,
       userAgent: req.get('user-agent')
@@ -63,7 +83,7 @@ export const addCategory = async (req, res) => {
       message: requiresApproval 
         ? "Category created and pending approval" 
         : "Category created successfully",
-      data: newCategory,
+      category: newCategory,
       requiresApproval
     });
 
@@ -80,7 +100,7 @@ export const addCategory = async (req, res) => {
 export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const { categoryName, categoryDescription } = req.body;
 
     // Get original category
     const originalCategory = await Category.findById(id);
@@ -95,7 +115,11 @@ export const updateCategory = async (req, res) => {
     const requiresApproval = req.requiresApproval !== false;
     const originalData = originalCategory.toObject();
 
-    // Apply updates (or store in pending state)
+    // Apply updates
+    const updates = {};
+    if (categoryName) updates.categoryName = categoryName.trim();
+    if (categoryDescription !== undefined) updates.categoryDescription = categoryDescription.trim();
+
     if (!requiresApproval) {
       // Super admin - apply immediately
       Object.assign(originalCategory, updates);
@@ -110,12 +134,12 @@ export const updateCategory = async (req, res) => {
       action: 'UPDATE_CATEGORY',
       entity: 'CATEGORY',
       entityId: originalCategory._id,
-      entityName: originalCategory.name,
+      entityName: originalCategory.categoryName,
       changes: {
         before: originalData,
         after: updates
       },
-      description: `Updated category: "${originalCategory.name}"`,
+      description: `Updated category: "${originalCategory.categoryName}"`,
       requiresApproval,
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
@@ -129,7 +153,7 @@ export const updateCategory = async (req, res) => {
       message: requiresApproval
         ? "Category update pending approval"
         : "Category updated successfully",
-      data: originalCategory,
+      category: originalCategory,
       requiresApproval
     });
 
@@ -175,12 +199,12 @@ export const deleteCategory = async (req, res) => {
       action: 'DELETE_CATEGORY',
       entity: 'CATEGORY',
       entityId: category._id,
-      entityName: category.name,
+      entityName: category.categoryName,
       changes: {
         before: category.toObject(),
         after: null
       },
-      description: `Deleted category: "${category.name}"`,
+      description: `Deleted category: "${category.categoryName}"`,
       requiresApproval,
       ipAddress: req.ip,
       userAgent: req.get('user-agent')
@@ -199,26 +223,6 @@ export const deleteCategory = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to delete category"
-    });
-  }
-};
-
-// Get Categories (no logging needed)
-export const getCategories = async (req, res) => {
-  try {
-    const categories = await Category.find({ active: true })
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      data: categories
-    });
-
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch categories"
     });
   }
 };
