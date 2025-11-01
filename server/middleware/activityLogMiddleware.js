@@ -1,459 +1,189 @@
-// controllers/activityLogController.js
+// middleware/activityLogMiddleware.js
 import ActivityLog from "../models/ActivityLog.js";
-import Product from "../models/Product.js";
-import Category from "../models/category.js";
 
 /**
- * Get all activity logs with filters
- * GET /api/activity-logs
+ * Middleware to log admin activities
+ * Usage: Add this after authentication middleware
  */
-export const getActivityLogs = async (req, res) => {
+export const logActivity = (action, entity, requiresApproval = true) => {
+  return async (req, res, next) => {
+    // Store original methods
+    const originalJson = res.json.bind(res);
+    const originalSend = res.send.bind(res);
+
+    // Capture response
+    let responseData;
+    res.json = function (data) {
+      responseData = data;
+      return originalJson(data);
+    };
+
+    res.send = function (data) {
+      responseData = data;
+      return originalSend(data);
+    };
+
+    // Continue to next middleware
+    res.on("finish", async () => {
+      try {
+        // Only log successful operations (2xx status codes)
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const logEntry = {
+            adminId: req.user?._id || req.user?.id,
+            adminName: req.user?.name || "Unknown",
+            adminEmail: req.user?.email || "Unknown",
+            action,
+            entity,
+            requiresApproval,
+            status: requiresApproval ? "PENDING" : "AUTO_APPROVED",
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get("user-agent"),
+          };
+
+          // Extract entity details from request/response
+          if (req.body) {
+            logEntry.entityName = req.body.name || req.body.title || req.body.categoryName;
+            logEntry.changes = {
+              before: req.originalData || null,
+              after: req.body,
+            };
+          }
+
+          if (req.params?.id) {
+            logEntry.entityId = req.params.id;
+          }
+
+          // Generate description
+          logEntry.description = generateDescription(action, entity, logEntry);
+
+          // Create activity log
+          await ActivityLog.create(logEntry);
+        }
+      } catch (error) {
+        console.error("Error logging activity:", error);
+        // Don't block the response if logging fails
+      }
+    });
+
+    next();
+  };
+};
+
+/**
+ * Manual activity logging function
+ * Use this for complex operations where middleware isn't suitable
+ */
+export const createActivityLog = async ({
+  adminId,
+  adminName,
+  adminEmail,
+  action,
+  entity,
+  entityId,
+  entityName,
+  changes,
+  description,
+  requiresApproval = true,
+  ipAddress,
+  userAgent,
+  metadata,
+}) => {
   try {
-    const {
-      page = 1,
-      limit = 20,
-      status,
+    const logEntry = await ActivityLog.create({
+      adminId,
+      adminName,
+      adminEmail,
       action,
       entity,
-      adminId,
-      startDate,
-      endDate,
-    } = req.query;
-
-    // Build filter
-    const filter = {};
-    
-    if (status) filter.status = status;
-    if (action) filter.action = action;
-    if (entity) filter.entity = entity;
-    if (adminId) filter.adminId = adminId;
-    
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
-    }
-
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Get logs with pagination
-    const [logs, total] = await Promise.all([
-      ActivityLog.find(filter)
-        .populate("adminId", "name email role")
-        .populate("reviewedBy", "name email")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      ActivityLog.countDocuments(filter),
-    ]);
-
-    res.json({
-      success: true,
-      data: logs,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)),
-      },
+      entityId,
+      entityName,
+      changes,
+      description: description || generateDescription(action, entity, { entityName, adminName }),
+      requiresApproval,
+      status: requiresApproval ? "PENDING" : "AUTO_APPROVED",
+      ipAddress,
+      userAgent,
+      metadata,
     });
+
+    console.log(`✅ Activity logged: ${action} on ${entity} by ${adminName} - Status: ${logEntry.status}`);
+    return logEntry;
   } catch (error) {
-    console.error("Error fetching activity logs:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch activity logs",
-    });
-  }
-};
-
-/**
- * Get pending approvals
- * GET /api/activity-logs/pending
- */
-export const getPendingApprovals = async (req, res) => {
-  try {
-    const pendingLogs = await ActivityLog.find({ status: "PENDING" })
-      .populate("adminId", "name email role")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    res.json({
-      success: true,
-      data: pendingLogs,
-      count: pendingLogs.length,
-    });
-  } catch (error) {
-    console.error("Error fetching pending approvals:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch pending approvals",
-    });
-  }
-};
-
-/**
- * Get single activity log by ID
- * GET /api/activity-logs/:id
- */
-export const getActivityLogById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const log = await ActivityLog.findById(id)
-      .populate("adminId", "name email role")
-      .populate("reviewedBy", "name email")
-      .lean();
-
-    if (!log) {
-      return res.status(404).json({
-        success: false,
-        error: "Activity log not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      data: log,
-    });
-  } catch (error) {
-    console.error("Error fetching activity log:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch activity log",
-    });
-  }
-};
-
-/**
- * Approve an activity log
- * POST /api/activity-logs/:id/approve
- */
-export const approveActivityLog = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notes } = req.body;
-    const superAdmin = req.user;
-
-    // ✅ FIXED: Check for lowercase superadmin role
-    if (superAdmin.role !== "superadmin") {
-      return res.status(403).json({
-        success: false,
-        error: "Only super admins can approve actions",
-      });
-    }
-
-    const log = await ActivityLog.findById(id);
-
-    if (!log) {
-      return res.status(404).json({
-        success: false,
-        error: "Activity log not found",
-      });
-    }
-
-    if (log.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot approve: This action has already been ${log.status.toLowerCase()}`,
-      });
-    }
-
-    // Update log status
-    log.status = "APPROVED";
-    log.reviewedBy = superAdmin._id;
-    log.reviewedByName = superAdmin.name;
-    log.reviewedAt = new Date();
-    log.reviewNotes = notes;
-
-    await log.save();
-
-    // Execute the approved action
-    await executeApprovedAction(log);
-
-    res.json({
-      success: true,
-      message: "Activity approved successfully",
-      data: log,
-    });
-  } catch (error) {
-    console.error("Error approving activity log:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message || "Failed to approve activity",
-    });
-  }
-};
-
-/**
- * Reject an activity log
- * POST /api/activity-logs/:id/reject
- */
-export const rejectActivityLog = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notes } = req.body;
-    const superAdmin = req.user;
-
-    // ✅ FIXED: Check for lowercase superadmin role
-    if (superAdmin.role !== "superadmin") {
-      return res.status(403).json({
-        success: false,
-        error: "Only super admins can reject actions",
-      });
-    }
-
-    const log = await ActivityLog.findById(id);
-
-    if (!log) {
-      return res.status(404).json({
-        success: false,
-        error: "Activity log not found",
-      });
-    }
-
-    if (log.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot reject: This action has already been ${log.status.toLowerCase()}`,
-      });
-    }
-
-    // Update log status
-    log.status = "REJECTED";
-    log.reviewedBy = superAdmin._id;
-    log.reviewedByName = superAdmin.name;
-    log.reviewedAt = new Date();
-    log.reviewNotes = notes || "Action rejected by super admin";
-
-    await log.save();
-
-    // Rollback any temporary changes if needed
-    await rollbackAction(log);
-
-    res.json({
-      success: true,
-      message: "Activity rejected successfully",
-      data: log,
-    });
-  } catch (error) {
-    console.error("Error rejecting activity log:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message || "Failed to reject activity",
-    });
-  }
-};
-
-/**
- * Get activity statistics
- * GET /api/activity-logs/stats
- */
-export const getActivityStats = async (req, res) => {
-  try {
-    const stats = await ActivityLog.aggregate([
-      {
-        $facet: {
-          byStatus: [
-            {
-              $group: {
-                _id: "$status",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          byAction: [
-            {
-              $group: {
-                _id: "$action",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          byEntity: [
-            {
-              $group: {
-                _id: "$entity",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          recentActivity: [
-            { $sort: { createdAt: -1 } },
-            { $limit: 10 },
-          ],
-        },
-      },
-    ]);
-
-    res.json({
-      success: true,
-      data: stats[0],
-    });
-  } catch (error) {
-    console.error("Error fetching activity stats:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch activity statistics",
-    });
-  }
-};
-
-/**
- * Execute approved action (apply the changes)
- */
-async function executeApprovedAction(log) {
-  try {
-    console.log(`🔧 Executing approved action: ${log.action} for ${log.entity}`);
-    
-    switch (log.action) {
-      // ============ PRODUCT ACTIONS ============
-      case "CREATE_PRODUCT":
-        if (log.entityId) {
-          await Product.findByIdAndUpdate(log.entityId, { 
-            catalog: true 
-          });
-          console.log(`✅ Product ${log.entityId} marked as active`);
-        }
-        break;
-
-      case "UPDATE_PRODUCT":
-        if (log.entityId && log.changes?.after) {
-          await Product.findByIdAndUpdate(log.entityId, log.changes.after);
-          console.log(`✅ Product ${log.entityId} updated`);
-        }
-        break;
-
-      case "DELETE_PRODUCT":
-        if (log.entityId) {
-          await Product.findByIdAndDelete(log.entityId);
-          console.log(`✅ Product ${log.entityId} deleted`);
-        }
-        break;
-
-      // ============ CATEGORY ACTIONS ============
-      case "CREATE_CATEGORY":
-        if (log.entityId) {
-          await Category.findByIdAndUpdate(log.entityId, { 
-            active: true 
-          });
-          console.log(`✅ Category ${log.entityId} marked as active`);
-        }
-        break;
-
-      case "UPDATE_CATEGORY":
-        if (log.entityId && log.changes?.after) {
-          await Category.findByIdAndUpdate(log.entityId, log.changes.after);
-          console.log(`✅ Category ${log.entityId} updated`);
-        }
-        break;
-
-      case "DELETE_CATEGORY":
-        if (log.entityId) {
-          // Check if category has products before deleting
-          const productsCount = await Product.countDocuments({ category: log.entityId });
-          
-          if (productsCount > 0) {
-            console.warn(`⚠️  Category ${log.entityId} has ${productsCount} products.`);
-            // Option: Move products to null/uncategorized
-            await Product.updateMany({ category: log.entityId }, { category: null });
-          }
-          
-          await Category.findByIdAndDelete(log.entityId);
-          console.log(`✅ Category ${log.entityId} deleted`);
-        }
-        break;
-
-      default:
-        console.log(`⚠️  No specific action handler for: ${log.action}`);
-    }
-  } catch (error) {
-    console.error("❌ Error executing approved action:", error);
+    console.error("❌ Error creating activity log:", error);
     throw error;
   }
+};
+
+/**
+ * Generate human-readable description
+ */
+function generateDescription(action, entity, data) {
+  const entityName = data.entityName || "item";
+  const adminName = data.adminName || "Admin";
+
+  const descriptions = {
+    CREATE_PRODUCT: `${adminName} created a new product: "${entityName}"`,
+    UPDATE_PRODUCT: `${adminName} updated product: "${entityName}"`,
+    DELETE_PRODUCT: `${adminName} deleted product: "${entityName}"`,
+    CREATE_CATEGORY: `${adminName} created a new category: "${entityName}"`,
+    UPDATE_CATEGORY: `${adminName} updated category: "${entityName}"`,
+    DELETE_CATEGORY: `${adminName} deleted category: "${entityName}"`,
+    CREATE_PROMO: `${adminName} created a new promotion: "${entityName}"`,
+    UPDATE_PROMO: `${adminName} updated promotion: "${entityName}"`,
+    DELETE_PROMO: `${adminName} deleted promotion: "${entityName}"`,
+    UPDATE_DELIVERY: `${adminName} updated delivery settings`,
+    UPDATE_INVENTORY: `${adminName} updated inventory for: "${entityName}"`,
+    UPDATE_LOYALTY_PROGRAM: `${adminName} updated loyalty program settings`,
+    UPDATE_SETTINGS: `${adminName} updated system settings`,
+  };
+
+  return descriptions[action] || `${adminName} performed ${action} on ${entity}`;
 }
 
 /**
- * Rollback rejected action
+ * Middleware to check if user is super admin
+ * ✅ FIXED: Now checks for lowercase "superadmin" role
  */
-async function rollbackAction(log) {
-  try {
-    console.log(`🔄 Rolling back rejected action: ${log.action} for ${log.entity}`);
-    
-    switch (log.action) {
-      // ============ PRODUCT ROLLBACKS ============
-      case "CREATE_PRODUCT":
-        if (log.entityId) {
-          // Option 1: Mark as inactive
-          await Product.findByIdAndUpdate(log.entityId, { catalog: false });
-          // Option 2: Delete completely
-          // await Product.findByIdAndDelete(log.entityId);
-          console.log(`🔄 Product ${log.entityId} marked as inactive (rollback)`);
-        }
-        break;
-
-      case "UPDATE_PRODUCT":
-        if (log.entityId && log.changes?.before) {
-          await Product.findByIdAndUpdate(log.entityId, log.changes.before);
-          console.log(`🔄 Product ${log.entityId} restored to previous state`);
-        }
-        break;
-
-      case "DELETE_PRODUCT":
-        if (log.entityId && log.changes?.before) {
-          await Product.findByIdAndUpdate(
-            log.entityId, 
-            { ...log.changes.before, catalog: true },
-            { upsert: true }
-          );
-          console.log(`🔄 Product ${log.entityId} restored from deletion`);
-        }
-        break;
-
-      // ============ CATEGORY ROLLBACKS ============
-      case "CREATE_CATEGORY":
-        if (log.entityId) {
-          // Option 1: Mark as inactive
-          await Category.findByIdAndUpdate(log.entityId, { active: false });
-          // Option 2: Delete completely
-          // await Category.findByIdAndDelete(log.entityId);
-          console.log(`🔄 Category ${log.entityId} marked as inactive (rollback)`);
-        }
-        break;
-
-      case "UPDATE_CATEGORY":
-        if (log.entityId && log.changes?.before) {
-          await Category.findByIdAndUpdate(log.entityId, log.changes.before);
-          console.log(`🔄 Category ${log.entityId} restored to previous state`);
-        }
-        break;
-
-      case "DELETE_CATEGORY":
-        if (log.entityId && log.changes?.before) {
-          await Category.findByIdAndUpdate(
-            log.entityId, 
-            { ...log.changes.before, active: true },
-            { upsert: true }
-          );
-          console.log(`🔄 Category ${log.entityId} restored from deletion`);
-        }
-        break;
-
-      default:
-        console.log(`⚠️  No specific rollback handler for: ${log.action}`);
-    }
-  } catch (error) {
-    console.error("❌ Error rolling back action:", error);
-    throw error;
+export const requireSuperAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      success: false,
+      error: "Unauthorized - Please login" 
+    });
   }
-}
+
+  // ✅ FIXED: Check for lowercase role
+  if (req.user.role !== "superadmin") {
+    return res.status(403).json({ 
+      success: false,
+      error: "Forbidden: Super admin access required" 
+    });
+  }
+
+  next();
+};
+
+/**
+ * Middleware to bypass approval for super admins
+ * ✅ FIXED: Now checks for lowercase "superadmin" role
+ */
+export const bypassApprovalForSuperAdmin = (req, res, next) => {
+  // ✅ FIXED: Check for lowercase role from your User model
+  if (req.user?.role === "superadmin") {
+    req.requiresApproval = false;
+    console.log(`✅ Superadmin action - bypassing approval for ${req.user.name}`);
+  } else if (req.user?.role === "admin") {
+    req.requiresApproval = true;
+    console.log(`⚠️  Admin action - requires approval for ${req.user.name}`);
+  } else {
+    req.requiresApproval = true;
+  }
+  next();
+};
 
 export default {
-  getActivityLogs,
-  getPendingApprovals,
-  getActivityLogById,
-  approveActivityLog,
-  rejectActivityLog,
-  getActivityStats,
+  logActivity,
+  createActivityLog,
+  requireSuperAdmin,
+  bypassApprovalForSuperAdmin,
 };
