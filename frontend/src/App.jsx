@@ -24,6 +24,7 @@ import SupportChat from './components/SupportChat' // ✅ Support Chat Component
 import CreateDriver from './components/CreateDriver'
 import Loyalty from './components/Loyalty'
 import ActivityLogList from  './components/ActivityLogList'
+import PendingApprovals from './components/PendingApproval'
 
 function App() {
   return (
@@ -53,6 +54,7 @@ function App() {
             <Route path="review" element={<Review />} />
             <Route path="promo" element={<Promo />} />
             <Route path="activity-log" element={<ActivityLogList />} />
+            <Route path="pending-approvals" element={<PendingApprovals />} />
             <Route path="Sales" element={<Sales />} />
             
             <Route path="logout" element={<Logout />} />

@@ -121,8 +121,15 @@ const Categories = () => {
   setLoading(true);
   setError(null);
   try {
-    // ✅ Categories endpoint is public, no auth needed for GET
-    const response = await axios.get(`${API}/category`);
+    const token = localStorage.getItem("pos-token");
+    const headers = {};
+    
+    // Include auth header if token exists (for admin to see all categories)
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    
+    const response = await axios.get(`${API}/category`, { headers });
     
     console.log('Categories response:', response.data); // Debug log
     
@@ -197,7 +204,16 @@ const Categories = () => {
         );
 
         if (response.data.success) {
-          showModal("Success", "Category added successfully!", "success");
+          // Check if the response indicates approval is pending
+          const message = response.data.message || "Category added successfully!";
+          const isApprovalPending = message.includes("approval") || message.includes("pending");
+          
+          if (isApprovalPending) {
+            showModal("Approval Pending", "Category has been submitted and is waiting for superadmin/owner approval.", "info");
+          } else {
+            showModal("Success", "Category added successfully!", "success");
+          }
+          
           setCategoryName("");
           setCategoryDescription("");
           fetchCategories();
@@ -416,6 +432,7 @@ const Categories = () => {
                     <tr className="text-left text-gray-600">
                       <th className="py-3 px-4 font-medium">#</th>
                       <th className="py-3 px-4 font-medium">Category</th>
+                      <th className="py-3 px-4 font-medium text-center">Status</th>
                       <th className="py-3 px-4 font-medium text-center">Action</th>
                     </tr>
                   </thead>
@@ -428,6 +445,17 @@ const Categories = () => {
                           {cat.categoryDescription ? (
                             <div className="text-xs text-gray-500 line-clamp-1">{cat.categoryDescription}</div>
                           ) : null}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {cat.active ? (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700">
+                              Pending
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-center gap-2">

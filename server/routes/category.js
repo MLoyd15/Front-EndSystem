@@ -14,8 +14,20 @@ import {
 
 const router = express.Router();
 
-// Public routes
-router.get('/', getCategories);
+// Optional auth middleware - allows both public and authenticated access
+const optionalAuth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token) {
+    // If token exists, try to authenticate
+    authMiddleware(req, res, next);
+  } else {
+    // If no token, continue as public access
+    next();
+  }
+};
+
+// Public routes with optional authentication
+router.get('/', optionalAuth, getCategories);
 
 // Admin routes with activity logging
 router.post('/add', 

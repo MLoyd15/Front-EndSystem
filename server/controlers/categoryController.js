@@ -5,7 +5,15 @@ import { createActivityLog } from '../middleware/activityLogMiddleware.js';
 // Get Categories (no logging needed)
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ active: true })
+    let filter = {};
+    
+    // If user is authenticated (admin/superadmin), show all categories
+    // If not authenticated (public), show only active categories
+    if (!req.user) {
+      filter.active = true;
+    }
+    
+    const categories = await Category.find(filter)
       .sort({ createdAt: -1 });
 
     // ✅ FIXED: Return in the format frontend expects
