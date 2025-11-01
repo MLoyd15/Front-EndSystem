@@ -117,37 +117,31 @@ const Categories = () => {
     setModal({ isOpen: false, title: "", message: "", type: "info" });
   };
 
-  const fetchCategories = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem("pos-token");
-      
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await axios.get(`${API}/category`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-      });
-      
+ const fetchCategories = async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    // ✅ Categories endpoint is public, no auth needed for GET
+    const response = await axios.get(`${API}/category`);
+    
+    console.log('Categories response:', response.data); // Debug log
+    
+    // Handle different response formats
+    if (response.data.success) {
       setCategories(response.data.categories || []);
-    } catch (error ) {
-      const errorMsg = error.response?.data?.message || error.message || "Error fetching categories";
-      setError(errorMsg);
-      
-      // If unauthorized, clear token
-      if (error.response?.status === 401) {
-        localStorage.removeItem("pos-token");
-        window.location.href = "/login";
-      }
-    } finally {
-      setLoading(false);
+    } else if (Array.isArray(response.data)) {
+      setCategories(response.data);
+    } else {
+      setCategories([]);
     }
-  };
+  } catch (error) {
+    console.error('Fetch error:', error.response?.data || error.message);
+    const errorMsg = error.response?.data?.message || error.message || "Error fetching categories";
+    setError(errorMsg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchCategories();
