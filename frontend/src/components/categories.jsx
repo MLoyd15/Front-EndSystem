@@ -179,10 +179,17 @@ const Categories = () => {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json"
             },
+            validateStatus: function (status) {
+              // Don't throw on any status code, handle all responses
+              return true;
+            }
           }
         );
 
-        if (response.data.success) {
+        console.log('Edit category response:', response.data); // Debug log
+
+        // Check both HTTP status and response success flag
+        if (response.status >= 200 && response.status < 300 && response.data.success) {
           setEditCategory(null);
           setCategoryName("");
           setCategoryDescription("");
@@ -200,10 +207,17 @@ const Categories = () => {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json"
             },
+            validateStatus: function (status) {
+              // Don't throw on any status code, handle all responses
+              return true;
+            }
           }
         );
 
-        if (response.data.success) {
+        console.log('Add category response:', response.data); // Debug log
+
+        // Check both HTTP status and response success flag
+        if (response.status >= 200 && response.status < 300 && response.data.success) {
           // Check if the response indicates approval is pending
           const message = response.data.message || "Category added successfully!";
           const isApprovalPending = message.includes("approval") || message.includes("pending");
@@ -219,6 +233,7 @@ const Categories = () => {
           fetchCategories();
         } else {
           showModal("Error", response.data.message || "Error adding category. Please try again.", "error");
+          // Don't fetch categories on error - don't call fetchCategories() here
         }
       }
     } catch (error) {
@@ -271,7 +286,16 @@ const Categories = () => {
       );
 
       if (response.data.success) {
-        showModal("Success", "Category deleted successfully!", "success");
+        // Check if deletion requires approval or was immediate
+        const message = response.data.message || "Category deleted successfully!";
+        const isApprovalPending = response.data.requiresApproval || message.includes("pending");
+        
+        if (isApprovalPending) {
+          showModal("Approval Pending", "Category deletion has been submitted and is waiting for superadmin approval.", "info");
+        } else {
+          showModal("Success", "Category deleted successfully!", "success");
+        }
+        
         fetchCategories();
       } else {
         showModal("Error", response.data.message || "Error deleting category. Please try again.", "error");

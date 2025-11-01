@@ -153,6 +153,8 @@ const ActivityLogList = () => {
             <option value="UPDATE_PRODUCT">Update Product</option>
             <option value="DELETE_PRODUCT">Delete Product</option>
             <option value="CREATE_CATEGORY">Create Category</option>
+            <option value="UPDATE_CATEGORY">Update Category</option>
+            <option value="DELETE_CATEGORY">Delete Category</option>
             <option value="UPDATE_INVENTORY">Update Inventory</option>
             <option value="CREATE_PROMO">Create Promo</option>
             <option value="UPDATE_DELIVERY">Update Delivery</option>
