@@ -44,9 +44,9 @@ export const addCategory = async (req, res) => {
       });
     }
 
-    // Check if category already exists
+    // Check if category already exists (case-insensitive)
     const existingCategory = await Category.findOne({ 
-      categoryName: categoryName.trim().toLowerCase() 
+      categoryName: { $regex: new RegExp(`^${categoryName.trim()}$`, 'i') }
     });
 
     if (existingCategory) {
@@ -56,18 +56,18 @@ export const addCategory = async (req, res) => {
       });
     }
 
-    // Create category (inactive if requires approval)
+    // Determine if approval is required based on user role
     const requiresApproval = req.requiresApproval !== false;
     
     const newCategory = new Category({
       categoryName: categoryName.trim(),
-      categoryDescription: categoryDescription?.trim(),
-      active: !requiresApproval // Active only if no approval needed
+      categoryDescription: categoryDescription?.trim() || "",
+      active: !requiresApproval // Active immediately if superadmin, inactive if admin (pending approval)
     });
 
     await newCategory.save();
 
-    // ✅ Log the activity
+    // Log the activity for approval tracking
     await createActivityLog({
       adminId: req.user._id,
       adminName: req.user.name,

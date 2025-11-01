@@ -154,7 +154,7 @@ const Categories = () => {
     fetchCategories();
   }, []);
 
-  const handleSumbit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!categoryName.trim()) {
@@ -361,7 +361,7 @@ const Categories = () => {
               )}
             </div>
 
-            <form className="p-4 space-y-4" onSubmit={handleSumbit}>
+            <form className="p-4 space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-700">
                   Category Name <span className="text-red-500">*</span>
