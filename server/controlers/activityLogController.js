@@ -1,3 +1,4 @@
+// controllers/activityLogController.js
 import ActivityLog from "../models/ActivityLog.js";
 import Product from "../models/Product.js";
 import Category from "../models/category.js";
@@ -135,8 +136,8 @@ export const approveActivityLog = async (req, res) => {
     const { notes } = req.body;
     const superAdmin = req.user;
 
-    // Check if super admin
-    if (superAdmin.role !== "SUPER_ADMIN" && superAdmin.role !== "superadmin") {
+    // ✅ FIXED: Check for lowercase superadmin role
+    if (superAdmin.role !== "superadmin") {
       return res.status(403).json({
         success: false,
         error: "Only super admins can approve actions",
@@ -180,7 +181,7 @@ export const approveActivityLog = async (req, res) => {
     console.error("Error approving activity log:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to approve activity",
+      error: error.message || "Failed to approve activity",
     });
   }
 };
@@ -195,8 +196,8 @@ export const rejectActivityLog = async (req, res) => {
     const { notes } = req.body;
     const superAdmin = req.user;
 
-    // Check if super admin
-    if (superAdmin.role !== "SUPER_ADMIN" && superAdmin.role !== "superadmin") {
+    // ✅ FIXED: Check for lowercase superadmin role
+    if (superAdmin.role !== "superadmin") {
       return res.status(403).json({
         success: false,
         error: "Only super admins can reject actions",
@@ -240,7 +241,7 @@ export const rejectActivityLog = async (req, res) => {
     console.error("Error rejecting activity log:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to reject activity",
+      error: error.message || "Failed to reject activity",
     });
   }
 };
@@ -304,10 +305,11 @@ export const getActivityStats = async (req, res) => {
  */
 async function executeApprovedAction(log) {
   try {
+    console.log(`🔧 Executing approved action: ${log.action} for ${log.entity}`);
+    
     switch (log.action) {
       // ============ PRODUCT ACTIONS ============
       case "CREATE_PRODUCT":
-        // Product already created, just mark as active
         if (log.entityId) {
           await Product.findByIdAndUpdate(log.entityId, { 
             catalog: true 
@@ -332,9 +334,7 @@ async function executeApprovedAction(log) {
 
       // ============ CATEGORY ACTIONS ============
       case "CREATE_CATEGORY":
-        // Category already created, just mark as active if you have an active flag
         if (log.entityId) {
-          // If your category model has an 'active' or 'status' field
           await Category.findByIdAndUpdate(log.entityId, { 
             active: true 
           });
@@ -355,12 +355,9 @@ async function executeApprovedAction(log) {
           const productsCount = await Product.countDocuments({ category: log.entityId });
           
           if (productsCount > 0) {
-            console.warn(`⚠️  Category ${log.entityId} has ${productsCount} products. Consider handling orphaned products.`);
-            // Option 1: Move products to "Uncategorized"
-            // await Product.updateMany({ category: log.entityId }, { category: null });
-            
-            // Option 2: Delete products too
-            // await Product.deleteMany({ category: log.entityId });
+            console.warn(`⚠️  Category ${log.entityId} has ${productsCount} products.`);
+            // Option: Move products to null/uncategorized
+            await Product.updateMany({ category: log.entityId }, { category: null });
           }
           
           await Category.findByIdAndDelete(log.entityId);
@@ -368,7 +365,6 @@ async function executeApprovedAction(log) {
         }
         break;
 
-      // Add other entity handlers as needed (orders, users, etc.)
       default:
         console.log(`⚠️  No specific action handler for: ${log.action}`);
     }
@@ -383,20 +379,21 @@ async function executeApprovedAction(log) {
  */
 async function rollbackAction(log) {
   try {
+    console.log(`🔄 Rolling back rejected action: ${log.action} for ${log.entity}`);
+    
     switch (log.action) {
       // ============ PRODUCT ROLLBACKS ============
       case "CREATE_PRODUCT":
-        // Mark as inactive or delete draft
         if (log.entityId) {
-          await Product.findByIdAndUpdate(log.entityId, { 
-            catalog: false 
-          });
+          // Option 1: Mark as inactive
+          await Product.findByIdAndUpdate(log.entityId, { catalog: false });
+          // Option 2: Delete completely
+          // await Product.findByIdAndDelete(log.entityId);
           console.log(`🔄 Product ${log.entityId} marked as inactive (rollback)`);
         }
         break;
 
       case "UPDATE_PRODUCT":
-        // Restore previous values
         if (log.entityId && log.changes?.before) {
           await Product.findByIdAndUpdate(log.entityId, log.changes.before);
           console.log(`🔄 Product ${log.entityId} restored to previous state`);
@@ -404,9 +401,7 @@ async function rollbackAction(log) {
         break;
 
       case "DELETE_PRODUCT":
-        // If product was soft-deleted, restore it
         if (log.entityId && log.changes?.before) {
-          // Recreate the product with previous data
           await Product.findByIdAndUpdate(
             log.entityId, 
             { ...log.changes.before, catalog: true },
@@ -418,17 +413,16 @@ async function rollbackAction(log) {
 
       // ============ CATEGORY ROLLBACKS ============
       case "CREATE_CATEGORY":
-        // Mark as inactive or delete draft
         if (log.entityId) {
-          await Category.findByIdAndUpdate(log.entityId, { 
-            active: false 
-          });
+          // Option 1: Mark as inactive
+          await Category.findByIdAndUpdate(log.entityId, { active: false });
+          // Option 2: Delete completely
+          // await Category.findByIdAndDelete(log.entityId);
           console.log(`🔄 Category ${log.entityId} marked as inactive (rollback)`);
         }
         break;
 
       case "UPDATE_CATEGORY":
-        // Restore previous values
         if (log.entityId && log.changes?.before) {
           await Category.findByIdAndUpdate(log.entityId, log.changes.before);
           console.log(`🔄 Category ${log.entityId} restored to previous state`);
@@ -436,7 +430,6 @@ async function rollbackAction(log) {
         break;
 
       case "DELETE_CATEGORY":
-        // Restore the category
         if (log.entityId && log.changes?.before) {
           await Category.findByIdAndUpdate(
             log.entityId, 
@@ -447,7 +440,6 @@ async function rollbackAction(log) {
         }
         break;
 
-      // Add other rollback handlers as needed
       default:
         console.log(`⚠️  No specific rollback handler for: ${log.action}`);
     }

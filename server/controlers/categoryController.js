@@ -1,459 +1,236 @@
-// controllers/activityLogController.js
-import ActivityLog from "../models/ActivityLog.js";
-import Product from "../models/Product.js";
-import Category from "../models/category.js";
+// controlers/categoryController.js
+import Category from '../models/category.js';
+import { createActivityLog } from '../middleware/activityLogMiddleware.js';
 
-/**
- * Get all activity logs with filters
- * GET /api/activity-logs
- */
-export const getActivityLogs = async (req, res) => {
+// Get Categories (no logging needed)
+export const getCategories = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 20,
-      status,
-      action,
-      entity,
-      adminId,
-      startDate,
-      endDate,
-    } = req.query;
-
-    // Build filter
-    const filter = {};
+    let filter = {};
     
-    if (status) filter.status = status;
-    if (action) filter.action = action;
-    if (entity) filter.entity = entity;
-    if (adminId) filter.adminId = adminId;
+    // If user is authenticated (admin/superadmin), show all categories
+    // If not authenticated (public), show only active categories
+    if (!req.user) {
+      filter.active = true;
+    }
     
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
-    }
+    const categories = await Category.find(filter)
+      .sort({ createdAt: -1 });
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Get logs with pagination
-    const [logs, total] = await Promise.all([
-      ActivityLog.find(filter)
-        .populate("adminId", "name email role")
-        .populate("reviewedBy", "name email")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      ActivityLog.countDocuments(filter),
-    ]);
-
+    // ✅ FIXED: Return in the format frontend expects
     res.json({
       success: true,
-      data: logs,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit)),
-      },
+      categories: categories  // Frontend expects "categories" array
     });
+
   } catch (error) {
-    console.error("Error fetching activity logs:", error);
+    console.error("Error fetching categories:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to fetch activity logs",
+      message: "Failed to fetch categories"
     });
   }
 };
 
-/**
- * Get pending approvals
- * GET /api/activity-logs/pending
- */
-export const getPendingApprovals = async (req, res) => {
+// Add Category with activity logging
+export const addCategory = async (req, res) => {
   try {
-    const pendingLogs = await ActivityLog.find({ status: "PENDING" })
-      .populate("adminId", "name email role")
-      .sort({ createdAt: -1 })
-      .lean();
+    const { categoryName, categoryDescription } = req.body;
 
-    res.json({
-      success: true,
-      data: pendingLogs,
-      count: pendingLogs.length,
-    });
-  } catch (error) {
-    console.error("Error fetching pending approvals:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch pending approvals",
-    });
-  }
-};
-
-/**
- * Get single activity log by ID
- * GET /api/activity-logs/:id
- */
-export const getActivityLogById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const log = await ActivityLog.findById(id)
-      .populate("adminId", "name email role")
-      .populate("reviewedBy", "name email")
-      .lean();
-
-    if (!log) {
-      return res.status(404).json({
-        success: false,
-        error: "Activity log not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      data: log,
-    });
-  } catch (error) {
-    console.error("Error fetching activity log:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch activity log",
-    });
-  }
-};
-
-/**
- * Approve an activity log
- * POST /api/activity-logs/:id/approve
- */
-export const approveActivityLog = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notes } = req.body;
-    const superAdmin = req.user;
-
-    // ✅ FIXED: Check for lowercase superadmin role
-    if (superAdmin.role !== "superadmin") {
-      return res.status(403).json({
-        success: false,
-        error: "Only super admins can approve actions",
-      });
-    }
-
-    const log = await ActivityLog.findById(id);
-
-    if (!log) {
-      return res.status(404).json({
-        success: false,
-        error: "Activity log not found",
-      });
-    }
-
-    if (log.status !== "PENDING") {
+    // Validate input
+    if (!categoryName) {
       return res.status(400).json({
         success: false,
-        error: `Cannot approve: This action has already been ${log.status.toLowerCase()}`,
+        message: "Category name is required"
       });
     }
 
-    // Update log status
-    log.status = "APPROVED";
-    log.reviewedBy = superAdmin._id;
-    log.reviewedByName = superAdmin.name;
-    log.reviewedAt = new Date();
-    log.reviewNotes = notes;
-
-    await log.save();
-
-    // Execute the approved action
-    await executeApprovedAction(log);
-
-    res.json({
-      success: true,
-      message: "Activity approved successfully",
-      data: log,
+    // Check if category already exists (case-insensitive)
+    const existingCategory = await Category.findOne({ 
+      categoryName: { $regex: new RegExp(`^${categoryName.trim()}$`, 'i') }
     });
-  } catch (error) {
-    console.error("Error approving activity log:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message || "Failed to approve activity",
-    });
-  }
-};
 
-/**
- * Reject an activity log
- * POST /api/activity-logs/:id/reject
- */
-export const rejectActivityLog = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notes } = req.body;
-    const superAdmin = req.user;
-
-    // ✅ FIXED: Check for lowercase superadmin role
-    if (superAdmin.role !== "superadmin") {
-      return res.status(403).json({
-        success: false,
-        error: "Only super admins can reject actions",
-      });
-    }
-
-    const log = await ActivityLog.findById(id);
-
-    if (!log) {
-      return res.status(404).json({
-        success: false,
-        error: "Activity log not found",
-      });
-    }
-
-    if (log.status !== "PENDING") {
+    if (existingCategory) {
       return res.status(400).json({
         success: false,
-        error: `Cannot reject: This action has already been ${log.status.toLowerCase()}`,
+        message: "Category already exists"
       });
     }
 
-    // Update log status
-    log.status = "REJECTED";
-    log.reviewedBy = superAdmin._id;
-    log.reviewedByName = superAdmin.name;
-    log.reviewedAt = new Date();
-    log.reviewNotes = notes || "Action rejected by super admin";
-
-    await log.save();
-
-    // Rollback any temporary changes if needed
-    await rollbackAction(log);
-
-    res.json({
-      success: true,
-      message: "Activity rejected successfully",
-      data: log,
+    // Determine if approval is required based on user role
+    const requiresApproval = req.requiresApproval !== false;
+    
+    const newCategory = new Category({
+      categoryName: categoryName.trim(),
+      categoryDescription: categoryDescription?.trim() || "",
+      active: !requiresApproval // Active immediately if superadmin, inactive if admin (pending approval)
     });
-  } catch (error) {
-    console.error("Error rejecting activity log:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message || "Failed to reject activity",
-    });
-  }
-};
 
-/**
- * Get activity statistics
- * GET /api/activity-logs/stats
- */
-export const getActivityStats = async (req, res) => {
-  try {
-    const stats = await ActivityLog.aggregate([
-      {
-        $facet: {
-          byStatus: [
-            {
-              $group: {
-                _id: "$status",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          byAction: [
-            {
-              $group: {
-                _id: "$action",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          byEntity: [
-            {
-              $group: {
-                _id: "$entity",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          recentActivity: [
-            { $sort: { createdAt: -1 } },
-            { $limit: 10 },
-          ],
-        },
+    await newCategory.save();
+
+    // Log the activity for approval tracking
+    await createActivityLog({
+      adminId: req.user._id,
+      adminName: req.user.name,
+      adminEmail: req.user.email,
+      action: 'CREATE_CATEGORY',
+      entity: 'CATEGORY',
+      entityId: newCategory._id,
+      entityName: newCategory.categoryName,
+      changes: {
+        before: null,
+        after: newCategory.toObject()
       },
-    ]);
-
-    res.json({
-      success: true,
-      data: stats[0],
+      description: `Created new category: "${newCategory.categoryName}"`,
+      requiresApproval,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
     });
+
+    res.status(201).json({
+      success: true,
+      message: requiresApproval 
+        ? "Category created and pending approval" 
+        : "Category created successfully",
+      category: newCategory,
+      requiresApproval
+    });
+
   } catch (error) {
-    console.error("Error fetching activity stats:", error);
+    console.error("Error adding category:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to fetch activity statistics",
+      message: "Failed to add category"
     });
   }
 };
 
-/**
- * Execute approved action (apply the changes)
- */
-async function executeApprovedAction(log) {
+// Update Category with activity logging
+export const updateCategory = async (req, res) => {
   try {
-    console.log(`🔧 Executing approved action: ${log.action} for ${log.entity}`);
+    const { id } = req.params;
+    const { categoryName, categoryDescription } = req.body;
+
+    // Get original category
+    const originalCategory = await Category.findById(id);
     
-    switch (log.action) {
-      // ============ PRODUCT ACTIONS ============
-      case "CREATE_PRODUCT":
-        if (log.entityId) {
-          await Product.findByIdAndUpdate(log.entityId, { 
-            catalog: true 
-          });
-          console.log(`✅ Product ${log.entityId} marked as active`);
-        }
-        break;
-
-      case "UPDATE_PRODUCT":
-        if (log.entityId && log.changes?.after) {
-          await Product.findByIdAndUpdate(log.entityId, log.changes.after);
-          console.log(`✅ Product ${log.entityId} updated`);
-        }
-        break;
-
-      case "DELETE_PRODUCT":
-        if (log.entityId) {
-          await Product.findByIdAndDelete(log.entityId);
-          console.log(`✅ Product ${log.entityId} deleted`);
-        }
-        break;
-
-      // ============ CATEGORY ACTIONS ============
-      case "CREATE_CATEGORY":
-        if (log.entityId) {
-          await Category.findByIdAndUpdate(log.entityId, { 
-            active: true 
-          });
-          console.log(`✅ Category ${log.entityId} marked as active`);
-        }
-        break;
-
-      case "UPDATE_CATEGORY":
-        if (log.entityId && log.changes?.after) {
-          await Category.findByIdAndUpdate(log.entityId, log.changes.after);
-          console.log(`✅ Category ${log.entityId} updated`);
-        }
-        break;
-
-      case "DELETE_CATEGORY":
-        if (log.entityId) {
-          // Check if category has products before deleting
-          const productsCount = await Product.countDocuments({ category: log.entityId });
-          
-          if (productsCount > 0) {
-            console.warn(`⚠️  Category ${log.entityId} has ${productsCount} products.`);
-            // Option: Move products to null/uncategorized
-            await Product.updateMany({ category: log.entityId }, { category: null });
-          }
-          
-          await Category.findByIdAndDelete(log.entityId);
-          console.log(`✅ Category ${log.entityId} deleted`);
-        }
-        break;
-
-      default:
-        console.log(`⚠️  No specific action handler for: ${log.action}`);
+    if (!originalCategory) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found"
+      });
     }
-  } catch (error) {
-    console.error("❌ Error executing approved action:", error);
-    throw error;
-  }
-}
 
-/**
- * Rollback rejected action
- */
-async function rollbackAction(log) {
+    const requiresApproval = req.requiresApproval !== false;
+    const originalData = originalCategory.toObject();
+
+    // Apply updates
+    const updates = {};
+    if (categoryName) updates.categoryName = categoryName.trim();
+    if (categoryDescription !== undefined) updates.categoryDescription = categoryDescription.trim();
+
+    if (!requiresApproval) {
+      // Super admin - apply immediately
+      Object.assign(originalCategory, updates);
+      await originalCategory.save();
+    }
+
+    // ✅ Log the activity
+    await createActivityLog({
+      adminId: req.user._id,
+      adminName: req.user.name,
+      adminEmail: req.user.email,
+      action: 'UPDATE_CATEGORY',
+      entity: 'CATEGORY',
+      entityId: originalCategory._id,
+      entityName: originalCategory.categoryName,
+      changes: {
+        before: originalData,
+        after: updates
+      },
+      description: `Updated category: "${originalCategory.categoryName}"`,
+      requiresApproval,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      metadata: {
+        fieldsChanged: Object.keys(updates)
+      }
+    });
+
+    res.json({
+      success: true,
+      message: requiresApproval
+        ? "Category update pending approval"
+        : "Category updated successfully",
+      category: originalCategory,
+      requiresApproval
+    });
+
+  } catch (error) {
+    console.error("Error updating category:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update category"
+    });
+  }
+};
+
+// Delete Category with activity logging
+export const deleteCategory = async (req, res) => {
   try {
-    console.log(`🔄 Rolling back rejected action: ${log.action} for ${log.entity}`);
-    
-    switch (log.action) {
-      // ============ PRODUCT ROLLBACKS ============
-      case "CREATE_PRODUCT":
-        if (log.entityId) {
-          // Option 1: Mark as inactive
-          await Product.findByIdAndUpdate(log.entityId, { catalog: false });
-          // Option 2: Delete completely
-          // await Product.findByIdAndDelete(log.entityId);
-          console.log(`🔄 Product ${log.entityId} marked as inactive (rollback)`);
-        }
-        break;
+    const { id } = req.params;
 
-      case "UPDATE_PRODUCT":
-        if (log.entityId && log.changes?.before) {
-          await Product.findByIdAndUpdate(log.entityId, log.changes.before);
-          console.log(`🔄 Product ${log.entityId} restored to previous state`);
-        }
-        break;
+    const category = await Category.findById(id);
 
-      case "DELETE_PRODUCT":
-        if (log.entityId && log.changes?.before) {
-          await Product.findByIdAndUpdate(
-            log.entityId, 
-            { ...log.changes.before, catalog: true },
-            { upsert: true }
-          );
-          console.log(`🔄 Product ${log.entityId} restored from deletion`);
-        }
-        break;
-
-      // ============ CATEGORY ROLLBACKS ============
-      case "CREATE_CATEGORY":
-        if (log.entityId) {
-          // Option 1: Mark as inactive
-          await Category.findByIdAndUpdate(log.entityId, { active: false });
-          // Option 2: Delete completely
-          // await Category.findByIdAndDelete(log.entityId);
-          console.log(`🔄 Category ${log.entityId} marked as inactive (rollback)`);
-        }
-        break;
-
-      case "UPDATE_CATEGORY":
-        if (log.entityId && log.changes?.before) {
-          await Category.findByIdAndUpdate(log.entityId, log.changes.before);
-          console.log(`🔄 Category ${log.entityId} restored to previous state`);
-        }
-        break;
-
-      case "DELETE_CATEGORY":
-        if (log.entityId && log.changes?.before) {
-          await Category.findByIdAndUpdate(
-            log.entityId, 
-            { ...log.changes.before, active: true },
-            { upsert: true }
-          );
-          console.log(`🔄 Category ${log.entityId} restored from deletion`);
-        }
-        break;
-
-      default:
-        console.log(`⚠️  No specific rollback handler for: ${log.action}`);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found"
+      });
     }
-  } catch (error) {
-    console.error("❌ Error rolling back action:", error);
-    throw error;
-  }
-}
 
-export default {
-  getActivityLogs,
-  getPendingApprovals,
-  getActivityLogById,
-  approveActivityLog,
-  rejectActivityLog,
-  getActivityStats,
+    const requiresApproval = req.requiresApproval !== false;
+
+    if (!requiresApproval) {
+      // Super admin - delete immediately
+      await category.deleteOne();
+    } else {
+      // Mark as inactive pending deletion
+      category.active = false;
+      await category.save();
+    }
+
+    // ✅ Log the activity
+    await createActivityLog({
+      adminId: req.user._id,
+      adminName: req.user.name,
+      adminEmail: req.user.email,
+      action: 'DELETE_CATEGORY',
+      entity: 'CATEGORY',
+      entityId: category._id,
+      entityName: category.categoryName,
+      changes: {
+        before: category.toObject(),
+        after: null
+      },
+      description: `Deleted category: "${category.categoryName}"`,
+      requiresApproval,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
+    res.json({
+      success: true,
+      message: requiresApproval
+        ? "Category deletion pending approval"
+        : "Category deleted successfully",
+      requiresApproval
+    });
+
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete category"
+    });
+  }
 };
