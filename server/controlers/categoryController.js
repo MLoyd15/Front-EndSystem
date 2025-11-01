@@ -1,4 +1,4 @@
-// controlers/categoryController.js
+// controllers/categoryController.js
 import Category from '../models/category.js';
 import { createActivityLog } from '../middleware/activityLogMiddleware.js';
 
@@ -16,10 +16,9 @@ export const getCategories = async (req, res) => {
     const categories = await Category.find(filter)
       .sort({ createdAt: -1 });
 
-    // ✅ FIXED: Return in the format frontend expects
     res.json({
       success: true,
-      categories: categories  // Frontend expects "categories" array
+      categories: categories
     });
 
   } catch (error) {
@@ -37,7 +36,7 @@ export const addCategory = async (req, res) => {
     const { categoryName, categoryDescription } = req.body;
 
     // Validate input
-    if (!categoryName) {
+    if (!categoryName || !categoryName.trim()) {
       return res.status(400).json({
         success: false,
         message: "Category name is required"
@@ -57,6 +56,7 @@ export const addCategory = async (req, res) => {
     }
 
     // Determine if approval is required based on user role
+    // req.requiresApproval is set by the bypassApprovalForSuperAdmin middleware
     const requiresApproval = req.requiresApproval !== false;
     
     const newCategory = new Category({
@@ -86,7 +86,8 @@ export const addCategory = async (req, res) => {
       userAgent: req.get('user-agent')
     });
 
-    res.status(201).json({
+    // ✅ FIXED: Always return success: true when category is created
+    return res.status(201).json({
       success: true,
       message: requiresApproval 
         ? "Category created and pending approval" 
@@ -97,9 +98,9 @@ export const addCategory = async (req, res) => {
 
   } catch (error) {
     console.error("Error adding category:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to add category"
+      message: error.message || "Failed to add category"
     });
   }
 };
@@ -109,6 +110,14 @@ export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const { categoryName, categoryDescription } = req.body;
+
+    // Validate input
+    if (!categoryName || !categoryName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Category name is required"
+      });
+    }
 
     // Get original category
     const originalCategory = await Category.findById(id);
@@ -120,21 +129,36 @@ export const updateCategory = async (req, res) => {
       });
     }
 
+    // Check if another category with the same name exists (excluding current one)
+    const duplicateCategory = await Category.findOne({ 
+      categoryName: { $regex: new RegExp(`^${categoryName.trim()}$`, 'i') },
+      _id: { $ne: id }
+    });
+
+    if (duplicateCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "A category with this name already exists"
+      });
+    }
+
     const requiresApproval = req.requiresApproval !== false;
     const originalData = originalCategory.toObject();
 
-    // Apply updates
-    const updates = {};
-    if (categoryName) updates.categoryName = categoryName.trim();
-    if (categoryDescription !== undefined) updates.categoryDescription = categoryDescription.trim();
+    // Prepare updates
+    const updates = {
+      categoryName: categoryName.trim(),
+      categoryDescription: categoryDescription?.trim() || ""
+    };
 
     if (!requiresApproval) {
       // Super admin - apply immediately
-      Object.assign(originalCategory, updates);
+      originalCategory.categoryName = updates.categoryName;
+      originalCategory.categoryDescription = updates.categoryDescription;
       await originalCategory.save();
     }
 
-    // ✅ Log the activity
+    // Log the activity
     await createActivityLog({
       adminId: req.user._id,
       adminName: req.user.name,
@@ -144,10 +168,13 @@ export const updateCategory = async (req, res) => {
       entityId: originalCategory._id,
       entityName: originalCategory.categoryName,
       changes: {
-        before: originalData,
+        before: {
+          categoryName: originalData.categoryName,
+          categoryDescription: originalData.categoryDescription
+        },
         after: updates
       },
-      description: `Updated category: "${originalCategory.categoryName}"`,
+      description: `Updated category: "${originalData.categoryName}"`,
       requiresApproval,
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
@@ -156,7 +183,7 @@ export const updateCategory = async (req, res) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: requiresApproval
         ? "Category update pending approval"
@@ -167,9 +194,9 @@ export const updateCategory = async (req, res) => {
 
   } catch (error) {
     console.error("Error updating category:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to update category"
+      message: error.message || "Failed to update category"
     });
   }
 };
@@ -189,17 +216,18 @@ export const deleteCategory = async (req, res) => {
     }
 
     const requiresApproval = req.requiresApproval !== false;
+    const categoryData = category.toObject();
 
     if (!requiresApproval) {
       // Super admin - delete immediately
       await category.deleteOne();
     } else {
-      // Mark as inactive pending deletion
+      // Admin - mark as inactive pending deletion approval
       category.active = false;
       await category.save();
     }
 
-    // ✅ Log the activity
+    // Log the activity
     await createActivityLog({
       adminId: req.user._id,
       adminName: req.user.name,
@@ -207,18 +235,18 @@ export const deleteCategory = async (req, res) => {
       action: 'DELETE_CATEGORY',
       entity: 'CATEGORY',
       entityId: category._id,
-      entityName: category.categoryName,
+      entityName: categoryData.categoryName,
       changes: {
-        before: category.toObject(),
+        before: categoryData,
         after: null
       },
-      description: `Deleted category: "${category.categoryName}"`,
+      description: `Deleted category: "${categoryData.categoryName}"`,
       requiresApproval,
       ipAddress: req.ip,
       userAgent: req.get('user-agent')
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: requiresApproval
         ? "Category deletion pending approval"
@@ -228,9 +256,16 @@ export const deleteCategory = async (req, res) => {
 
   } catch (error) {
     console.error("Error deleting category:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to delete category"
+      message: error.message || "Failed to delete category"
     });
   }
+};
+
+export default {
+  getCategories,
+  addCategory,
+  updateCategory,
+  deleteCategory
 };
