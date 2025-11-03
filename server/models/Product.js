@@ -37,8 +37,16 @@ const productSchema = new mongoose.Schema(
       },
     },
     catalog: { type: Boolean, default: true },
+    
+    // ✅ NEW: Active field for approval workflow
+    // true = approved/active, false = pending approval or soft-deleted
+    active: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
+
+// ✅ Index for efficient queries
+productSchema.index({ active: 1, createdAt: -1 });
+productSchema.index({ name: 'text' }); // For search functionality
 
 export default mongoose.model("Product", productSchema);

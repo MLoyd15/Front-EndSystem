@@ -136,7 +136,7 @@ export const approveActivityLog = async (req, res) => {
     const { notes } = req.body;
     const superAdmin = req.user;
 
-    // ✅ FIXED: Check for lowercase superadmin role
+    // Check if super admin
     if (superAdmin.role !== "superadmin") {
       return res.status(403).json({
         success: false,
@@ -196,7 +196,7 @@ export const rejectActivityLog = async (req, res) => {
     const { notes } = req.body;
     const superAdmin = req.user;
 
-    // ✅ FIXED: Check for lowercase superadmin role
+    // Check if super admin
     if (superAdmin.role !== "superadmin") {
       return res.status(403).json({
         success: false,
@@ -312,7 +312,7 @@ async function executeApprovedAction(log) {
       case "CREATE_PRODUCT":
         if (log.entityId) {
           await Product.findByIdAndUpdate(log.entityId, { 
-            catalog: true 
+            active: true 
           });
           console.log(`✅ Product ${log.entityId} marked as active`);
         }
@@ -356,7 +356,7 @@ async function executeApprovedAction(log) {
           
           if (productsCount > 0) {
             console.warn(`⚠️  Category ${log.entityId} has ${productsCount} products.`);
-            // Option: Move products to null/uncategorized
+            // Move products to null/uncategorized
             await Product.updateMany({ category: log.entityId }, { category: null });
           }
           
@@ -385,11 +385,9 @@ async function rollbackAction(log) {
       // ============ PRODUCT ROLLBACKS ============
       case "CREATE_PRODUCT":
         if (log.entityId) {
-          // Option 1: Mark as inactive
-          await Product.findByIdAndUpdate(log.entityId, { catalog: false });
-          // Option 2: Delete completely
-          // await Product.findByIdAndDelete(log.entityId);
-          console.log(`🔄 Product ${log.entityId} marked as inactive (rollback)`);
+          // Delete the product that was pending
+          await Product.findByIdAndDelete(log.entityId);
+          console.log(`🔄 Product ${log.entityId} deleted (rollback)`);
         }
         break;
 
@@ -402,9 +400,10 @@ async function rollbackAction(log) {
 
       case "DELETE_PRODUCT":
         if (log.entityId && log.changes?.before) {
+          // Restore the product
           await Product.findByIdAndUpdate(
             log.entityId, 
-            { ...log.changes.before, catalog: true },
+            { ...log.changes.before, active: true },
             { upsert: true }
           );
           console.log(`🔄 Product ${log.entityId} restored from deletion`);
@@ -414,11 +413,9 @@ async function rollbackAction(log) {
       // ============ CATEGORY ROLLBACKS ============
       case "CREATE_CATEGORY":
         if (log.entityId) {
-          // Option 1: Mark as inactive
-          await Category.findByIdAndUpdate(log.entityId, { active: false });
-          // Option 2: Delete completely
-          // await Category.findByIdAndDelete(log.entityId);
-          console.log(`🔄 Category ${log.entityId} marked as inactive (rollback)`);
+          // Delete the category that was pending
+          await Category.findByIdAndDelete(log.entityId);
+          console.log(`🔄 Category ${log.entityId} deleted (rollback)`);
         }
         break;
 

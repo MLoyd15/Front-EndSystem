@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import Category from "../models/category.js";
 import mongoose from "mongoose";
+import { createActivityLog } from '../middleware/activityLogMiddleware.js';
 
 /** Helper: get io instance safely */
 const getIO = (req) => req.app && req.app.get && req.app.get("io");
@@ -17,6 +18,11 @@ function buildQuery(q) {
   if (q?.catalog === "true" || q?.catalog === "false") {
     query.catalog = q.catalog === "true";
   }
+  
+  // ✅ IMPORTANT: Only show active (approved) products in list
+  // Products pending approval have active: false
+  query.active = true;
+  
   return query;
 }
 
@@ -88,25 +94,52 @@ const create = async (req, res) => {
     } = req.body || {};
     const images = normalizeImages(req.body?.images);
 
+    // ✅ Validate user authentication
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Authentication required" 
+      });
+    }
+
+    if (!req.user._id || !req.user.name || !req.user.email) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid authentication token" 
+      });
+    }
+
     if (!name || price == null || !category) {
-      return res
-        .status(400)
-        .json({ message: "name, price, and category are required" });
+      return res.status(400).json({ 
+        success: false,
+        message: "name, price, and category are required" 
+      });
     }
+    
     if (minStock != null && (isNaN(Number(minStock)) || Number(minStock) < 0)) {
-      return res
-        .status(400)
-        .json({ message: "minStock must be a number ≥ 0" });
+      return res.status(400).json({ 
+        success: false,
+        message: "minStock must be a number ≥ 0" 
+      });
     }
+    
     if (weightKg != null && (isNaN(Number(weightKg)) || Number(weightKg) < 0)) {
-      return res
-        .status(400)
-        .json({ message: "weightKg must be a number ≥ 0" });
+      return res.status(400).json({ 
+        success: false,
+        message: "weightKg must be a number ≥ 0" 
+      });
     }
 
     const cat = await Category.findById(category);
-    if (!cat)
-      return res.status(400).json({ message: "Category does not exist" });
+    if (!cat) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Category does not exist" 
+      });
+    }
+
+    // ✅ Determine if approval is required
+    const requiresApproval = req.requiresApproval !== false;
 
     const product = await Product.create({
       name,
@@ -118,39 +151,109 @@ const create = async (req, res) => {
       images,
       weightKg: weightKg == null ? null : Number(weightKg),
       minStock: minStock == null ? 0 : Number(minStock),
+      active: !requiresApproval, // ✅ Active immediately if superadmin
     });
 
     const created = await product.populate("category", "categoryName");
-    res.status(201).json(created);
 
-    // 🔴 real-time: broadcast new product
-    const io = getIO(req);
-    io?.emit("inventory:created", {
-      _id: created._id,
-      name: created.name,
-      stock: created.stock,
-      price: created.price,
-      minStock: created.minStock,
-      weightKg: created.weightKg,
-      images: created.images,
-      catalog: created.catalog,
-      category: created.category, // already populated
-    });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res
-        .status(409)
-        .json({ message: "Duplicate field (name or sku) already exists" });
+    // ✅ Log activity
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name || 'Unknown User',
+        adminEmail: req.user.email || '',
+        action: 'CREATE_PRODUCT',
+        entity: 'PRODUCT',
+        entityId: created._id,
+        entityName: created.name,
+        changes: {
+          before: null,
+          after: created.toObject()
+        },
+        description: `Created new product: "${created.name}"`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.error('⚠️  Failed to create activity log:', logError);
     }
-    res.status(500).json({ message: err.message || "Failed to create product" });
+
+    res.status(201).json({
+      success: true,
+      message: requiresApproval 
+        ? "Product created and pending approval" 
+        : "Product created successfully",
+      product: created,
+      requiresApproval
+    });
+
+    // 🔴 Only emit socket event if approved (active)
+    if (created.active) {
+      const io = getIO(req);
+      io?.emit("inventory:created", {
+        _id: created._id,
+        name: created.name,
+        stock: created.stock,
+        price: created.price,
+        minStock: created.minStock,
+        weightKg: created.weightKg,
+        images: created.images,
+        catalog: created.catalog,
+        category: created.category,
+        active: created.active,
+      });
+    }
+  } catch (err) {
+    console.error("Error creating product:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ 
+        success: false,
+        message: "Duplicate field (name or sku) already exists" 
+      });
+    }
+    res.status(500).json({ 
+      success: false,
+      message: err.message || "Failed to create product" 
+    });
   }
 };
 
 const update = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid product ID format" });
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid product ID format" 
+      });
     }
+
+    // ✅ Validate user authentication
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Authentication required" 
+      });
+    }
+
+    if (!req.user._id || !req.user.name || !req.user.email) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid authentication token" 
+      });
+    }
+
+    // Get original product
+    const originalProduct = await Product.findById(req.params.id);
+    
+    if (!originalProduct) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Product not found" 
+      });
+    }
+
+    const originalData = originalProduct.toObject();
     
     const body = Object.fromEntries(
       Object.entries(req.body).filter(([, v]) => v !== undefined)
@@ -162,9 +265,10 @@ const update = async (req, res) => {
     if ("minStock" in body) {
       const m = Number(body.minStock);
       if (isNaN(m) || m < 0) {
-        return res
-          .status(400)
-          .json({ message: "minStock must be a number ≥ 0" });
+        return res.status(400).json({ 
+          success: false,
+          message: "minStock must be a number ≥ 0" 
+        });
       }
       body.minStock = m;
     }
@@ -176,9 +280,10 @@ const update = async (req, res) => {
       } else {
         const w = Number(body.weightKg);
         if (isNaN(w) || w < 0) {
-          return res
-            .status(400)
-            .json({ message: "weightKg must be a number ≥ 0" });
+          return res.status(400).json({ 
+            success: false,
+            message: "weightKg must be a number ≥ 0" 
+          });
         }
         body.weightKg = w;
       }
@@ -186,49 +291,187 @@ const update = async (req, res) => {
 
     if (body.category) {
       const cat = await Category.findById(body.category);
-      if (!cat)
-        return res.status(400).json({ message: "Category does not exist" });
+      if (!cat) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Category does not exist" 
+        });
+    }
     }
 
-    const updated = await Product.findByIdAndUpdate(req.params.id, body, {
-      new: true,
-      runValidators: true,
-    }).populate("category", "categoryName");
+    const requiresApproval = req.requiresApproval !== false;
 
-    if (!updated) return res.status(404).json({ message: "Product not found" });
-    res.json(updated);
+    let updated;
+    if (!requiresApproval) {
+      // Super admin - apply immediately
+      updated = await Product.findByIdAndUpdate(req.params.id, body, {
+        new: true,
+        runValidators: true,
+      }).populate("category", "categoryName");
+    } else {
+      // Admin - changes pending, don't apply yet
+      updated = originalProduct;
+    }
 
-    // 🔴 real-time: broadcast single product update
-    const io = getIO(req);
-    io?.emit("inventory:update", {
-      productId: updated._id,
-      stock: updated.stock,
-      price: updated.price,
-      minStock: updated.minStock,
-      sold: updated.sold,
-      catalog: updated.catalog,
-      // (you can add other fields if your UI needs them)
+    if (!updated) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Product not found" 
+      });
+    }
+
+    // ✅ Log activity
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name || 'Unknown User',
+        adminEmail: req.user.email || '',
+        action: 'UPDATE_PRODUCT',
+        entity: 'PRODUCT',
+        entityId: updated._id,
+        entityName: originalData.name,
+        changes: {
+          before: {
+            name: originalData.name,
+            price: originalData.price,
+            stock: originalData.stock,
+            description: originalData.description,
+            category: originalData.category,
+            minStock: originalData.minStock,
+            weightKg: originalData.weightKg,
+            catalog: originalData.catalog,
+          },
+          after: body
+        },
+        description: `Updated product: "${originalData.name}"`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        metadata: {
+          fieldsChanged: Object.keys(body)
+        }
+      });
+    } catch (logError) {
+      console.error('⚠️  Failed to create activity log:', logError);
+    }
+
+    res.json({
+      success: true,
+      message: requiresApproval
+        ? "Product update pending approval"
+        : "Product updated successfully",
+      product: updated,
+      requiresApproval
     });
+
+    // 🔴 Only emit socket event if changes applied
+    if (!requiresApproval) {
+      const io = getIO(req);
+      io?.emit("inventory:update", {
+        productId: updated._id,
+        stock: updated.stock,
+        price: updated.price,
+        minStock: updated.minStock,
+        sold: updated.sold,
+        catalog: updated.catalog,
+      });
+    }
   } catch (err) {
-    res.status(500).json({ message: err.message || "Failed to update product" });
+    console.error("Error updating product:", err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message || "Failed to update product" 
+    });
   }
 };
 
 const remove = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid product ID format" });
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid product ID format" 
+      });
     }
-    
-    const deleted = await Product.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Product not found" });
-    res.json({ message: "Deleted", id: deleted._id });
 
-    // 🔴 real-time: broadcast deletion
-    const io = getIO(req);
-    io?.emit("inventory:deleted", { productId: deleted._id });
+    // ✅ Validate user authentication
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Authentication required" 
+      });
+    }
+
+    if (!req.user._id || !req.user.name || !req.user.email) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid authentication token" 
+      });
+    }
+
+    const product = await Product.findById(req.params.id);
+    
+    if (!product) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Product not found" 
+      });
+    }
+
+    const requiresApproval = req.requiresApproval !== false;
+    const productData = product.toObject();
+
+    if (!requiresApproval) {
+      // Super admin - delete immediately
+      await Product.findByIdAndDelete(req.params.id);
+    } else {
+      // Admin - mark as inactive pending deletion
+      product.active = false;
+      await product.save();
+    }
+
+    // ✅ Log activity
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name || 'Unknown User',
+        adminEmail: req.user.email || '',
+        action: 'DELETE_PRODUCT',
+        entity: 'PRODUCT',
+        entityId: product._id,
+        entityName: productData.name,
+        changes: {
+          before: productData,
+          after: null
+        },
+        description: `Deleted product: "${productData.name}"`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.error('⚠️  Failed to create activity log:', logError);
+    }
+
+    res.json({ 
+      success: true,
+      message: requiresApproval
+        ? "Product deletion pending approval"
+        : "Product deleted successfully",
+      requiresApproval
+    });
+
+    // 🔴 Only emit socket event if deleted
+    if (!requiresApproval) {
+      const io = getIO(req);
+      io?.emit("inventory:deleted", { productId: product._id });
+    }
   } catch (err) {
-    res.status(500).json({ message: err.message || "Failed to delete product" });
+    console.error("Error deleting product:", err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message || "Failed to delete product" 
+    });
   }
 };
 
@@ -242,8 +485,18 @@ const toggleCatalog = async (req, res) => {
       { catalog: Boolean(value) },
       { new: true }
     ).populate("category", "categoryName");
-    if (!updated) return res.status(404).json({ message: "Product not found" });
-    res.json(updated);
+    
+    if (!updated) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Product not found" 
+      });
+    }
+    
+    res.json({
+      success: true,
+      product: updated
+    });
 
     // 🔴 real-time: broadcast catalog flag change
     const io = getIO(req);
@@ -252,15 +505,17 @@ const toggleCatalog = async (req, res) => {
       catalog: updated.catalog,
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: err.message || "Failed to toggle catalog flag" });
+    res.status(500).json({
+      success: false,
+      message: err.message || "Failed to toggle catalog flag" 
+    });
   }
 };
 
 export const auditList = async (req, res) => {
   try {
-    const products = await Product.find({})
+    // ✅ Only show active products in audit
+    const products = await Product.find({ active: true })
       .select("name stock price category")
       .populate("category", "categoryName");
     res.json({ items: products, total: products.length });
@@ -274,9 +529,10 @@ export const auditReconcile = async (req, res) => {
   try {
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     if (items.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "items is required (array of {id, physical})" });
+      return res.status(400).json({ 
+        success: false,
+        message: "items is required (array of {id, physical})" 
+      });
     }
 
     // basic validation + build bulk ops
@@ -288,20 +544,25 @@ export const auditReconcile = async (req, res) => {
       
       // Validate ObjectId format
       if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-        return res
-          .status(400)
-          .json({ message: `Invalid product ID format: ${id}` });
+        return res.status(400).json({ 
+          success: false,
+          message: `Invalid product ID format: ${id}` 
+        });
       }
       
       if (Number.isNaN(physical) || physical < 0) {
-        return res
-          .status(400)
-          .json({ message: "Each item needs valid physical count >= 0" });
+        return res.status(400).json({ 
+          success: false,
+          message: "Each item needs valid physical count >= 0" 
+        });
       }
       
       ops.push({
         updateOne: {
-          filter: { _id: new mongoose.Types.ObjectId(id) },
+          filter: { 
+            _id: new mongoose.Types.ObjectId(id),
+            active: true // ✅ Only reconcile active products
+          },
           update: { $set: { stock: physical } },
         },
       });
@@ -309,17 +570,27 @@ export const auditReconcile = async (req, res) => {
     }
 
     if (ops.length === 0) {
-      return res.status(400).json({ message: "No valid items to reconcile" });
+      return res.status(400).json({ 
+        success: false,
+        message: "No valid items to reconcile" 
+      });
     }
 
     const result = await Product.bulkWrite(ops, { ordered: false });
-    res.json({ ok: true, modified: result.modifiedCount ?? result.nModified ?? 0 });
+    res.json({ 
+      success: true,
+      ok: true, 
+      modified: result.modifiedCount ?? result.nModified ?? 0 
+    });
 
     // 🔴 real-time: broadcast bulk updates (after write)
     const io = getIO(req);
     io?.emit("inventory:bulk", emits);
   } catch (err) {
-    res.status(500).json({ message: err.message || "Failed to reconcile audit" });
+    res.status(500).json({ 
+      success: false,
+      message: err.message || "Failed to reconcile audit" 
+    });
   }
 };
 
@@ -350,10 +621,19 @@ const deleteReview = async (req, res) => {
       { new: true }
     ).lean();
 
-    if (!updated) return res.status(404).json({ message: "Review not found" });
+    if (!updated) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Review not found" 
+      });
+    }
+    
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ message: err.message || "Failed to delete review" });
+    res.status(500).json({ 
+      success: false,
+      message: err.message || "Failed to delete review" 
+    });
   }
 };
 
