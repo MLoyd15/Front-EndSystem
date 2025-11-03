@@ -1,5 +1,6 @@
 // middleware/activityLogMiddleware.js
 import ActivityLog from "../models/ActivityLog.js";
+import User from "../models/user.js";
 
 /**
  * Middleware to log admin activities
@@ -89,6 +90,33 @@ export const createActivityLog = async ({
   metadata,
 }) => {
   try {
+    // Ensure we have admin details; fetch from DB if partially missing
+    if (!adminId && (adminName || adminEmail)) {
+      // If name/email are provided but no id, we cannot link to a user; skip logging
+      console.warn("⚠️  ActivityLog: missing adminId, skipping log.");
+      return null;
+    }
+
+    if (adminId && (!adminName || !adminEmail)) {
+      try {
+        const user = await User.findById(adminId).select("name email");
+        if (user) {
+          adminName = adminName || user.name;
+          adminEmail = adminEmail || user.email;
+        }
+      } catch (e) {
+        console.warn("⚠️  ActivityLog: failed to fetch user info for", adminId, e?.message);
+      }
+    }
+
+    // Final guard: if any required admin fields are still missing, do not block the main operation
+    if (!adminId || !adminName || !adminEmail) {
+      console.warn("⚠️  ActivityLog: incomplete admin info; skipping log to avoid breaking request.", {
+        hasId: !!adminId, hasName: !!adminName, hasEmail: !!adminEmail,
+      });
+      return null;
+    }
+
     const logEntry = await ActivityLog.create({
       adminId,
       adminName,
@@ -109,8 +137,9 @@ export const createActivityLog = async ({
     console.log(`✅ Activity logged: ${action} on ${entity} by ${adminName} - Status: ${logEntry.status}`);
     return logEntry;
   } catch (error) {
+    // Do not throw from logging; never block the main request due to log failure
     console.error("❌ Error creating activity log:", error);
-    throw error;
+    return null;
   }
 };
 

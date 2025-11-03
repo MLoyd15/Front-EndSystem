@@ -16,8 +16,16 @@ import {
 } from "react-icons/fa";
 import { NavLink } from "react-router";
 import { MdDiscount, MdHistory, MdPendingActions} from "react-icons/md";
+import { VITE_API_BASE } from "../config";
+
+const API = VITE_API_BASE;
 
 const Sidebar = () => {
+  const [items, setItems] = useState([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [userRole, setUserRole] = useState(null);
+
   const menuItems = [
     { name: "Maintenance", path: "/admin-dashboard/maintenance", icon: <FaTools />, isParent: false, superAdminOnly: true },
     { name: "Dashboard", path: "/admin-dashboard", icon: <FaHome />, isParent: true, superAdminOnly: true },
@@ -27,7 +35,7 @@ const Sidebar = () => {
     { name: "Product review", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
     { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false, superAdminOnly: true },
     { name: "Activity Log", path: "/admin-dashboard/activity-log", icon: <FaGift />, isParent: false },
-    { name: "Pending Approvals", path: "/admin-dashboard/pending-approvals", icon: <MdPendingActions />, isParent: false, superAdminOnly: true },
+    { name: "Pending Approvals", path: "/admin-dashboard/pending-approvals", icon: <MdPendingActions />, isParent: false, superAdminOnly: true, hasBadge: true },
     { name: "Sales History", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false, superAdminOnly: true },
     { name: "Support Chat", path: "/admin-dashboard/support-chat", icon: <FaComments />, isParent: false },
     { name: "Create Driver", path: "/admin-dashboard/create-driver", icon: <FaTruck />, isParent: false, superAdminOnly: true },
@@ -40,19 +48,49 @@ const Sidebar = () => {
     { name: "Logout", path: "/driver-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
 
-  const [items, setItems] = useState(menuItems);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // ✅ Fetch pending approvals count
+  const fetchPendingCount = async () => {
+    if (userRole !== 'superadmin') return;
+
+    try {
+      const response = await fetch(`${API}/activity-logs/pending`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('pos-token')}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setPendingCount(result.count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching pending count:', error);
+    }
+  };
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("pos-user") || "{}");
-    if (user?.role === "driver") {
+    const role = user?.role;
+    setUserRole(role);
+
+    if (role === "driver") {
       setItems(driverItems);
     } else {
       let filteredItems = menuItems;
-      if (user?.role !== "superadmin") {
+      if (role !== "superadmin") {
         filteredItems = menuItems.filter(item => !item.superAdminOnly);
       }
       setItems(filteredItems);
+
+      // ✅ Fetch pending count if superadmin
+      if (role === "superadmin") {
+        fetchPendingCount();
+        
+        // ✅ Poll for updates every 30 seconds
+        const interval = setInterval(fetchPendingCount, 30000);
+        return () => clearInterval(interval);
+      }
     }
   }, []);
 
@@ -114,7 +152,7 @@ const Sidebar = () => {
                   end={item.isParent}
                   onClick={closeMobileMenu}
                   className={({ isActive }) =>
-                    `flex items-center p-4 md:p-3 rounded-lg transition-all duration-200 group touch-manipulation ${
+                    `flex items-center p-4 md:p-3 rounded-lg transition-all duration-200 group touch-manipulation relative ${
                       isActive
                         ? "bg-white text-black shadow-sm"
                         : "bg-transparent text-white hover:bg-gray-800 active:bg-gray-700"
@@ -122,18 +160,48 @@ const Sidebar = () => {
                   }
                   to={item.path}
                 >
-                  <span className="text-xl md:text-lg flex-shrink-0">{item.icon}</span>
+                  {/* ✅ Icon with badge */}
+                  <div className="relative flex-shrink-0">
+                    <span className="text-xl md:text-lg">{item.icon}</span>
+                    
+                    {/* ✅ Badge for pending approvals */}
+                    {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
+                      <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full animate-pulse">
+                        {pendingCount > 99 ? '99+' : pendingCount}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Desktop large screen - show text */}
                   <span className="ml-4 md:ml-3 hidden lg:block md:hidden text-base md:text-sm font-medium truncate">
                     {item.name}
                   </span>
+                  
                   {/* Mobile - always show text */}
                   <span className="ml-4 md:hidden text-base font-medium">
                     {item.name}
                   </span>
                   
+                  {/* ✅ Badge for desktop collapsed view (md screens) */}
+                  {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
+                    <span className="hidden md:flex lg:hidden ml-auto items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
+
+                  {/* ✅ Badge for desktop expanded view (lg screens) */}
+                  {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
+                    <span className="hidden lg:flex ml-auto items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                      {pendingCount > 99 ? '99+' : pendingCount}
+                    </span>
+                  )}
+                  
                   {/* Tooltip for medium screens */}
                   <div className="absolute left-16 bg-gray-900 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap hidden md:block lg:hidden">
                     {item.name}
+                    {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
+                      <span className="ml-2 text-red-400">({pendingCount})</span>
+                    )}
                   </div>
                 </NavLink>
               </li>
