@@ -35,6 +35,31 @@ export const addCategory = async (req, res) => {
   try {
     const { categoryName, categoryDescription } = req.body;
 
+    // ✅ CRITICAL FIX: Check if user is authenticated
+    if (!req.user) {
+      console.error("❌ No user in request - authentication middleware may not be working");
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. Please login again."
+      });
+    }
+
+    // ✅ CRITICAL FIX: Validate req.user has required fields
+    if (!req.user._id || !req.user.name || !req.user.email) {
+      console.error("❌ req.user is missing required fields:", req.user);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token. Please login again."
+      });
+    }
+
+    console.log("✅ User authenticated:", {
+      id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+      role: req.user.role
+    });
+
     // Validate input
     if (!categoryName || !categoryName.trim()) {
       return res.status(400).json({
@@ -67,26 +92,33 @@ export const addCategory = async (req, res) => {
 
     await newCategory.save();
 
-    // Log the activity for approval tracking
-    await createActivityLog({
-      adminId: req.user._id,
-      adminName: req.user.name,
-      adminEmail: req.user.email,
-      action: 'CREATE_CATEGORY',
-      entity: 'CATEGORY',
-      entityId: newCategory._id,
-      entityName: newCategory.categoryName,
-      changes: {
-        before: null,
-        after: newCategory.toObject()
-      },
-      description: `Created new category: "${newCategory.categoryName}"`,
-      requiresApproval,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    console.log(`✅ Category created: ${newCategory.categoryName} (active: ${newCategory.active})`);
 
-    // ✅ FIXED: Always return success: true when category is created
+    // ✅ FIXED: Now we're sure req.user exists with all required fields
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name,
+        adminEmail: req.user.email,
+        action: 'CREATE_CATEGORY',
+        entity: 'CATEGORY',
+        entityId: newCategory._id,
+        entityName: newCategory.categoryName,
+        changes: {
+          before: null,
+          after: newCategory.toObject()
+        },
+        description: `Created new category: "${newCategory.categoryName}"`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      console.log(`✅ Activity log created for category: ${newCategory.categoryName}`);
+    } catch (logError) {
+      // Don't fail the category creation if logging fails
+      console.error("⚠️  Failed to create activity log (but category was created):", logError);
+    }
+
     return res.status(201).json({
       success: true,
       message: requiresApproval 
@@ -110,6 +142,23 @@ export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const { categoryName, categoryDescription } = req.body;
+
+    // ✅ CRITICAL FIX: Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. Please login again."
+      });
+    }
+
+    // ✅ CRITICAL FIX: Validate req.user has required fields
+    if (!req.user._id || !req.user.name || !req.user.email) {
+      console.error("❌ req.user is missing required fields:", req.user);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token. Please login again."
+      });
+    }
 
     // Validate input
     if (!categoryName || !categoryName.trim()) {
@@ -159,29 +208,33 @@ export const updateCategory = async (req, res) => {
     }
 
     // Log the activity
-    await createActivityLog({
-      adminId: req.user._id,
-      adminName: req.user.name,
-      adminEmail: req.user.email,
-      action: 'UPDATE_CATEGORY',
-      entity: 'CATEGORY',
-      entityId: originalCategory._id,
-      entityName: originalCategory.categoryName,
-      changes: {
-        before: {
-          categoryName: originalData.categoryName,
-          categoryDescription: originalData.categoryDescription
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name,
+        adminEmail: req.user.email,
+        action: 'UPDATE_CATEGORY',
+        entity: 'CATEGORY',
+        entityId: originalCategory._id,
+        entityName: originalCategory.categoryName,
+        changes: {
+          before: {
+            categoryName: originalData.categoryName,
+            categoryDescription: originalData.categoryDescription
+          },
+          after: updates
         },
-        after: updates
-      },
-      description: `Updated category: "${originalData.categoryName}"`,
-      requiresApproval,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
-      metadata: {
-        fieldsChanged: Object.keys(updates)
-      }
-    });
+        description: `Updated category: "${originalData.categoryName}"`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        metadata: {
+          fieldsChanged: Object.keys(updates)
+        }
+      });
+    } catch (logError) {
+      console.error("⚠️  Failed to create activity log (but category was updated):", logError);
+    }
 
     return res.json({
       success: true,
@@ -206,6 +259,23 @@ export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // ✅ CRITICAL FIX: Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. Please login again."
+      });
+    }
+
+    // ✅ CRITICAL FIX: Validate req.user has required fields
+    if (!req.user._id || !req.user.name || !req.user.email) {
+      console.error("❌ req.user is missing required fields:", req.user);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token. Please login again."
+      });
+    }
+
     const category = await Category.findById(id);
 
     if (!category) {
@@ -228,23 +298,27 @@ export const deleteCategory = async (req, res) => {
     }
 
     // Log the activity
-    await createActivityLog({
-      adminId: req.user._id,
-      adminName: req.user.name,
-      adminEmail: req.user.email,
-      action: 'DELETE_CATEGORY',
-      entity: 'CATEGORY',
-      entityId: category._id,
-      entityName: categoryData.categoryName,
-      changes: {
-        before: categoryData,
-        after: null
-      },
-      description: `Deleted category: "${categoryData.categoryName}"`,
-      requiresApproval,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name,
+        adminEmail: req.user.email,
+        action: 'DELETE_CATEGORY',
+        entity: 'CATEGORY',
+        entityId: category._id,
+        entityName: categoryData.categoryName,
+        changes: {
+          before: categoryData,
+          after: null
+        },
+        description: `Deleted category: "${categoryData.categoryName}"`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.error("⚠️  Failed to create activity log (but category was deleted):", logError);
+    }
 
     return res.json({
       success: true,

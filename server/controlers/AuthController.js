@@ -17,13 +17,13 @@ const login = async (req, res) => {
             return res.status(401).json({success:false, message: "Invalid email or password"})
         }
 
-           if (user.role === 'driver' && user.active === false) {
-                return res.status(403).json({
-                    success: false,
-                    message: "Your account has been deactivated. Please contact the administrator.",
-                    accountStatus: "inactive"
-                });
-                }
+        if (user.role === 'driver' && user.active === false) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been deactivated. Please contact the administrator.",
+                accountStatus: "inactive"
+            });
+        }
 
         const isMatch = await bcrypt.compare(password, user.password)
         if (!isMatch) {
@@ -31,11 +31,13 @@ const login = async (req, res) => {
             return res.status(401).json({success:false, message: "Invalid credentials"})
         }
 
-        // Generate JWT token
+        // ✅ FIXED: Generate JWT token with ALL required fields
         const tokenPayload = {
-            id: user._id, 
-            role: user.role,
-            email: user.email,
+            _id: user._id.toString(),      // ← ADD _id
+            id: user._id.toString(),       // Keep for compatibility
+            name: user.name,                // ✅ ADD name (REQUIRED for activity logs)
+            email: user.email,              // ✅ Already had this
+            role: user.role,                // ✅ Already had this
             loginTime: Date.now(),
             ip: clientIP
         };
@@ -44,7 +46,7 @@ const login = async (req, res) => {
             expiresIn: '24h' // Standard session time for all users
         });
 
-        console.log(`✅ User login successful - Email: ${email}, Role: ${user.role}`);
+        console.log(`✅ User login successful - Email: ${email}, Role: ${user.role}, Name: ${user.name}`);
 
         // Standard response
         const response = {
@@ -52,6 +54,7 @@ const login = async (req, res) => {
             message: "Login successful", 
             token, 
             user: {
+                _id: user._id,
                 id: user._id, 
                 email: user.email, 
                 role: user.role,
