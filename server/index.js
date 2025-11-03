@@ -43,6 +43,7 @@ app.use(
       "exp://localhost:19000",
       "exp://192.168.1.100:19000",
       "https://goagritrading.org",
+      "https://goapgitrading.org",
       'https://goat-agritrading-frontend.vercel.app',
       "*"
     ],
