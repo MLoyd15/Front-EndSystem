@@ -172,22 +172,23 @@ const ChangesModal = ({ isOpen, onClose, log }) => {
         className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+        {/* Header - FIXED: Changed to white background and made close button more visible */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Change Details</h2>
             <p className="text-sm text-gray-600 mt-1">{log?.entityName || 'View changes'}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl font-bold w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/50 transition"
+            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 w-10 h-10 flex items-center justify-center rounded-lg transition-all font-bold text-2xl"
+            aria-label="Close modal"
           >
             ✕
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 140px)' }}>
+        {/* Content - Keep white background */}
+        <div className="p-6 overflow-y-auto bg-white" style={{ maxHeight: 'calc(80vh - 140px)' }}>
           {changedFields.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               No specific field changes detected
@@ -252,7 +253,7 @@ const ChangesModal = ({ isOpen, onClose, log }) => {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer - Keep clean white/gray background */}
         <div className="flex justify-end gap-2 p-6 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
@@ -435,7 +436,7 @@ const PendingApprovals = () => {
   }
 
   return (
-    <div className="p-6 bg-amber-50 min-h-screen">
+    <div className="p-6 bg-white min-h-screen">
       {/* Changes Modal */}
       <ChangesModal
         isOpen={!!viewChangesModal}

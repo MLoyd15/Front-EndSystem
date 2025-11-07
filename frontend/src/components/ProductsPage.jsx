@@ -151,6 +151,9 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [catalogFilter, setCatalogFilter] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [stockFilter, setStockFilter] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
@@ -255,10 +258,13 @@ export default function ProductsPage() {
     if (search) p.set("search", search);
     if (category) p.set("category", category);
     if (catalogFilter !== "") p.set("catalog", catalogFilter);
+    if (minPrice !== "") p.set("minPrice", String(minPrice));
+    if (maxPrice !== "") p.set("maxPrice", String(maxPrice));
+    if (stockFilter !== "") p.set("stock", stockFilter);
     p.set("page", String(page));
     p.set("limit", String(limit));
     return p.toString();
-  }, [search, category, catalogFilter, page, limit]);
+  }, [search, category, catalogFilter, minPrice, maxPrice, stockFilter, page, limit]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -1210,6 +1216,39 @@ export default function ProductsPage() {
                   <option value="false">No</option>
                 </select>
               </div>
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-700">Price Range</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    className="border rounded-xl px-3 py-2 w-full"
+                    placeholder="Min price"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    className="border rounded-xl px-3 py-2 w-full"
+                    placeholder="Max price"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-700">Stock</label>
+                <select
+                  className="border rounded-xl px-3 py-2 w-full"
+                  value={stockFilter}
+                  onChange={(e) => setStockFilter(e.target.value)}
+                >
+                  <option value="">All</option>
+                  <option value="in">In stock</option>
+                  <option value="out">Out of stock</option>
+                </select>
+              </div>
             </div>
             <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
               <button
@@ -1217,6 +1256,9 @@ export default function ProductsPage() {
                   setSearch("");
                   setCategory("");
                   setCatalogFilter("");
+                  setMinPrice("");
+                  setMaxPrice("");
+                  setStockFilter("");
                 }}
                 className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100"
               >

@@ -33,7 +33,6 @@ const Sidebar = () => {
   const menuItems = [
     { name: "Maintenance", path: "/admin-dashboard/maintenance", icon: <FaTools />, isParent: false, superAdminOnly: true },
     { name: "Dashboard", path: "/admin-dashboard", icon: <FaHome />, isParent: true, superAdminOnly: true },
-    { name: "Categories", path: "/admin-dashboard/categories", icon: <FaTable />, isParent: false },
     { name: "Products", path: "/admin-dashboard/products", icon: <FaBox />, isParent: false, hasStockBadge: true },
     { name: "Delivery", path: "/admin-dashboard/delivery", icon: <FaTruck />, isParent: false },
     { name: "Product review", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
