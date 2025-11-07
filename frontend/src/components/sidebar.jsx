@@ -66,7 +66,7 @@ const Sidebar = () => {
       const result = await response.json();
 
       if (result.success) {
-        setPendingCount(result.count || 0);
+        setPendingCount(result.data?.length || 0); // Using data.length for count
       }
     } catch (error) {
       console.error('Error fetching pending count:', error);
@@ -114,37 +114,52 @@ const Sidebar = () => {
         
         // ✅ Poll for updates every 30 seconds
         const interval = setInterval(fetchPendingCount, 30000);
-        // Note: keep interval cleanup in combined return below
+        
+        // ✅ Subscribe to activity log socket events for real-time updates
+        const socket = io(SOCKET_URL, {
+          auth: { token: localStorage.getItem("pos-token") },
+        });
+
+        socket.on("connect", () => {
+          fetchPendingCount();
+        });
+        
+        socket.on("activityLog:created", fetchPendingCount);
+        socket.on("activityLog:approved", fetchPendingCount);
+        socket.on("activityLog:rejected", fetchPendingCount);
+
+        // Note: keep cleanup in combined return below
         var pendingInterval = interval;
+        var activitySocket = socket;
       }
 
       // ✅ Fetch stock counts for admin/superadmin
       fetchStockCounts();
 
       // ✅ Subscribe to inventory socket events to refresh counts
-      const socket = io(SOCKET_URL, {
+      const inventorySocket = io(SOCKET_URL, {
         auth: { token: localStorage.getItem("pos-token") },
       });
 
       const refresh = () => fetchStockCounts();
-      socket.on("connect", () => {
-        // Initial refresh on connect
-        refresh();
-      });
-      socket.on("inventory:update", refresh);
-      socket.on("inventory:bulk", refresh);
-      socket.on("inventory:created", refresh);
-      socket.on("inventory:deleted", refresh);
+      inventorySocket.on("connect", refresh);
+      inventorySocket.on("inventory:update", refresh);
+      inventorySocket.on("inventory:bulk", refresh);
+      inventorySocket.on("inventory:created", refresh);
+      inventorySocket.on("inventory:deleted", refresh);
 
       return () => {
-        // Cleanup intervals and socket
-        try { socket.disconnect(); } catch (_) {}
+        // Cleanup intervals and sockets
+        try { inventorySocket.disconnect(); } catch (_) {}
         if (typeof pendingInterval !== 'undefined') {
           clearInterval(pendingInterval);
         }
+        if (typeof activitySocket !== 'undefined') {
+          try { activitySocket.disconnect(); } catch (_) {}
+        }
       };
     }
-  }, []);
+  }, [userRole]); // Add userRole as dependency
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -183,7 +198,7 @@ const Sidebar = () => {
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-700">
           <div className="flex items-center">
             <span className="hidden lg:block text-lg xl:text-xl font-bold text-center">GO AGRI TRADING</span>
-            <span className="lg:hidden text-lg font-bold">IMS</span>
+            <span className="lg:hidden text-lg font-bold">GAT</span>
           </div>
           {/* Mobile close button in header */}
           <button
@@ -216,9 +231,9 @@ const Sidebar = () => {
                   <div className="relative flex-shrink-0">
                     <span className="text-xl md:text-lg">{item.icon}</span>
                     
-                    {/* ✅ Badge for pending approvals */}
+                    {/* ✅ Badge for pending approvals - Shows red circle with count */}
                     {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
-                      <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full animate-pulse">
+                      <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-red-600 rounded-full animate-pulse border border-white">
                         {pendingCount > 99 ? '99+' : pendingCount}
                       </span>
                     )}
@@ -252,14 +267,14 @@ const Sidebar = () => {
                   
                   {/* ✅ Badge for desktop collapsed view (md screens) */}
                   {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
-                    <span className="hidden md:flex lg:hidden ml-auto items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                    <span className="hidden md:flex lg:hidden ml-auto items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-red-600 rounded-full">
                       {pendingCount > 9 ? '9+' : pendingCount}
                     </span>
                   )}
 
                   {/* ✅ Badge for desktop expanded view (lg screens) */}
                   {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
-                    <span className="hidden lg:flex ml-auto items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                    <span className="hidden lg:flex ml-auto items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full animate-pulse">
                       {pendingCount > 99 ? '99+' : pendingCount}
                     </span>
                   )}
