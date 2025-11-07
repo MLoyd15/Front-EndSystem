@@ -178,6 +178,11 @@ export async function updateDelivery(req, res) {
 
     // Log the activity (before/after)
     try {
+      const pretty = (s) => String(s).replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const statusText = updates.status
+        ? pretty(updates.status)
+        : (updates.$set && updates.$set['lalamove.status'] ? pretty(updates.$set['lalamove.status']) : null);
+
       await createActivityLog({
         adminId: req.user._id,
         adminName: req.user.name,
@@ -185,7 +190,7 @@ export async function updateDelivery(req, res) {
         action: 'UPDATE_DELIVERY',
         entity: 'DELIVERY',
         entityId: original._id,
-        entityName: `${original.type || 'delivery'} (${original._id})`,
+        entityName: statusText || (original.type ? pretty(original.type) : 'Delivery'),
         changes: {
           before: {
             status: original.status,
@@ -200,7 +205,9 @@ export async function updateDelivery(req, res) {
           },
           after: updates
         },
-        description: `Updated delivery ${original._id}`,
+        description: statusText
+          ? `Changed delivery status to "${statusText}"`
+          : 'Updated delivery details',
         requiresApproval,
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
@@ -266,6 +273,9 @@ export async function updateLalamoveData(req, res) {
 
     // Log activity
     try {
+      const pretty = (s) => String(s).replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const statusText = lalamove?.status ? pretty(lalamove.status) : (merged?.status ? pretty(merged.status) : null);
+      const orderIdText = lalamove?.orderId || merged?.orderId || delivery?.lalamove?.orderId;
       await createActivityLog({
         adminId: req.user._id,
         adminName: req.user.name,
@@ -273,12 +283,14 @@ export async function updateLalamoveData(req, res) {
         action: 'UPDATE_DELIVERY',
         entity: 'DELIVERY',
         entityId: delivery._id,
-        entityName: `lalamove update (${delivery._id})`,
+        entityName: statusText || 'Lalamove',
         changes: {
           before: { lalamove: before.lalamove },
           after: { lalamove: merged }
         },
-        description: `Updated Lalamove data for delivery ${delivery._id}`,
+        description: statusText
+          ? `Updated Lalamove status to "${statusText}"${orderIdText ? ` (orderId: ${orderIdText})` : ''}`
+          : `Updated Lalamove data${orderIdText ? ` (orderId: ${orderIdText})` : ''}`,
         requiresApproval,
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
@@ -400,6 +412,9 @@ export async function assignDriverVehicle(req, res) {
 
     // Log activity
     try {
+      const pretty = (s) => String(s).replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const statusPretty = update.status ? pretty(update.status) : null;
+      const readyText = statusPretty === 'Assigned' ? '; Order is ready to pick up' : '';
       await createActivityLog({
         adminId: req.user._id,
         adminName: req.user.name,
@@ -407,7 +422,7 @@ export async function assignDriverVehicle(req, res) {
         action: 'UPDATE_DELIVERY',
         entity: 'DELIVERY',
         entityId: current._id,
-        entityName: `assignment (${current._id})`,
+        entityName: statusPretty || 'Assignment',
         changes: {
           before: {
             assignedDriver: before.assignedDriver,
@@ -416,7 +431,7 @@ export async function assignDriverVehicle(req, res) {
           },
           after: update
         },
-        description: `Updated driver/vehicle assignment for delivery ${current._id}`,
+        description: `Assigned driver "${driver.name}" and vehicle "${vehicle.plate}"${statusPretty ? `; status: "${statusPretty}"` : ''}${readyText}`,
         requiresApproval,
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
