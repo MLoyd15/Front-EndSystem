@@ -311,6 +311,9 @@ const Categories = () => {
     }
   };
 
+  // Filter only active categories for display
+  const activeCategories = categories.filter(cat => cat.active);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -367,7 +370,7 @@ const Categories = () => {
           </div>
           <div className="text-sm text-gray-500">
             Total categories:{" "}
-            <span className="font-medium text-gray-900">{categories?.length ?? 0}</span>
+            <span className="font-medium text-gray-900">{activeCategories.length}</span>
           </div>
         </div>
 
@@ -432,23 +435,23 @@ const Categories = () => {
             </form>
           </div>
 
-          {/* Categories List */}
+          {/* Categories List - Only Active */}
           <div className="rounded-2xl bg-white shadow-md ring-1 ring-black/5">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">Existing Categories</h2>
               <span className="text-xs text-gray-500">
-                {categories?.length || 0} item{(categories?.length || 0) === 1 ? "" : "s"}
+                {activeCategories.length} item{activeCategories.length === 1 ? "" : "s"}
               </span>
             </div>
 
             {/* Table container with sticky header and scroll */}
             <div className="max-h-[420px] overflow-auto">
-              {(!categories || categories.length === 0) ? (
+              {activeCategories.length === 0 ? (
                 <div className="p-8 text-center">
                   <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 grid place-items-center mb-2">
                     <span className="text-gray-400">🗂️</span>
                   </div>
-                  <p className="text-sm text-gray-500">No categories added yet.</p>
+                  <p className="text-sm text-gray-500">No active categories yet.</p>
                 </div>
               ) : (
                 <table className="min-w-full text-sm">
@@ -456,12 +459,11 @@ const Categories = () => {
                     <tr className="text-left text-gray-600">
                       <th className="py-3 px-4 font-medium">#</th>
                       <th className="py-3 px-4 font-medium">Category</th>
-                      <th className="py-3 px-4 font-medium text-center">Status</th>
                       <th className="py-3 px-4 font-medium text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {categories.map((cat, index) => (
+                    {activeCategories.map((cat, index) => (
                       <tr key={cat._id ?? index} className="hover:bg-gray-50">
                         <td className="py-3 px-4 w-12 text-gray-500 tabular-nums">{index + 1}</td>
                         <td className="py-3 px-4">
@@ -469,17 +471,6 @@ const Categories = () => {
                           {cat.categoryDescription ? (
                             <div className="text-xs text-gray-500 line-clamp-1">{cat.categoryDescription}</div>
                           ) : null}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {cat.active ? (
-                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700">
-                              Pending
-                            </span>
-                          )}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-center gap-2">

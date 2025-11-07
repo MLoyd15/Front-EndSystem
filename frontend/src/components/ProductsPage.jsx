@@ -3,6 +3,7 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import InventoryAudit from "./InventoryAudit";
 import KpiCard from "../components/kpicard";
+import Categories from "./categories";
 import { VITE_API_BASE, VITE_SOCKET_URL } from "../config";
 
 // ─── Config ────────────────────────────────────────────────────────────────────
@@ -22,6 +23,7 @@ const DATA_PLACEHOLDER_48 =
      </svg>`
   );
 
+// ─── Modal Component ───────────────────────────────────────────────────────────
 const Modal = ({ isOpen, onClose, title, message, type = "info" }) => {
   if (!isOpen) return null;
 
@@ -73,6 +75,45 @@ const Modal = ({ isOpen, onClose, title, message, type = "info" }) => {
   );
 };
 
+// ─── Confirm Modal Component ───────────────────────────────────────────────────
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 ring-2 ring-red-200 flex items-center justify-center flex-shrink-0 text-xl font-bold">
+            ⚠
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-sm text-gray-600">{message}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const toUrlArray = (text) =>
   String(text || "")
     .split(/[\n,]/)
@@ -86,6 +127,7 @@ const firstImage = (p) => {
 
 export default function ProductsPage() {
   const [modal, setModal] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, onConfirm: null, title: "", message: "" });
 
   const showModal = (title, message, type = "success") => {
     setModal({ title, message, type });
@@ -93,6 +135,14 @@ export default function ProductsPage() {
 
   const closeModal = () => {
     setModal(null);
+  };
+
+  const showConfirmModal = (title, message, onConfirm) => {
+    setConfirmModal({ isOpen: true, title, message, onConfirm });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ isOpen: false, onConfirm: null, title: "", message: "" });
   };
 
   const [items, setItems] = useState([]);
@@ -128,6 +178,9 @@ export default function ProductsPage() {
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockProduct, setStockProduct] = useState(null);
   const [newStock, setNewStock] = useState(0);
+
+  // Categories toggle state
+  const [showCategories, setShowCategories] = useState(false);
 
   const resetForm = () => {
     setEditId(null);
@@ -239,7 +292,7 @@ export default function ProductsPage() {
   const handleAddCategory = async (e) => {
     e.preventDefault();
     if (!newCategoryName.trim()) {
-      showModal("Error", "Category name cannot be empty", "error");
+      showModal("Validation Error", "Category name cannot be empty", "warning");
       return;
     }
 
@@ -247,14 +300,27 @@ export default function ProductsPage() {
       const res = await axios.post(
         `${API}/category/add`,
         { categoryName: newCategoryName.trim() },
-        { headers: { ...authHeader(), "Content-Type": "application/json" } }
+        { 
+          headers: { ...authHeader(), "Content-Type": "application/json" },
+          validateStatus: function (status) {
+            return true;
+          }
+        }
       );
       
-      if (res.data.success) {
-        const newCategory = res.data.category || res.data;
-        setCategories((prev) => [...prev, newCategory]);
-        setCatForForm(newCategory._id);
-        showModal("Success", "Category added successfully!", "success");
+      if (res.status >= 200 && res.status < 300 && res.data.success) {
+        const message = res.data.message || "Category added successfully!";
+        const isApprovalPending = message.includes("approval") || message.includes("pending");
+        
+        if (isApprovalPending) {
+          showModal("Approval Pending", "Category has been submitted and is waiting for superadmin/owner approval.", "info");
+        } else {
+          const newCategory = res.data.category || res.data;
+          setCategories((prev) => [...prev, newCategory]);
+          setCatForForm(newCategory._id);
+          showModal("Success", "Category added successfully!", "success");
+        }
+        
         setShowAddCategory(false);
         setNewCategoryName("");
         fetchCategories();
@@ -281,12 +347,30 @@ export default function ProductsPage() {
       arr.map((p) => (p._id === id ? { ...p, catalog: value } : p))
     );
     try {
-      await axios.patch(
+      const response = await axios.patch(
         `${API}/products/${id}/catalog`,
         { value },
-        { headers: { ...authHeader(), "Content-Type": "application/json" } }
+        { 
+          headers: { ...authHeader(), "Content-Type": "application/json" },
+          validateStatus: function (status) {
+            return true;
+          }
+        }
       );
-      showModal("Success", `Catalog ${value ? "enabled" : "disabled"} successfully`, "success");
+      
+      if (response.status >= 200 && response.status < 300 && response.data.success) {
+        const message = response.data.message || `Catalog ${value ? "enabled" : "disabled"} successfully`;
+        const isApprovalPending = response.data.requiresApproval || message.includes("pending") || message.includes("approval");
+        
+        if (isApprovalPending) {
+          showModal("Approval Pending", "Catalog change has been submitted and is waiting for superadmin approval.", "info");
+        } else {
+          showModal("Success", `Catalog ${value ? "enabled" : "disabled"} successfully`, "success");
+        }
+      } else {
+        setItems(prev);
+        showModal("Error", response.data.message || "Failed to update catalog flag", "error");
+      }
     } catch (e) {
       setItems(prev);
       showModal("Error", e?.response?.data?.message || "Failed to update catalog flag", "error");
@@ -321,15 +405,45 @@ export default function ProductsPage() {
       };
 
       if (editId) {
-        await axios.patch(`${API}/products/${editId}`, payload, {
+        const response = await axios.patch(`${API}/products/${editId}`, payload, {
           headers: { ...authHeader(), "Content-Type": "application/json" },
+          validateStatus: function (status) {
+            return true;
+          }
         });
-        showModal("Success", "Product updated successfully!", "success");
+        
+        if (response.status >= 200 && response.status < 300 && response.data.success) {
+          const message = response.data.message || "Product updated successfully!";
+          const isApprovalPending = response.data.requiresApproval || message.includes("approval") || message.includes("pending");
+          
+          if (isApprovalPending) {
+            showModal("Approval Pending", "Product update has been submitted and is waiting for superadmin approval.", "info");
+          } else {
+            showModal("Success", "Product updated successfully!", "success");
+          }
+        } else {
+          showModal("Error", response.data.message || "Failed to update product", "error");
+        }
       } else {
-        await axios.post(`${API}/products`, payload, {
+        const response = await axios.post(`${API}/products`, payload, {
           headers: { ...authHeader(), "Content-Type": "application/json" },
+          validateStatus: function (status) {
+            return true;
+          }
         });
-        showModal("Success", "Product added successfully!", "success");
+        
+        if (response.status >= 200 && response.status < 300 && response.data.success) {
+          const message = response.data.message || "Product added successfully!";
+          const isApprovalPending = response.data.requiresApproval || message.includes("approval") || message.includes("pending");
+          
+          if (isApprovalPending) {
+            showModal("Approval Pending", "Product has been submitted and is waiting for superadmin approval.", "info");
+          } else {
+            showModal("Success", "Product added successfully!", "success");
+          }
+        } else {
+          showModal("Error", response.data.message || "Failed to add product", "error");
+        }
       }
 
       setShowAdd(false);
@@ -365,14 +479,36 @@ export default function ProductsPage() {
   };
 
   const onDelete = async (id) => {
-    if (!window.confirm("Delete this product?")) return;
-    try {
-      await axios.delete(`${API}/products/${id}`, { headers: authHeader() });
-      showModal("Success", "Product deleted successfully!", "success");
-      fetchProducts();
-    } catch (e) {
-      showModal("Error", e?.response?.data?.message || "Failed to delete", "error");
-    }
+    showConfirmModal(
+      "Delete Product",
+      "Are you sure you want to delete this product? This action cannot be undone.",
+      async () => {
+        try {
+          const response = await axios.delete(`${API}/products/${id}`, { 
+            headers: authHeader(),
+            validateStatus: function (status) {
+              return true;
+            }
+          });
+          
+          if (response.status >= 200 && response.status < 300 && response.data.success) {
+            const message = response.data.message || "Product deleted successfully!";
+            const isApprovalPending = response.data.requiresApproval || message.includes("pending") || message.includes("approval");
+            
+            if (isApprovalPending) {
+              showModal("Approval Pending", "Product deletion has been submitted and is waiting for superadmin approval.", "info");
+            } else {
+              showModal("Success", "Product deleted successfully!", "success");
+            }
+            fetchProducts();
+          } else {
+            showModal("Error", response.data.message || "Failed to delete product", "error");
+          }
+        } catch (e) {
+          showModal("Error", e?.response?.data?.message || "Failed to delete", "error");
+        }
+      }
+    );
   };
 
   const openStockModal = (product) => {
@@ -392,12 +528,30 @@ export default function ProductsPage() {
     e.preventDefault();
     if (!stockProduct) return;
     try {
-      await axios.patch(
+      const response = await axios.patch(
         `${API}/products/${stockProduct._id}`,
         { stock: Number(newStock) },
-        { headers: { ...authHeader(), "Content-Type": "application/json" } }
+        { 
+          headers: { ...authHeader(), "Content-Type": "application/json" },
+          validateStatus: function (status) {
+            return true;
+          }
+        }
       );
-      showModal("Success", "Stock updated successfully!", "success");
+      
+      if (response.status >= 200 && response.status < 300 && response.data.success) {
+        const message = response.data.message || "Stock updated successfully!";
+        const isApprovalPending = response.data.requiresApproval || message.includes("approval") || message.includes("pending");
+        
+        if (isApprovalPending) {
+          showModal("Approval Pending", "Stock update has been submitted and is waiting for superadmin approval.", "info");
+        } else {
+          showModal("Success", "Stock updated successfully!", "success");
+        }
+      } else {
+        showModal("Error", response.data.message || "Failed to update stock", "error");
+      }
+      
       setShowStockModal(false);
       setStockProduct(null);
       fetchProducts();
@@ -423,6 +577,14 @@ export default function ProductsPage() {
         />
       )}
 
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+      />
+
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Inventory Tracking</h1>
         <button
@@ -430,7 +592,7 @@ export default function ProductsPage() {
             resetForm();
             setShowAdd(true);
           }}
-          className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
+          className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 transition"
         >
           + Add product
         </button>
@@ -477,6 +639,12 @@ export default function ProductsPage() {
               <option value="true">Yes</option>
               <option value="false">No</option>
             </select>
+            <button
+              onClick={() => setShowCategories(!showCategories)}
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
+            >
+              Manage Categories
+            </button>
             <span className="text-sm text-gray-500">
               Showing {items.length} of {total}
             </span>
@@ -983,6 +1151,32 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+
+      {/* Categories Modal */}
+      {showCategories && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowCategories(false)}
+          />
+          <div className="relative bg-white w-full max-w-6xl rounded-2xl shadow-2xl mx-4 max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Category Management</h2>
+              <button
+                onClick={() => setShowCategories(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+              <Categories />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Categories Component */}
 
       <InventoryAudit />
     </div>

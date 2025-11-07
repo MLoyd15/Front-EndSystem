@@ -16,21 +16,25 @@ import {
 } from "react-icons/fa";
 import { NavLink } from "react-router";
 import { MdDiscount, MdHistory, MdPendingActions} from "react-icons/md";
-import { VITE_API_BASE } from "../config";
+import { VITE_API_BASE, VITE_SOCKET_URL } from "../config";
+import io from "socket.io-client";
 
 const API = VITE_API_BASE;
+const SOCKET_URL = VITE_SOCKET_URL;
 
 const Sidebar = () => {
   const [items, setItems] = useState([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [userRole, setUserRole] = useState(null);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [outOfStockCount, setOutOfStockCount] = useState(0);
 
   const menuItems = [
     { name: "Maintenance", path: "/admin-dashboard/maintenance", icon: <FaTools />, isParent: false, superAdminOnly: true },
     { name: "Dashboard", path: "/admin-dashboard", icon: <FaHome />, isParent: true, superAdminOnly: true },
     { name: "Categories", path: "/admin-dashboard/categories", icon: <FaTable />, isParent: false },
-    { name: "Products", path: "/admin-dashboard/products", icon: <FaBox />, isParent: false },
+    { name: "Products", path: "/admin-dashboard/products", icon: <FaBox />, isParent: false, hasStockBadge: true },
     { name: "Delivery", path: "/admin-dashboard/delivery", icon: <FaTruck />, isParent: false },
     { name: "Product review", path: "/admin-dashboard/review", icon: <FaStar />, isParent: false },
     { name: "Product Promo", path: "/admin-dashboard/promo", icon: <MdDiscount />, isParent: false, superAdminOnly: true },
@@ -69,6 +73,27 @@ const Sidebar = () => {
     }
   };
 
+  // ✅ Fetch stock counts (low stock and out of stock)
+  const fetchStockCounts = async () => {
+    try {
+      const response = await fetch(`${API}/admin/stats`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('pos-token')}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json();
+      if (data) {
+        const low = Number(data.lowStock ?? 0) || 0;
+        const out = Number(data.outOfStock ?? 0) || 0;
+        setLowStockCount(low);
+        setOutOfStockCount(out);
+      }
+    } catch (err) {
+      console.error('Error fetching stock counts:', err);
+    }
+  };
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("pos-user") || "{}");
     const role = user?.role;
@@ -89,8 +114,35 @@ const Sidebar = () => {
         
         // ✅ Poll for updates every 30 seconds
         const interval = setInterval(fetchPendingCount, 30000);
-        return () => clearInterval(interval);
+        // Note: keep interval cleanup in combined return below
+        var pendingInterval = interval;
       }
+
+      // ✅ Fetch stock counts for admin/superadmin
+      fetchStockCounts();
+
+      // ✅ Subscribe to inventory socket events to refresh counts
+      const socket = io(SOCKET_URL, {
+        auth: { token: localStorage.getItem("pos-token") },
+      });
+
+      const refresh = () => fetchStockCounts();
+      socket.on("connect", () => {
+        // Initial refresh on connect
+        refresh();
+      });
+      socket.on("inventory:update", refresh);
+      socket.on("inventory:bulk", refresh);
+      socket.on("inventory:created", refresh);
+      socket.on("inventory:deleted", refresh);
+
+      return () => {
+        // Cleanup intervals and socket
+        try { socket.disconnect(); } catch (_) {}
+        if (typeof pendingInterval !== 'undefined') {
+          clearInterval(pendingInterval);
+        }
+      };
     }
   }, []);
 
@@ -170,6 +222,22 @@ const Sidebar = () => {
                         {pendingCount > 99 ? '99+' : pendingCount}
                       </span>
                     )}
+
+                    {/* ✅ Stock badges on Products (icon overlay) */}
+                    {item.hasStockBadge && (lowStockCount > 0 || outOfStockCount > 0) && (
+                      <div className="absolute -top-2 -right-2 flex gap-0.5">
+                        {outOfStockCount > 0 && (
+                          <span className="flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-600 rounded-full">
+                            {outOfStockCount > 9 ? '9+' : outOfStockCount}
+                          </span>
+                        )}
+                        {lowStockCount > 0 && (
+                          <span className="flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-yellow-500 rounded-full">
+                            {lowStockCount > 9 ? '9+' : lowStockCount}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Desktop large screen - show text */}
@@ -195,12 +263,35 @@ const Sidebar = () => {
                       {pendingCount > 99 ? '99+' : pendingCount}
                     </span>
                   )}
+
+                  {/* ✅ Stock badges for desktop views */}
+                  {item.hasStockBadge && (lowStockCount > 0 || outOfStockCount > 0) && (
+                    <span className="hidden md:flex ml-auto gap-2">
+                      {outOfStockCount > 0 && (
+                        <span className="items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full hidden lg:inline-flex">
+                          Out: {outOfStockCount}
+                        </span>
+                      )}
+                      {lowStockCount > 0 && (
+                        <span className="items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-yellow-500 rounded-full hidden lg:inline-flex">
+                          Low: {lowStockCount}
+                        </span>
+                      )}
+                      {/* Collapsed md view shows compact counts */}
+                      <span className="md:inline-flex lg:hidden items-center justify-center w-auto px-2 py-0.5 text-xs font-bold text-white bg-gray-700 rounded-full">
+                        {outOfStockCount > 0 ? `O:${outOfStockCount}` : ''}{(outOfStockCount > 0 && lowStockCount > 0) ? ' | ' : ''}{lowStockCount > 0 ? `L:${lowStockCount}` : ''}
+                      </span>
+                    </span>
+                  )}
                   
                   {/* Tooltip for medium screens */}
                   <div className="absolute left-16 bg-gray-900 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap hidden md:block lg:hidden">
                     {item.name}
                     {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
                       <span className="ml-2 text-red-400">({pendingCount})</span>
+                    )}
+                    {item.hasStockBadge && (lowStockCount > 0 || outOfStockCount > 0) && (
+                      <span className="ml-2 text-yellow-400">{outOfStockCount > 0 ? `Out:${outOfStockCount}` : ''}{(outOfStockCount > 0 && lowStockCount > 0) ? ' | ' : ''}{lowStockCount > 0 ? `Low:${lowStockCount}` : ''}</span>
                     )}
                   </div>
                 </NavLink>

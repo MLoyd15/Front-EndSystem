@@ -155,6 +155,94 @@ const PendingApprovals = () => {
     });
   };
 
+  // Format field names to be more readable
+  const formatFieldName = (fieldName) => {
+    if (!fieldName) return '';
+    
+    // Special cases
+    const specialCases = {
+      '_id': 'ID',
+      'categoryName': 'Category',
+      'categoryDescription': 'Description',
+      'updatedAt': 'Updated',
+      'createdAt': 'Created',
+      'active': 'Active',
+      'productName': 'Product Name',
+      'price': 'Price',
+      'stock': 'Stock',
+      'description': 'Description',
+      'weight': 'Weight',
+      'unit': 'Unit',
+    };
+
+    if (specialCases[fieldName]) {
+      return specialCases[fieldName];
+    }
+
+    // Convert camelCase to Title Case
+    return fieldName
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
+  };
+
+  // Format field values to be more readable
+  const formatFieldValue = (value) => {
+    if (value === null || value === undefined) {
+      return <span className="text-gray-400 italic">Empty</span>;
+    }
+    
+    if (typeof value === 'boolean') {
+      return value ? (
+        <span className="text-green-600 font-medium">Yes</span>
+      ) : (
+        <span className="text-red-600 font-medium">No</span>
+      );
+    }
+    
+    if (value instanceof Date || !isNaN(Date.parse(value))) {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+    }
+    
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+    
+    // For prices, add currency formatting
+    if (typeof value === 'number' && (value.toString().includes('.') || value > 100)) {
+      return `₱${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    
+    return String(value);
+  };
+
+  // Highlight changed values
+  const highlightChanges = (key, newValue, oldData) => {
+    const oldValue = oldData && oldData[key];
+    const isChanged = oldValue !== newValue;
+    
+    const formattedValue = formatFieldValue(newValue);
+    
+    if (isChanged && oldValue !== undefined) {
+      return (
+        <span className="bg-green-100 px-1 rounded">
+          {formattedValue}
+        </span>
+      );
+    }
+    
+    return formattedValue;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -253,24 +341,55 @@ const PendingApprovals = () => {
 
                     {/* Changes Preview */}
                     {log.changes && (
-                      <div className="mt-4 bg-gray-50 rounded-lg p-3">
-                        <div className="text-xs font-medium text-gray-500 mb-2">
-                          CHANGES PREVIEW
+                      <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                        <div className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">
+                          Changes Preview
                         </div>
-                        <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="grid grid-cols-2 gap-6">
+                          {/* Before Column */}
                           <div>
-                            <div className="text-gray-500 mb-1">Before:</div>
-                            <pre className="text-gray-700 overflow-x-auto bg-white p-2 rounded">
-                              {JSON.stringify(log.changes.before, null, 2).slice(0, 200)}
-                              {JSON.stringify(log.changes.before).length > 200 && '...'}
-                            </pre>
+                            <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                              <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                              Before
+                            </div>
+                            <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                              {log.changes.before === null ? (
+                                <span className="text-sm text-gray-400 italic">Empty</span>
+                              ) : typeof log.changes.before === 'object' ? (
+                                Object.entries(log.changes.before).map(([key, value], index) => (
+                                  <div key={index} className="text-sm">
+                                    <span className="text-gray-600 font-medium">{formatFieldName(key)}:</span>{' '}
+                                    <span className="text-gray-800">{formatFieldValue(value)}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <span className="text-sm text-gray-800">{String(log.changes.before)}</span>
+                              )}
+                            </div>
                           </div>
+                          
+                          {/* After Column */}
                           <div>
-                            <div className="text-gray-500 mb-1">After:</div>
-                            <pre className="text-gray-700 overflow-x-auto bg-white p-2 rounded">
-                              {JSON.stringify(log.changes.after, null, 2).slice(0, 200)}
-                              {JSON.stringify(log.changes.after).length > 200 && '...'}
-                            </pre>
+                            <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                              After
+                            </div>
+                            <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                              {log.changes.after === null ? (
+                                <span className="text-sm text-gray-400 italic">Deleted</span>
+                              ) : typeof log.changes.after === 'object' ? (
+                                Object.entries(log.changes.after).map(([key, value], index) => (
+                                  <div key={index} className="text-sm">
+                                    <span className="text-gray-600 font-medium">{formatFieldName(key)}:</span>{' '}
+                                    <span className="text-gray-800">
+                                      {highlightChanges(key, value, log.changes.before)}
+                                    </span>
+                                  </div>
+                                ))
+                              ) : (
+                                <span className="text-sm text-gray-800">{String(log.changes.after)}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

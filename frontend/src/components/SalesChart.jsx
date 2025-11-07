@@ -21,6 +21,7 @@ const CURRENCY = "₱";
 const COLORS = {
   revenue: "#6366f1",
   units: "#10b981",
+  target: "#ef4444",
   revenueGradient: "rgba(99, 102, 241, 0.1)",
   unitsGradient: "rgba(16, 185, 129, 0.1)",
   grid: "#f1f5f9",
@@ -417,7 +418,7 @@ const SimpleReceipt = ({ orderData, onClose }) => {
 };
 
 // ============================================================================
-// ENHANCED SALES CHART COMPONENT
+// ENHANCED SALES CHART COMPONENT WITH AUTO 5% TARGETS
 // ============================================================================
 export default function EnhancedSalesChart() {
   const [orders, setOrders] = useState([]);
@@ -426,6 +427,7 @@ export default function EnhancedSalesChart() {
   const [groupBy, setGroupBy] = useState("day");
   const [showRevenue, setShowRevenue] = useState(true);
   const [showUnits, setShowUnits] = useState(true);
+  const [showTarget, setShowTarget] = useState(true);
   const [chartType, setChartType] = useState("line");
   const [productIndex, setProductIndex] = useState(new Map());
   
@@ -659,12 +661,27 @@ export default function EnhancedSalesChart() {
       return acc;
     }, {});
 
-    return Object.values(grouped)
-      .map((row) => ({
-        ...row,
-        avgOrderValue: row.orderCount ? row.revenue / row.orderCount : 0,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const sortedData = Object.values(grouped)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((row, idx, arr) => {
+        // Calculate target: 5% higher than previous period's revenue
+        let target = null;
+        if (idx === 0) {
+          // First period: target is 5% higher than its own revenue
+          target = row.revenue * 1.05;
+        } else {
+          // Subsequent periods: 5% higher than previous period's actual revenue
+          target = arr[idx - 1].revenue * 1.05;
+        }
+
+        return {
+          ...row,
+          avgOrderValue: row.orderCount ? row.revenue / row.orderCount : 0,
+          target: target,
+        };
+      });
+
+    return sortedData;
   }, [orders, getDateKey]);
 
   const metrics = useMemo(() => {
@@ -672,13 +689,19 @@ export default function EnhancedSalesChart() {
     const totalUnits = processedData.reduce((s, d) => s + d.units, 0);
     const totalOrders = processedData.reduce((s, d) => s + d.orderCount, 0);
     const avgOrderValue = totalOrders ? totalRevenue / totalOrders : 0;
-    return { totalRevenue, totalUnits, totalOrders, avgOrderValue };
+    
+    // Calculate target achievement
+    const totalTarget = processedData.reduce((s, d) => s + (d.target || 0), 0);
+    const targetAchievement = totalTarget > 0 ? (totalRevenue / totalTarget) * 100 : 0;
+    
+    return { totalRevenue, totalUnits, totalOrders, avgOrderValue, targetAchievement };
   }, [processedData]);
 
   const { maxRevenue, maxUnits } = useMemo(() => {
     let mr = 0, mu = 0;
     for (const d of processedData) {
-      if (d.revenue > mr) mr = d.revenue;
+      const maxVal = Math.max(d.revenue, d.target || 0);
+      if (maxVal > mr) mr = maxVal;
       if (d.units > mu) mu = d.units;
     }
     return { maxRevenue: Math.ceil(mr * 1.1), maxUnits: Math.ceil(mu * 1.1) };
@@ -720,6 +743,7 @@ export default function EnhancedSalesChart() {
     if (!active || !payload?.length) return null;
     const revenueData = payload.find((p) => p.dataKey === "revenue");
     const unitsData = payload.find((p) => p.dataKey === "units");
+    const targetData = payload.find((p) => p.dataKey === "target");
     const row = processedData.find((d) => d.date === label);
 
     return (
@@ -733,6 +757,12 @@ export default function EnhancedSalesChart() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Revenue</span>
               <span className="font-semibold text-indigo-600">{formatCurrency(revenueData.value)}</span>
+            </div>
+          )}
+          {targetData && targetData.value && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Target</span>
+              <span className="font-semibold text-red-600">{formatCurrency(targetData.value)}</span>
             </div>
           )}
           {unitsData && (
@@ -930,6 +960,19 @@ export default function EnhancedSalesChart() {
                     </>
                   )}
 
+                  {showTarget && (
+                    <Line
+                      yAxisId="left"
+                      name="Target (5% Growth)"
+                      type="monotone"
+                      dataKey="target"
+                      stroke={COLORS.target}
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ r: 3, stroke: "white", strokeWidth: 2, fill: COLORS.target }}
+                    />
+                  )}
+
                   {showUnits && (
                     <>
                       {chartType === "area" && (
@@ -1017,6 +1060,14 @@ export default function EnhancedSalesChart() {
                 onClick={() => setShowRevenue(!showRevenue)}
               >
                 {showRevenue ? "Hide" : "Show"} Revenue
+              </button>
+              <button
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  showTarget ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+                onClick={() => setShowTarget(!showTarget)}
+              >
+                {showTarget ? "Hide" : "Show"} Target
               </button>
               <button
                 className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${

@@ -2,15 +2,12 @@
 import express from "express";
 import * as ctrl from "../controlers/productController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
-
+import { bypassApprovalForSuperAdmin } from "../middleware/activityLogMiddleware.js"; // ← ADDED
 // NEW: memory multer + cloud controllers
 import { uploadMemory } from "../middleware/multerMemory.js";
 import { uploadProductImages, deleteProductImage } from "../controlers/uploadController.js";
 
 const router = express.Router();
-
-/* ⚠️ CRITICAL: Specific routes MUST come BEFORE parameterized routes!
-   Otherwise "/audit" gets matched as ":id" parameter */
 
 // Public list routes (no auth required)
 router.get("/flat", ctrl.listFlat);
@@ -39,14 +36,14 @@ router.delete(
 // ✅ Single product route (AFTER specific routes)
 router.get("/:id", ctrl.getOne);
 
-// Admin product CRUD (auth required)
-router.post("/", authMiddleware, ctrl.create);
-router.patch("/:id", authMiddleware, ctrl.update);
-router.put("/:id", authMiddleware, ctrl.update);
-router.delete("/:id", authMiddleware, ctrl.remove);
+// ✅ Admin product CRUD with approval workflow (CHANGED)
+router.post("/", authMiddleware, bypassApprovalForSuperAdmin, ctrl.create);
+router.patch("/:id", authMiddleware, bypassApprovalForSuperAdmin, ctrl.update);
+router.put("/:id", authMiddleware, bypassApprovalForSuperAdmin, ctrl.update);
+router.delete("/:id", authMiddleware, bypassApprovalForSuperAdmin, ctrl.remove);
 
-// Catalog toggle
-router.patch("/:id/catalog", ctrl.toggleCatalog);
+// Catalog toggle (no approval needed)
+router.patch("/:id/catalog", authMiddleware, ctrl.toggleCatalog);
 
 // User routes (auth required)
 router.delete("/:productId/reviews/:reviewId", authMiddleware, ctrl.deleteReview);
