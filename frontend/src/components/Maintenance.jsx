@@ -1,5 +1,6 @@
 // pages/Maintenance.jsx
 import React, { useState, useEffect } from 'react';
+import { useAlert } from '../context/AlertContext.jsx';
 import axios from 'axios';
 import { VITE_API_BASE } from '../config';
 import { 
@@ -11,6 +12,7 @@ const Maintenance = () => {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { showAlert } = useAlert();
   
   const [settings, setSettings] = useState({
     enabled: false,
@@ -56,10 +58,10 @@ const Maintenance = () => {
       setMaintenanceMode(newState);
       setSettings(prev => ({ ...prev, enabled: newState }));
       
-      alert(newState ? '🔧 Maintenance mode activated' : '✅ Maintenance mode deactivated');
+      showAlert(newState ? 'Maintenance mode activated' : 'Maintenance mode deactivated', { title: 'Success', type: 'success' });
     } catch (error) {
       console.error('Error toggling maintenance:', error);
-      alert(error?.response?.data?.message || 'Failed to toggle maintenance mode');
+      showAlert(error?.response?.data?.message || 'Failed to toggle maintenance mode', { title: 'Error', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -71,10 +73,10 @@ const Maintenance = () => {
       await axios.put(`${VITE_API_BASE}/maintenance/settings`, settings, {
         headers: auth()
       });
-      alert('✅ Settings updated successfully');
+      showAlert('Settings updated successfully', { title: 'Success', type: 'success' });
     } catch (error) {
       console.error('Error updating settings:', error);
-      alert(error?.response?.data?.message || 'Failed to update settings');
+      showAlert(error?.response?.data?.message || 'Failed to update settings', { title: 'Error', type: 'error' });
     } finally {
       setSaving(false);
     }

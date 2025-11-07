@@ -4,10 +4,39 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Bike, Search, Filter, Clock, MapPin, User, Weight,
   ChevronRight, X, CheckCircle2, ShoppingCart, Phone, CheckCircle, XCircle,
-  Truck, RefreshCcw
+  Truck, RefreshCcw, Info
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
 import LalamoveIntegration from "../components/LalamoveIntegration";
+
+/* --------------------------- UI: Modal --------------------------- */
+function InfoModal({ title, message, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-w-[92vw] overflow-hidden p-5">
+        <div className="bg-blue-50 ring-1 ring-blue-200 rounded-xl p-4 text-blue-800">
+          <div className="flex items-start gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 text-white">
+              <Info className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <div className="text-base font-semibold">{title}</div>
+              <div className="text-sm text-blue-900/90 whitespace-pre-line">{message}</div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ----------------------------- API ----------------------------- */
 const API = `${VITE_API_BASE}/delivery`;
@@ -75,7 +104,7 @@ const vehiclePill = (row) => {
 
 const lalamoveBadge = (row) => {
   if (row?.lalamove?.orderId) {
-    return chip("pink", "Lalamove");
+    return chip("amber", "Lalamove");
   }
   return null;
 };
@@ -96,6 +125,11 @@ export default function Deliveries() {
   
   const [lalamoveModal, setLalamoveModal] = useState(false);
   const [lalamoveDelivery, setLalamoveDelivery] = useState(null);
+
+  // Modal state for approval messages
+  const [modal, setModal] = useState(null);
+  const showModal = (title, message) => setModal({ title, message });
+  const closeModal = () => setModal(null);
 
   const [page, setPage] = useState(1);
 
@@ -208,11 +242,22 @@ export default function Deliveries() {
       if (isPickup && st !== "cancelled") {
         updateData.pickupLocation = "Poblacion 1, Moncada Tarlac, Philippines";
       }
-      
-      await axios.put(`${API}/${id}`, updateData, { headers: auth() });
+      const res = await axios.put(`${API}/${id}`, updateData, { headers: auth(), validateStatus: () => true });
+      if (res.status >= 200 && res.status < 300) {
+        const msg = res.data?.message || "Delivery update submitted";
+        if (res.data?.requiresApproval) {
+          showModal("Approval Pending", "Your changes have been submitted and are awaiting superadmin approval.");
+        } else {
+          showModal("Success", msg);
+        }
+      } else {
+        const errMsg = res.data?.message || "Failed to update delivery";
+        showModal("Error", errMsg);
+      }
       load();
     } catch (e) {
       console.error('Error updating status:', e?.response?.data || e.message);
+      showModal("Error", e?.response?.data?.message || e.message || "Failed to update status");
     }
   };
 
@@ -225,36 +270,71 @@ export default function Deliveries() {
       if (!saveData.pickupLocation) {
         saveData.pickupLocation = "Poblacion 1, Moncada Tarlac, Philippines";
       }
-      
-      await axios.put(`${API}/${id}`, saveData, { headers: auth() });
+      const res = await axios.put(`${API}/${id}`, saveData, { headers: auth(), validateStatus: () => true });
+      if (res.status >= 200 && res.status < 300) {
+        const msg = res.data?.message || "Delivery update submitted";
+        if (res.data?.requiresApproval) {
+          showModal("Approval Pending", "Your changes have been submitted and are awaiting superadmin approval.");
+        } else {
+          showModal("Success", msg);
+        }
+      } else {
+        const errMsg = res.data?.message || "Failed to save pickup details";
+        showModal("Error", errMsg);
+      }
       setEditing(null);
       load();
     } catch (e) {
       console.error('Error saving pickup:', e?.response?.data || e.message);
+      showModal("Error", e?.response?.data?.message || e.message || "Failed to save pickup details");
     }
   };
 
   const onAssignInHouse = async (id, { driverId, vehicleId }) => {
     try {
-      await axios.put(
+      const res = await axios.put(
         `${API}/${id}/assign`,
         { driverId, vehicleId, status: "assigned" },
-        { headers: auth() }
+        { headers: auth(), validateStatus: () => true }
       );
+      if (res.status >= 200 && res.status < 300) {
+        const msg = res.data?.message || "Assignment submitted";
+        if (res.data?.requiresApproval) {
+          showModal("Approval Pending", "Assignment changes have been submitted and are awaiting superadmin approval.");
+        } else {
+          showModal("Success", msg);
+        }
+      } else {
+        const errMsg = res.data?.message || "Failed to assign driver/vehicle";
+        showModal("Error", errMsg);
+      }
       setEditing(null);
       load();
     } catch (e) {
       console.error(e);
+      showModal("Error", e?.response?.data?.message || e.message || "Failed to assign driver/vehicle");
     }
   };
 
   const onSaveThirdParty = async (id, provider) => {
     try {
-      await axios.put(`${API}/${id}`, { thirdPartyProvider: provider }, { headers: auth() });
+      const res = await axios.put(`${API}/${id}`, { thirdPartyProvider: provider }, { headers: auth(), validateStatus: () => true });
+      if (res.status >= 200 && res.status < 300) {
+        const msg = res.data?.message || "Provider update submitted";
+        if (res.data?.requiresApproval) {
+          showModal("Approval Pending", "Provider change has been submitted and is awaiting superadmin approval.");
+        } else {
+          showModal("Success", msg);
+        }
+      } else {
+        const errMsg = res.data?.message || "Failed to save provider";
+        showModal("Error", errMsg);
+      }
       setEditing(null);
       load();
     } catch (e) {
       console.error(e);
+      showModal("Error", e?.response?.data?.message || e.message || "Failed to save provider");
     }
   };
 
@@ -347,7 +427,7 @@ export default function Deliveries() {
       <button
         onClick={() => syncLalamoveStatus(delivery._id, delivery.lalamove.orderId)}
         disabled={isSyncing}
-        className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-pink-300 text-pink-700 hover:bg-pink-50 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-orange-300 text-orange-700 hover:bg-orange-50 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         title="Sync Lalamove Status"
       >
         <RefreshCcw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -358,6 +438,13 @@ export default function Deliveries() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
+      {modal && (
+        <InfoModal
+          title={modal.title}
+          message={modal.message}
+          onClose={closeModal}
+        />
+      )}
       <div className="relative max-w-7xl mx-auto px-6 pt-10 pb-8">
         <div className="flex items-center gap-3 mb-4">
           <Package className="w-5 h-5 text-emerald-600" />
@@ -564,7 +651,7 @@ export default function Deliveries() {
                 className={`rounded-3xl shadow-xl ring-1 p-5 
                   ${tab === "pickup" ? "bg-emerald-50 ring-emerald-200" : ""}
                   ${tab === "in-house" ? "bg-amber-50 ring-amber-200": ""}
-                  ${tab === "third-party" ? "bg-sky-100 ring-sky-200" : ""}`}
+                  ${tab === "third-party" ? "bg-orange-50 ring-orange-200" : ""}`}
               >
                 <h3 className="font-semibold mb-4 text-black">
                   {tab === "pickup"
@@ -892,43 +979,21 @@ function CompletedCancelledSummary({ deliveries, tab }) {
 }
 
 function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus, onOpenLalamove }) {
-  const [provider, setProvider] = useState(row?.thirdPartyProvider || "");
-  
   return (
     <div className="space-y-3">
-      <label className="text-sm text-slate-600">3rd-Party Provider</label>
-      
+      <label className="text-sm text-orange-700">3rd-Party Provider</label>
+
       <button
         type="button"
         onClick={onOpenLalamove}
-        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white hover:from-pink-600 hover:to-red-600 inline-flex items-center justify-center gap-2 font-medium"
+        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 inline-flex items-center justify-center gap-2 font-medium"
       >
-        <Truck className="w-4 h-4"
-        />
+        <Truck className="w-4 h-4" />
         Book with Lalamove
       </button>
 
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-slate-200"></div>
-        <span className="text-xs text-slate-500">OR</span>
-        <div className="flex-1 h-px bg-slate-200"></div>
-      </div>
-
-      <input
-        value={provider}
-        onChange={(e) => setProvider(e.target.value)}
-        placeholder="Grab, J&T, or other provider..."
-        className="w-full px-3 py-2 rounded-xl ring-1 ring-slate-200 focus:ring-emerald-300 outline-none"
-      />
-
       <div className="flex gap-2">
-        <button
-          onClick={() => onSave(provider)}
-          className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center justify-center gap-2"
-        >
-          <CheckCircle2 className="w-4 h-4" /> Save
-        </button>
-        <button onClick={onCancel} className="px-4 py-2 rounded-xl ring-1 ring-slate-200">Cancel</button>
+        <button onClick={onCancel} className="flex-1 px-4 py-2 rounded-xl ring-1 ring-slate-200">Cancel</button>
       </div>
 
       <div className="pt-2">

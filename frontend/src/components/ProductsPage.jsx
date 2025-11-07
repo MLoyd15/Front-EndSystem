@@ -182,6 +182,14 @@ export default function ProductsPage() {
   // Categories toggle state
   const [showCategories, setShowCategories] = useState(false);
 
+  // Filter modal state
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterMinPrice, setFilterMinPrice] = useState("");
+  const [filterMaxPrice, setFilterMaxPrice] = useState("");
+  const [filterMinKg, setFilterMinKg] = useState("");
+  const [filterMaxKg, setFilterMaxKg] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+
   const resetForm = () => {
     setEditId(null);
     setName("");
@@ -258,6 +266,17 @@ export default function ProductsPage() {
     p.set("limit", String(limit));
     return p.toString();
   }, [search, category, catalogFilter, page, limit]);
+
+  const PRICE_MAX = 10000; // 10k cap for price
+  const STOCK_MAX = 1000; // 1k cap for stock
+  const WEIGHT_MAX = 1000; // 1k kg cap for weight
+
+  const clampValue = (val, min, max) => {
+    if (val === "" || val === null || typeof val === "undefined") return "";
+    const n = Number(val);
+    if (Number.isNaN(n)) return val;
+    return Math.max(min, Math.min(max, n));
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -379,6 +398,62 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Client-side validation caps
+    const priceNum = Number(price);
+    const stockNum = Number(stock || 0);
+    const minStockNum = minStock === "" ? 0 : Number(minStock);
+    const weightNum = weightKg === "" ? null : Number(weightKg);
+
+    if (Number.isNaN(priceNum) || priceNum < 1 || priceNum > PRICE_MAX) {
+      showModal(
+        "Validation Error",
+        `Price must be between 1 and ${PRICE_MAX.toLocaleString()}`,
+        "warning"
+      );
+      return;
+    }
+
+    if (Number.isNaN(stockNum) || stockNum < 0 || stockNum > STOCK_MAX) {
+      showModal(
+        "Validation Error",
+        `Stock must be between 0 and ${STOCK_MAX.toLocaleString()}`,
+        "warning"
+      );
+      return;
+    }
+
+    if (
+      Number.isNaN(minStockNum) ||
+      minStockNum < 0 ||
+      minStockNum > STOCK_MAX
+    ) {
+      showModal(
+        "Validation Error",
+        `Average Stock must be between 0 and ${STOCK_MAX.toLocaleString()}`,
+        "warning"
+      );
+      return;
+    }
+
+    if (minStockNum > stockNum) {
+      showModal(
+        "Validation Error",
+        "Average Stock cannot be higher than Stock",
+        "warning"
+      );
+      return;
+    }
+
+    if (weightNum != null) {
+      if (Number.isNaN(weightNum) || weightNum < 0.001 || weightNum > WEIGHT_MAX) {
+        showModal(
+          "Validation Error",
+          `Weight must be between 0.001 and ${WEIGHT_MAX.toLocaleString()} kg`,
+          "warning"
+        );
+        return;
+      }
+    }
     try {
       let uploadedUrls = [];
       if (imageMode === "upload" && localFiles.length > 0) {
@@ -395,10 +470,10 @@ export default function ProductsPage() {
       const payload = {
         name,
         description,
-        price: Number(price),
-        stock: Number(stock || 0),
-        minStock: minStock === "" ? 0 : Number(minStock),
-        weightKg: weightKg === "" ? null : Number(weightKg),
+        price: priceNum,
+        stock: stockNum,
+        minStock: minStockNum,
+        weightKg: weightNum,
         category: catForForm,
         catalog: !!catalog,
         images,
@@ -520,17 +595,27 @@ export default function ProductsPage() {
   const adjustNewStock = (delta) => {
     setNewStock((prev) => {
       const n = Number(prev || 0) + delta;
-      return n < 0 ? 0 : n;
+      const clamped = Math.max(0, Math.min(n, STOCK_MAX));
+      return clamped;
     });
   };
 
   const handleStockUpdate = async (e) => {
     e.preventDefault();
     if (!stockProduct) return;
+    const ns = Number(newStock);
+    if (Number.isNaN(ns) || ns < 0 || ns > STOCK_MAX) {
+      showModal(
+        "Validation Error",
+        `Stock must be between 0 and ${STOCK_MAX.toLocaleString()}`,
+        "warning"
+      );
+      return;
+    }
     try {
       const response = await axios.patch(
         `${API}/products/${stockProduct._id}`,
-        { stock: Number(newStock) },
+        { stock: ns },
         { 
           headers: { ...authHeader(), "Content-Type": "application/json" },
           validateStatus: function (status) {
@@ -564,6 +649,30 @@ export default function ProductsPage() {
     (p) => (p.stock ?? 0) > 0 && (p.minStock ?? 0) > 0 && p.stock < p.minStock
   );
   const outOfStockItems = items.filter((p) => (p.stock ?? 0) <= 0);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((p) => {
+      const priceVal = Number(p.price || 0);
+      const weightVal = p.weightKg != null ? Number(p.weightKg) : null;
+      const categoryId = p?.category?._id || p?.category?.id || "";
+
+      if (filterMinPrice !== "" && priceVal < Number(filterMinPrice)) return false;
+      if (filterMaxPrice !== "" && priceVal > Number(filterMaxPrice)) return false;
+
+      if (filterMinKg !== "") {
+        const minKg = Number(filterMinKg);
+        if (weightVal == null || weightVal < minKg) return false;
+      }
+      if (filterMaxKg !== "") {
+        const maxKg = Number(filterMaxKg);
+        if (weightVal == null || weightVal > maxKg) return false;
+      }
+      if (filterCategory && filterCategory !== "") {
+        if (!categoryId || categoryId !== filterCategory) return false;
+      }
+      return true;
+    });
+  }, [items, filterMinPrice, filterMaxPrice, filterMinKg, filterMaxKg, filterCategory]);
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
@@ -618,35 +727,23 @@ export default function ProductsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <select
-              className="border rounded-xl px-3 py-2"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.categoryName}
-                </option>
-              ))}
-            </select>
-            <select
-              className="border rounded-xl px-3 py-2"
-              value={catalogFilter}
-              onChange={(e) => setCatalogFilter(e.target.value)}
-            >
-              <option value="">Catalog: All</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
             <button
               onClick={() => setShowCategories(!showCategories)}
               className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
             >
               Manage Categories
             </button>
+            <button
+              onClick={() => {
+                setFilterCategory(category || "");
+                setShowFilter(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 transition font-medium"
+            >
+              Filter
+            </button>
             <span className="text-sm text-gray-500">
-              Showing {items.length} of {total}
+              Showing {filteredItems.length} of {total}
             </span>
           </div>
 
@@ -657,7 +754,7 @@ export default function ProductsPage() {
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Category</th>
                   <th className="px-4 py-3">Stock</th>
-                  <th className="px-4 py-3">Min</th>
+                  <th className="px-4 py-3">Average</th>
                   <th className="px-4 py-3">Weight (kg)</th>
                   <th className="px-4 py-3">Price</th>
                   <th className="px-4 py-3">Catalog</th>
@@ -665,14 +762,14 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.length === 0 && (
+                {filteredItems.length === 0 && (
                   <tr>
                     <td className="px-4 py-10 text-center text-gray-500" colSpan="8">
                       No products found.
                     </td>
                   </tr>
                 )}
-                {items.map((p) => {
+                {filteredItems.map((p) => {
                   const stock = p.stock ?? 0;
                   const minStock = p.minStock ?? 0;
                   let bgColor = "bg-white";
@@ -848,7 +945,7 @@ export default function ProductsPage() {
                         : ""
                     }`}
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => setPrice(clampValue(e.target.value, 1, PRICE_MAX))}
                   />
                   {price && (Number(price) < 1 || Number(price) > 10000) && (
                     <p className="text-red-600 text-xs mt-1">
@@ -862,18 +959,25 @@ export default function ProductsPage() {
                   <input
                     type="number"
                     min="0"
-                    max="10000"
+                    max="1000"
                     className={`w-full border rounded-lg px-3 py-2 ${
-                      stock && (Number(stock) < 0 || Number(stock) > 10000)
+                      stock && (Number(stock) < 0 || Number(stock) > 1000)
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                     value={stock}
-                    onChange={(e) => setStock(e.target.value)}
+                    onChange={(e) => {
+                      const clamped = clampValue(e.target.value, 0, STOCK_MAX);
+                      setStock(clamped);
+                      const currentMin = minStock === "" ? 0 : Number(minStock);
+                      if (currentMin > Number(clamped)) {
+                        setMinStock(clampValue(currentMin, 0, Number(clamped)));
+                      }
+                    }}
                   />
-                  {stock && (Number(stock) < 0 || Number(stock) > 10000) && (
+                  {stock && (Number(stock) < 0 || Number(stock) > 1000) && (
                     <p className="text-red-600 text-xs mt-1">
-                      Stock must be between 0 and 10,000
+                      Stock must be between 0 and 1,000
                     </p>
                   )}
                 </div>
@@ -881,23 +985,29 @@ export default function ProductsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Min Stock</label>
+                  <label className="block text-sm font-medium mb-1">Average Stock</label>
                   <input
                     type="number"
                     min="0"
-                    max="10000"
+                    max="1000"
                     className={`w-full border rounded-lg px-3 py-2 ${
-                      minStock && (Number(minStock) < 0 || Number(minStock) > 10000)
+                      minStock && (Number(minStock) < 0 || Number(minStock) > 1000 || Number(minStock) > Number(stock || 0))
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                     value={minStock}
-                    onChange={(e) => setMinStock(e.target.value)}
+                    onChange={(e) => {
+                      const maxMin = Math.min(STOCK_MAX, Number(stock || 0));
+                      setMinStock(clampValue(e.target.value, 0, maxMin));
+                    }}
                   />
-                  {minStock && (Number(minStock) < 0 || Number(minStock) > 10000) && (
+                  {minStock && (Number(minStock) < 0 || Number(minStock) > 1000) && (
                     <p className="text-red-600 text-xs mt-1">
-                      Min Stock must be between 0 and 10,000
+                      Average Stock must be between 0 and 1,000
                     </p>
+                  )}
+                  {minStock && Number(minStock) > Number(stock || 0) && (
+                    <p className="text-red-600 text-xs mt-1">Average Stock cannot exceed Stock</p>
                   )}
                 </div>
 
@@ -906,7 +1016,7 @@ export default function ProductsPage() {
                   <input
                     type="number"
                     min="0.001"
-                    max="10000"
+                    max="1000"
                     step="0.001"
                     className={`w-full border rounded-lg px-3 py-2 ${
                       weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 1000)
@@ -914,11 +1024,11 @@ export default function ProductsPage() {
                         : ""
                     }`}
                     value={weightKg}
-                    onChange={(e) => setWeightKg(e.target.value)}
+                    onChange={(e) => setWeightKg(clampValue(e.target.value, 0.001, WEIGHT_MAX))}
                   />
                   {weightKg && (Number(weightKg) < 0.001 || Number(weightKg) > 1000) && (
                     <p className="text-red-600 text-xs mt-1">
-                      Weight must be between 0.001 and 10,000 kg
+                      Weight must be between 0.001 and 1,000 kg
                     </p>
                   )}
                 </div>
@@ -1117,18 +1227,18 @@ export default function ProductsPage() {
                   <input
                     type="number"
                     min="0"
-                    max="10000"
+                    max="1000"
                     className={`w-full border rounded-lg px-3 py-2 text-center ${
-                      newStock && (Number(newStock) < 0 || Number(newStock) > 10000)
+                      newStock && (Number(newStock) < 0 || Number(newStock) > 1000)
                         ? "border-red-500 focus:ring-red-500"
                         : ""
                     }`}
                     value={newStock}
-                    onChange={(e) => setNewStock(e.target.value)}
+                    onChange={(e) => setNewStock(clampValue(e.target.value, 0, STOCK_MAX))}
                   />
-                  {newStock && (Number(newStock) < 0 || Number(newStock) > 10000) && (
+                  {newStock && (Number(newStock) < 0 || Number(newStock) > 1000) && (
                     <p className="text-red-600 text-xs mt-1 text-center">
-                      Stock must be between 0 and 10,000
+                      Stock must be between 0 and 1,000
                     </p>
                   )}
                 </div>
@@ -1172,6 +1282,107 @@ export default function ProductsPage() {
             <div className="overflow-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
               <Categories />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Modal */}
+      {showFilter && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilter(false)} />
+          <div className="relative bg-white w-full max-w-md rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Filter Products</h3>
+              <button onClick={() => setShowFilter(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setCategory(filterCategory || "");
+                setShowFilter(false);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Min Price</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={filterMinPrice}
+                    onChange={(e) => setFilterMinPrice(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Max Price</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={filterMaxPrice}
+                    onChange={(e) => setFilterMaxPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Min Weight (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={filterMinKg}
+                    onChange={(e) => setFilterMinKg(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Max Weight (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={filterMaxKg}
+                    onChange={(e) => setFilterMaxKg(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                >
+                  <option value="">All categories</option>
+                  {categories.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.categoryName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">Apply</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterMinPrice("");
+                    setFilterMaxPrice("");
+                    setFilterMinKg("");
+                    setFilterMaxKg("");
+                    setFilterCategory("");
+                  }}
+                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Clear
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

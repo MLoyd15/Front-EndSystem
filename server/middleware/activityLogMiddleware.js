@@ -117,6 +117,30 @@ export const createActivityLog = async ({
       return null;
     }
 
+    // Compute final description and status up front
+    const finalDescription = description || generateDescription(action, entity, { entityName, adminName });
+    const finalStatus = requiresApproval ? "PENDING" : "AUTO_APPROVED";
+
+    // Basic de-duplication: if an identical log was written very recently, skip creating another
+    try {
+      const since = new Date(Date.now() - 5000); // 5s window
+      const existing = await ActivityLog.findOne({
+        adminId,
+        action,
+        entity,
+        entityId,
+        description: finalDescription,
+        status: finalStatus,
+        createdAt: { $gt: since },
+      }).select("_id createdAt");
+      if (existing) {
+        console.log("ℹ️  Skipping duplicate activity log within 5s window", { action, entity, entityId });
+        return existing;
+      }
+    } catch (dedupeErr) {
+      console.warn("⚠️  ActivityLog de-duplication check failed:", dedupeErr?.message);
+    }
+
     const logEntry = await ActivityLog.create({
       adminId,
       adminName,
@@ -126,9 +150,9 @@ export const createActivityLog = async ({
       entityId,
       entityName,
       changes,
-      description: description || generateDescription(action, entity, { entityName, adminName }),
+      description: finalDescription,
       requiresApproval,
-      status: requiresApproval ? "PENDING" : "AUTO_APPROVED",
+      status: finalStatus,
       ipAddress,
       userAgent,
       metadata,
