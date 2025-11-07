@@ -267,6 +267,135 @@ const ChangesModal = ({ isOpen, onClose, log }) => {
   );
 };
 
+// Generic Modal for alerts/messages
+const Modal = ({ isOpen, onClose, title, message, type = "info" }) => {
+  if (!isOpen) return null;
+
+  const getIcon = () => {
+    switch (type) {
+      case "success":
+        return "✓";
+      case "error":
+        return "✕";
+      case "warning":
+        return "⚠";
+      default:
+        return "ℹ";
+    }
+  };
+
+  const getColors = () => {
+    switch (type) {
+      case "success":
+        return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+      case "error":
+        return "bg-red-100 text-red-700 ring-red-200";
+      case "warning":
+        return "bg-amber-100 text-amber-700 ring-amber-200";
+      default:
+        return "bg-blue-100 text-blue-700 ring-blue-200";
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div className={`flex items-center gap-4 p-4 rounded-xl ring-2 ${getColors()}`}>
+          <div className="text-3xl font-bold">{getIcon()}</div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-lg mb-1">{title}</h3>
+            <p className="text-sm opacity-90">{message}</p>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-4 w-full bg-gray-800 hover:bg-gray-900 text-white px-4 py-2.5 rounded-lg font-medium transition-colors"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Confirm Modal Component (replaces window.confirm)
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 ring-2 ring-amber-200 flex items-center justify-center flex-shrink-0 text-xl font-bold">⚠</div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+            <p className="text-sm text-gray-600">{message}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Prompt Modal Component (replaces window.prompt)
+const PromptModal = ({ isOpen, onClose, onSubmit, title, message, placeholder = 'Enter reason' }) => {
+  const [value, setValue] = useState('');
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
+        <p className="text-sm text-gray-600 mb-4">{message}</p>
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          rows={4}
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium ring-1 ring-gray-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onSubmit(value);
+              onClose();
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
+          >
+            Submit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PendingApprovals = () => {
   const [pendingLogs, setPendingLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -274,6 +403,9 @@ const PendingApprovals = () => {
   const [approvalNotes, setApprovalNotes] = useState({});
   const [processing, setProcessing] = useState(false);
   const [viewChangesModal, setViewChangesModal] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [promptModal, setPromptModal] = useState({ isOpen: false, title: '', message: '', onSubmit: () => {} });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -282,6 +414,28 @@ const PendingApprovals = () => {
   useEffect(() => {
     fetchPendingApprovals();
   }, []);
+
+  const showModal = (title, message, type = 'info') => {
+    setModal({ title, message, type });
+  };
+
+  const closeModal = () => setModal(null);
+
+  const showConfirmModal = (title, message, onConfirm) => {
+    setConfirmModal({ isOpen: true, title, message, onConfirm });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  };
+
+  const showPromptModal = (title, message, onSubmit) => {
+    setPromptModal({ isOpen: true, title, message, onSubmit });
+  };
+
+  const closePromptModal = () => {
+    setPromptModal({ isOpen: false, title: '', message: '', onSubmit: () => {} });
+  };
 
   const fetchPendingApprovals = async () => {
     try {
@@ -300,17 +454,13 @@ const PendingApprovals = () => {
       }
     } catch (error) {
       console.error('Error fetching pending approvals:', error);
-      alert('Failed to fetch pending approvals');
+      showModal('Error', 'Failed to fetch pending approvals', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (logId) => {
-    if (!window.confirm('Are you sure you want to approve this action?')) {
-      return;
-    }
-
+  const approveAction = async (logId) => {
     try {
       setProcessing(true);
       const response = await fetch(`${API}/activity-logs/${logId}/approve`, {
@@ -325,7 +475,7 @@ const PendingApprovals = () => {
       const result = await response.json();
 
       if (result.success) {
-        alert('Action approved successfully');
+        showModal('Success', 'Action approved successfully', 'success');
         setApprovalNotes(prev => {
           const newNotes = { ...prev };
           delete newNotes[logId];
@@ -333,20 +483,21 @@ const PendingApprovals = () => {
         });
         fetchPendingApprovals();
       } else {
-        alert(result.error || 'Failed to approve action');
+        showModal('Error', result.error || 'Failed to approve action', 'error');
       }
     } catch (error) {
       console.error('Error approving action:', error);
-      alert('Failed to approve action');
+      showModal('Error', 'Failed to approve action', 'error');
     } finally {
       setProcessing(false);
     }
   };
 
-  const handleReject = async (logId) => {
-    const reason = window.prompt('Please provide a reason for rejection:');
-    if (!reason) return;
+  const handleApprove = async (logId) => {
+    showConfirmModal('Approve Action', 'Are you sure you want to approve this action?', () => approveAction(logId));
+  };
 
+  const rejectAction = async (logId, reason) => {
     try {
       setProcessing(true);
       const response = await fetch(`${API}/activity-logs/${logId}/reject`, {
@@ -361,17 +512,27 @@ const PendingApprovals = () => {
       const result = await response.json();
 
       if (result.success) {
-        alert('Action rejected successfully');
+        showModal('Success', 'Action rejected successfully', 'success');
         fetchPendingApprovals();
       } else {
-        alert(result.error || 'Failed to reject action');
+        showModal('Error', result.error || 'Failed to reject action', 'error');
       }
     } catch (error) {
       console.error('Error rejecting action:', error);
-      alert('Failed to reject action');
+      showModal('Error', 'Failed to reject action', 'error');
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleReject = async (logId) => {
+    showPromptModal('Reject Action', 'Please provide a reason for rejection:', (reason) => {
+      if (!reason || !reason.trim()) {
+        showModal('Validation Error', 'Reason is required to reject an action', 'warning');
+        return;
+      }
+      rejectAction(logId, reason);
+    });
   };
 
   const getEntityIcon = (entity) => {
@@ -437,6 +598,31 @@ const PendingApprovals = () => {
 
   return (
     <div className="p-6 bg-white min-h-screen">
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+      />
+
+      {/* Prompt Modal */}
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        onClose={closePromptModal}
+        onSubmit={promptModal.onSubmit}
+        title={promptModal.title}
+        message={promptModal.message}
+      />
+      {/* Generic Modal */}
+      <Modal
+        isOpen={!!modal}
+        onClose={closeModal}
+        title={modal?.title}
+        message={modal?.message}
+        type={modal?.type}
+      />
       {/* Changes Modal */}
       <ChangesModal
         isOpen={!!viewChangesModal}
