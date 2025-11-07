@@ -75,7 +75,7 @@ const vehiclePill = (row) => {
 
 const lalamoveBadge = (row) => {
   if (row?.lalamove?.orderId) {
-    return chip("amber", "Lalamove");
+    return chip("pink", "Lalamove");
   }
   return null;
 };
@@ -347,7 +347,7 @@ export default function Deliveries() {
       <button
         onClick={() => syncLalamoveStatus(delivery._id, delivery.lalamove.orderId)}
         disabled={isSyncing}
-        className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-orange-300 text-orange-700 hover:bg-orange-50 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-sm rounded-xl ring-1 ring-pink-300 text-pink-700 hover:bg-pink-50 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         title="Sync Lalamove Status"
       >
         <RefreshCcw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -901,7 +901,7 @@ function ThirdPartyEditor({ row, onCancel, onSave, onQuickStatus, onOpenLalamove
       <button
         type="button"
         onClick={onOpenLalamove}
-        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 inline-flex items-center justify-center gap-2 font-medium"
+        className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white hover:from-pink-600 hover:to-red-600 inline-flex items-center justify-center gap-2 font-medium"
       >
         <Truck className="w-4 h-4"
         />

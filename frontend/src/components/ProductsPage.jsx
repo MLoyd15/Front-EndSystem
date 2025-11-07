@@ -151,9 +151,6 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [catalogFilter, setCatalogFilter] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [stockFilter, setStockFilter] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
@@ -184,7 +181,6 @@ export default function ProductsPage() {
 
   // Categories toggle state
   const [showCategories, setShowCategories] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
 
   const resetForm = () => {
     setEditId(null);
@@ -258,13 +254,10 @@ export default function ProductsPage() {
     if (search) p.set("search", search);
     if (category) p.set("category", category);
     if (catalogFilter !== "") p.set("catalog", catalogFilter);
-    if (minPrice !== "") p.set("minPrice", String(minPrice));
-    if (maxPrice !== "") p.set("maxPrice", String(maxPrice));
-    if (stockFilter !== "") p.set("stock", stockFilter);
     p.set("page", String(page));
     p.set("limit", String(limit));
     return p.toString();
-  }, [search, category, catalogFilter, minPrice, maxPrice, stockFilter, page, limit]);
+  }, [search, category, catalogFilter, page, limit]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -619,12 +612,33 @@ export default function ProductsPage() {
       <div className="w-full">
         <div>
           <div className="flex flex-wrap gap-3 items-center mb-4">
-            <button
-              onClick={() => setShowFilters(true)}
-              className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 transition font-medium"
+            <input
+              className="border rounded-xl px-3 py-2 w-72"
+              placeholder="Search item"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              className="border rounded-xl px-3 py-2"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
             >
-              Filters
-            </button>
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.categoryName}
+                </option>
+              ))}
+            </select>
+            <select
+              className="border rounded-xl px-3 py-2"
+              value={catalogFilter}
+              onChange={(e) => setCatalogFilter(e.target.value)}
+            >
+              <option value="">Catalog: All</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
             <button
               onClick={() => setShowCategories(!showCategories)}
               className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
@@ -1157,119 +1171,6 @@ export default function ProductsPage() {
             </div>
             <div className="overflow-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
               <Categories />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Filters Modal */}
-      {showFilters && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setShowFilters(false)}
-          />
-          <div className="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl mx-4 max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Filters</h2>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 space-y-4 overflow-auto" style={{ maxHeight: 'calc(90vh - 120px)' }}>
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-700">Search</label>
-                <input
-                  className="border rounded-xl px-3 py-2 w-full"
-                  placeholder="Search item"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-700">Category</label>
-                <select
-                  className="border rounded-xl px-3 py-2 w-full"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  <option value="">All categories</option>
-                  {categories.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.categoryName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-700">Catalog</label>
-                <select
-                  className="border rounded-xl px-3 py-2 w-full"
-                  value={catalogFilter}
-                  onChange={(e) => setCatalogFilter(e.target.value)}
-                >
-                  <option value="">Catalog: All</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              </div>
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-700">Price Range</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    min="0"
-                    className="border rounded-xl px-3 py-2 w-full"
-                    placeholder="Min price"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    className="border rounded-xl px-3 py-2 w-full"
-                    placeholder="Max price"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-700">Stock</label>
-                <select
-                  className="border rounded-xl px-3 py-2 w-full"
-                  value={stockFilter}
-                  onChange={(e) => setStockFilter(e.target.value)}
-                >
-                  <option value="">All</option>
-                  <option value="in">In stock</option>
-                  <option value="out">Out of stock</option>
-                </select>
-              </div>
-            </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setCategory("");
-                  setCatalogFilter("");
-                  setMinPrice("");
-                  setMaxPrice("");
-                  setStockFilter("");
-                }}
-                className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100"
-              >
-                Clear Filters
-              </button>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 transition font-medium"
-              >
-                Apply
-              </button>
             </div>
           </div>
         </div>

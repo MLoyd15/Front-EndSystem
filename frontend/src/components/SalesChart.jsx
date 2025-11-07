@@ -829,7 +829,7 @@ export default function EnhancedSalesChart() {
                 {product.name}
               </h4>
               <span className="font-bold text-sm whitespace-nowrap text-emerald-600">
-                {product.totalUnits.toLocaleString()} units
+                {product.totalUnits.toLocaleString()} u
               </span>
             </div>
             <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-2">

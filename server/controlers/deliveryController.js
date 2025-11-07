@@ -6,6 +6,7 @@ import Driver from "../models/Driver.js";
 import User from "../models/user.js"; // ✅ Import User model for driver assignments
 import Vehicle from "../models/Vehicle.js";
 import Order from "../models/Order.js"; // ✅ Import Order model
+import { createActivityLog } from "../middleware/activityLogMiddleware.js";
 
 // -------------------- List deliveries --------------------
 export async function listDeliveries(req, res) {
@@ -88,6 +89,13 @@ export async function getDeliveryById(req, res) {
 
 export async function updateDelivery(req, res) {
   try {
+    // ✅ Ensure authenticated for logging + approvals
+    if (!req.user || !req.user._id || !req.user.name || !req.user.email) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const requiresApproval = req.requiresApproval !== false;
+
     const allowed = [
       "status", 
       "scheduledDate", 
@@ -100,42 +108,42 @@ export async function updateDelivery(req, res) {
       "deliveryFee",
       "estimatedDeliveryTime",
       "notes",
-      "deliveredAt", // ✅ Add this
-      "assignedDriver", // ✅ Add assignment fields as backup
-      "assignedVehicle", // ✅ Add assignment fields as backup
+      "deliveredAt",
+      "assignedDriver",
+      "assignedVehicle",
       "lalamove.status",
       "lalamove.driver",
       "lalamove.orderId",
       "lalamove.shareLink"
     ];
-    
+
     const updates = {};
-    
-    // ✅ Handle main status update (most important!)
+
+    // ✅ Handle main status update
     if (req.body.status) {
       updates.status = req.body.status;
       console.log('📝 Updating main status to:', req.body.status);
     }
-    
+
     // Handle nested lalamove.status
     if (req.body['lalamove.status']) {
       if (!updates.$set) updates.$set = {};
       updates.$set['lalamove.status'] = req.body['lalamove.status'];
       console.log('📝 Updating lalamove.status to:', req.body['lalamove.status']);
     }
-    
+
     // Handle nested lalamove.driver
     if (req.body['lalamove.driver']) {
       if (!updates.$set) updates.$set = {};
       updates.$set['lalamove.driver'] = req.body['lalamove.driver'];
     }
-    
+
     // ✅ Handle deliveredAt timestamp
     if (req.body.deliveredAt) {
       updates.deliveredAt = new Date(req.body.deliveredAt);
       console.log('📝 Setting deliveredAt:', updates.deliveredAt);
     }
-    
+
     // Handle other simple updates
     for (const k of allowed) {
       if (k.includes('lalamove.') || k === 'status' || k === 'deliveredAt') continue;
@@ -144,26 +152,76 @@ export async function updateDelivery(req, res) {
 
     console.log('🔄 Final update payload:', JSON.stringify(updates, null, 2));
 
-    const updated = await Delivery.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true, runValidators: true }
-    )
-    .populate("order")
-    .populate("assignedDriver", "name phone")
-    .populate("assignedVehicle", "plate capacityKg");
+    // Fetch original for logging
+    const original = await Delivery.findById(req.params.id)
+      .populate("order")
+      .populate("assignedDriver", "name phone")
+      .populate("assignedVehicle", "plate capacityKg");
 
-    if (!updated) {
+    if (!original) {
       return res.status(404).json({ success: false, message: "Not found" });
     }
 
-    console.log('✅ Delivery updated:', {
-      id: updated._id,
-      status: updated.status,
-      lalamoveStatus: updated.lalamove?.status
+    let resultDelivery = original;
+
+    if (!requiresApproval) {
+      // Superadmin: apply immediately
+      resultDelivery = await Delivery.findByIdAndUpdate(
+        req.params.id,
+        updates,
+        { new: true, runValidators: true }
+      )
+        .populate("order")
+        .populate("assignedDriver", "name phone")
+        .populate("assignedVehicle", "plate capacityKg");
+    }
+
+    // Log the activity (before/after)
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name,
+        adminEmail: req.user.email,
+        action: 'UPDATE_DELIVERY',
+        entity: 'DELIVERY',
+        entityId: original._id,
+        entityName: `${original.type || 'delivery'} (${original._id})`,
+        changes: {
+          before: {
+            status: original.status,
+            scheduledDate: original.scheduledDate,
+            pickupLocation: original.pickupLocation,
+            thirdPartyProvider: original.thirdPartyProvider,
+            deliveryAddress: original.deliveryAddress,
+            deliveredAt: original.deliveredAt,
+            assignedDriver: original.assignedDriver?._id || original.assignedDriver,
+            assignedVehicle: original.assignedVehicle?._id || original.assignedVehicle,
+            lalamove: original.lalamove
+          },
+          after: updates
+        },
+        description: `Updated delivery ${original._id}`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.error('⚠️  Failed to create activity log for delivery:', logError);
+    }
+
+    console.log('✅ Delivery update request processed:', {
+      id: original._id,
+      status: resultDelivery.status,
+      lalamoveStatus: resultDelivery.lalamove?.status,
+      requiresApproval
     });
 
-    res.json({ success: true, delivery: updated });
+    return res.json({
+      success: true,
+      message: requiresApproval ? 'Delivery update pending approval' : 'Delivery updated successfully',
+      delivery: resultDelivery,
+      requiresApproval
+    });
   } catch (e) {
     console.error('❌ Update failed:', e);
     res.status(400).json({ success: false, message: "Update failed", error: e.message });
@@ -172,6 +230,12 @@ export async function updateDelivery(req, res) {
 // ✅ NEW: Update Lalamove-specific data
 export async function updateLalamoveData(req, res) {
   try {
+    // ✅ Ensure authenticated for logging + approvals
+    if (!req.user || !req.user._id || !req.user.name || !req.user.email) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const requiresApproval = req.requiresApproval !== false;
     const { id } = req.params;
     const { lalamove } = req.body;
 
@@ -183,21 +247,52 @@ export async function updateLalamoveData(req, res) {
     if (!delivery) {
       return res.status(404).json({ success: false, message: "Delivery not found" });
     }
+    const before = delivery.toObject();
 
     // Merge lalamove data
-    delivery.lalamove = {
+    const merged = {
       ...delivery.lalamove,
       ...lalamove
     };
 
     // Update status if Lalamove order is created
-    if (lalamove.orderId && delivery.status === "pending") {
-      delivery.status = "assigned";
+    if (!requiresApproval) {
+      delivery.lalamove = merged;
+      if (lalamove.orderId && delivery.status === "pending") {
+        delivery.status = "assigned";
+      }
+      await delivery.save();
     }
 
-    await delivery.save();
+    // Log activity
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name,
+        adminEmail: req.user.email,
+        action: 'UPDATE_DELIVERY',
+        entity: 'DELIVERY',
+        entityId: delivery._id,
+        entityName: `lalamove update (${delivery._id})`,
+        changes: {
+          before: { lalamove: before.lalamove },
+          after: { lalamove: merged }
+        },
+        description: `Updated Lalamove data for delivery ${delivery._id}`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.error('⚠️  Failed to create activity log for Lalamove update:', logError);
+    }
 
-    res.json({ success: true, delivery });
+    return res.json({
+      success: true,
+      message: requiresApproval ? 'Lalamove update pending approval' : 'Lalamove data updated',
+      delivery,
+      requiresApproval
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Update failed", error: err.message });
@@ -241,6 +336,12 @@ export async function getResources(req, res) {
 // -------------------- Assign driver + vehicle --------------------
 export async function assignDriverVehicle(req, res) {
   try {
+    // ✅ Ensure authenticated for logging + approvals
+    if (!req.user || !req.user._id || !req.user.name || !req.user.email) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const requiresApproval = req.requiresApproval !== false;
     const { id } = req.params;
     const { driverId, vehicleId, status } = req.body;
 
@@ -269,13 +370,25 @@ export async function assignDriverVehicle(req, res) {
       update.status = status;
     }
 
-    const delivery = await Delivery.findByIdAndUpdate(id, update, { new: true })
+    // Fetch current
+    const current = await Delivery.findById(id)
       .populate("assignedDriver", "name phone")
       .populate("assignedVehicle", "plate capacityKg")
       .populate("order");
 
-    if (!delivery) {
+    if (!current) {
       return res.status(404).json({ success: false, message: "Delivery not found" });
+    }
+
+    const before = current.toObject();
+
+    // Apply immediately for superadmin
+    let delivery = current;
+    if (!requiresApproval) {
+      delivery = await Delivery.findByIdAndUpdate(id, update, { new: true })
+        .populate("assignedDriver", "name phone")
+        .populate("assignedVehicle", "plate capacityKg")
+        .populate("order");
     }
 
     // ✅ Update order status
@@ -285,7 +398,39 @@ export async function assignDriverVehicle(req, res) {
       });
     }
 
-    res.json({ success: true, delivery });
+    // Log activity
+    try {
+      await createActivityLog({
+        adminId: req.user._id,
+        adminName: req.user.name,
+        adminEmail: req.user.email,
+        action: 'UPDATE_DELIVERY',
+        entity: 'DELIVERY',
+        entityId: current._id,
+        entityName: `assignment (${current._id})`,
+        changes: {
+          before: {
+            assignedDriver: before.assignedDriver,
+            assignedVehicle: before.assignedVehicle,
+            status: before.status
+          },
+          after: update
+        },
+        description: `Updated driver/vehicle assignment for delivery ${current._id}`,
+        requiresApproval,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.error('⚠️  Failed to create activity log for assignment:', logError);
+    }
+
+    res.json({
+      success: true,
+      message: requiresApproval ? 'Assignment update pending approval' : 'Assignment updated successfully',
+      delivery,
+      requiresApproval
+    });
   } catch (e) {
     res.status(400).json({ success: false, message: "Assign failed", error: e.message });
   }

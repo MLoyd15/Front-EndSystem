@@ -236,7 +236,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-amber-500 text-white p-6 rounded-t-2xl z-10">
+        <div className="sticky top-0 bg-gradient-to-r from-pink-500 to-red-500 text-white p-6 rounded-t-2xl z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
@@ -244,7 +244,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
               </div>
               <div>
                 <h2 className="text-2xl font-bold">Lalamove Booking</h2>
-                <p className="text-sm text-orange-100">
+                <p className="text-sm text-pink-100">
                   {step === 'map' && 'Select pickup and delivery locations'}
                   {step === 'confirm' && 'Review and confirm booking'}
                   {step === 'success' && 'Booking successful!'}
@@ -371,7 +371,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
                 <button
                   onClick={getQuotation}
                   disabled={loading}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold hover:from-orange-600 hover:to-amber-600 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold hover:from-pink-600 hover:to-red-600 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>
@@ -436,7 +436,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
                   <div className="border-t border-slate-200 pt-3 mt-3">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-900 font-bold">Total Price:</span>
-                      <span className="text-2xl font-bold text-orange-600">
+                      <span className="text-2xl font-bold text-pink-600">
                         ₱{(quotation.priceBreakdown?.total || 0).toLocaleString()}
                       </span>
                     </div>
@@ -455,7 +455,7 @@ const LalamoveIntegration = ({ delivery, onClose, onSuccess }) => {
                 <button
                   onClick={bookDelivery}
                   disabled={loading}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold hover:from-orange-600 hover:to-amber-600 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold hover:from-pink-600 hover:to-red-600 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>

@@ -2,6 +2,7 @@
 import ActivityLog from "../models/ActivityLog.js";
 import Product from "../models/Product.js";
 import Category from "../models/category.js";
+import Delivery from "../models/Delivery.js";
 
 /**
  * Get all activity logs with filters
@@ -365,6 +366,14 @@ async function executeApprovedAction(log) {
         }
         break;
 
+      // ============ DELIVERY ACTIONS ============
+      case "UPDATE_DELIVERY":
+        if (log.entityId && log.changes?.after) {
+          await Delivery.findByIdAndUpdate(log.entityId, log.changes.after, { new: true });
+          console.log(`✅ Delivery ${log.entityId} updated`);
+        }
+        break;
+
       default:
         console.log(`⚠️  No specific action handler for: ${log.action}`);
     }
@@ -434,6 +443,14 @@ async function rollbackAction(log) {
             { upsert: true }
           );
           console.log(`🔄 Category ${log.entityId} restored from deletion`);
+        }
+        break;
+
+      // ============ DELIVERY ROLLBACKS ============
+      case "UPDATE_DELIVERY":
+        if (log.entityId && log.changes?.before) {
+          await Delivery.findByIdAndUpdate(log.entityId, log.changes.before);
+          console.log(`🔄 Delivery ${log.entityId} restored to previous state`);
         }
         break;
 

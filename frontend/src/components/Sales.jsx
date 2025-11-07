@@ -245,7 +245,6 @@ const PrintPreviewModal = ({ order, onClose, onConfirmPrint }) => {
               <h1 className="text-xl font-bold mb-1">GO AGRI TRADING CO.</h1>
               <p className="text-xs">Poblacion 1, Moncada, Tarlac</p>
               <p className="text-xs">Contact: (0995) 473 07 90</p>
-              <p className="text-xs">TIN: 665-125-629-000</p>
             </div>
 
             {/* Order Info */}
@@ -416,10 +415,9 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
       
       <div className="receipt-content">
         <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2px solid black', paddingBottom: '16px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>GO AGRI TRADING CO.</h1>
-          <p style={{ fontSize: '10px' }}>Poblacion 1, Moncada, Tarlac</p>
-          <p style={{ fontSize: '10px' }}>Contact: (0995) 473 07 90</p>
-          <p style={{ fontSize: '10px' }}>TIN: 665-125-629-000</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>YOUR STORE NAME</h1>
+          <p style={{ fontSize: '10px' }}>123 Store Address</p>
+          <p style={{ fontSize: '10px' }}>Contact: (123) 456-7890</p>
         </div>
 
         <div style={{ marginBottom: '16px', fontSize: '10px' }}>
@@ -654,10 +652,9 @@ const OrderDetailsModal = ({ order, onClose }) => {
       <body onload="window.print(); window.onafterprint = function(){ window.close(); }">
         <div class="receipt-wrapper">
           <div class="header">
-            <h1>GO AGRI TRADING CO.</h1>
-            <p>Poblacion 1, Moncada, Tarlac</p>
-            <p>Contact: (0995) 473 07 90</p>
-            <p>TIN: 665-125-629-000</p>
+            <h1>YOUR STORE NAME</h1>
+            <p>123 Store Address</p>
+            <p>Contact: (123) 456-7890</p>
           </div>
           
           <div class="order-info">
