@@ -62,13 +62,13 @@ function deliveryRangeFor(period) {
   return { start: now - 7 * ONE_DAY, end: now, label: "Last 7 days" };
 }
 
-function EnhancedKpiCard({ title, value, icon, gradient = "from-indigo-500 to-purple-600", subtitle }) {
+function EnhancedKpiCard({ title, value, icon, accent = "bg-emerald-600", subtitle }) {
   return (
     <div className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient}`} />
+      <div className={`absolute top-0 left-0 right-0 h-1 ${accent}`} />
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
-          <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
+          <div className={`p-3 rounded-xl ${accent} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
             <div className="text-white text-xl">{icon}</div>
           </div>
         </div>
@@ -81,10 +81,10 @@ function EnhancedKpiCard({ title, value, icon, gradient = "from-indigo-500 to-pu
   );
 }
 
-function SectionHeader({ icon, title, subtitle }) {
+function SectionHeader({ icon, title, subtitle, accent = "bg-emerald-600" }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
+      <div className={`p-2 rounded-lg ${accent}`}>
         <div className="text-white text-lg">{icon}</div>
       </div>
       <div>
@@ -129,7 +129,7 @@ function StockAlertCard({ title, items, type = "low" }) {
           ))}
           {items.length > 5 && (
             <div className="text-center pt-2">
-              <button className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+              <button className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">
                 +{items.length - 5} more
               </button>
             </div>
@@ -150,7 +150,7 @@ function UserHistoryModal({ user, onClose, allRewards }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-6 text-white">
+        <div className="bg-emerald-600 p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-lg">
@@ -224,7 +224,7 @@ function UserHistoryModal({ user, onClose, allRewards }) {
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-pink-700 transition-all"
+            className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-all"
           >
             Close
           </button>
@@ -277,34 +277,34 @@ function DashboardView({ stats, err, lowStockItems, outOfStockItems, deliveryCou
               title="Total Users"
               value={stats.totalUsers.toLocaleString()}
               icon={<FaUsers />}
-              gradient="from-blue-500 to-cyan-600"
+              gradient="bg-emerald-600"
             />
             
             <EnhancedKpiCard
               title="Total Delivery (Month)"
               value={deliveryCount.toLocaleString()}
               icon={<FaTruck />}
-              gradient="from-teal-500 to-emerald-600"
+              gradient="bg-emerald-600"
               subtitle={deliveryLabel}
             />
           </div>
         </div>
 
         <div className="space-y-4">
-          <SectionHeader icon={<FaBoxes />} title="Inventory Status" subtitle="Stock management" />
+          <SectionHeader icon={<FaBoxes />} title="Inventory Status" subtitle="Stock management" accent="bg-amber-700" />
           <div className="space-y-3">
             <EnhancedKpiCard
               title="Categories"
               value={stats.totalCategories}
               icon={<FaBoxes />}
-              gradient="from-indigo-500 to-blue-600"
+              accent="bg-amber-700"
               subtitle="Product categories"
             />
             <EnhancedKpiCard
               title="Low Stock Items"
               value={stats.lowStock}
               icon={<FaExclamationTriangle />}
-              gradient="from-amber-500 to-yellow-600"
+              accent="bg-amber-700"
               subtitle="Needs restocking"
             />
           </div>
@@ -519,7 +519,7 @@ export default function AdminKpi() {
               <div className="relative">
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg"
+                  className="flex items-center gap-3 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
                 >
                   <span className="text-lg">{currentOption?.icon}</span>
                   <span className="font-medium">{currentOption?.label}</span>
@@ -547,14 +547,14 @@ export default function AdminKpi() {
                           onClick={() => handleViewChange(option.id)}
                           className={`w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors ${
                             currentView === option.id
-                              ? "bg-indigo-50 border-l-4 border-indigo-500"
+                              ? "bg-emerald-50 border-l-4 border-emerald-600"
                               : "border-l-4 border-transparent"
                           }`}
                         >
                           <span
                             className={`text-xl mt-0.5 ${
                               currentView === option.id
-                                ? "text-indigo-600"
+                                ? "text-emerald-600"
                                 : "text-gray-400"
                             }`}
                           >
@@ -564,7 +564,7 @@ export default function AdminKpi() {
                             <p
                               className={`font-semibold ${
                                 currentView === option.id
-                                  ? "text-indigo-900"
+                                  ? "text-emerald-900"
                                   : "text-gray-900"
                               }`}
                             >
@@ -576,7 +576,7 @@ export default function AdminKpi() {
                           </div>
                           {currentView === option.id && (
                             <div className="flex items-center">
-                              <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                              <div className="w-2 h-2 rounded-full bg-emerald-600" />
                             </div>
                           )}
                         </button>

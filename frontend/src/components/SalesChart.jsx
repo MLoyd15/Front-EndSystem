@@ -19,11 +19,12 @@ const API = VITE_API_BASE;
 const CURRENCY = "₱";
 
 const COLORS = {
-  revenue: "#6366f1",
-  units: "#10b981",
-  target: "#ef4444",
-  revenueGradient: "rgba(99, 102, 241, 0.1)",
-  unitsGradient: "rgba(16, 185, 129, 0.1)",
+  // Palette: green, yellow, brown
+  revenue: "#22c55e", // green
+  units: "#f59e0b",   // yellow (amber)
+  target: "#ef4444",  // red
+  revenueGradient: "rgba(34, 197, 94, 0.1)",
+  unitsGradient: "rgba(245, 158, 11, 0.1)",
   grid: "#f1f5f9",
   text: "#64748b",
   border: "#e2e8f0",
@@ -749,14 +750,14 @@ export default function EnhancedSalesChart() {
     return (
       <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl p-4 min-w-[280px]">
         <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+          <div className="w-2 h-2 bg-amber-600 rounded-full" />
           <span className="text-sm font-medium text-gray-900">{formatDateLabel(label)}</span>
         </div>
         <div className="space-y-2">
           {revenueData && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Revenue</span>
-              <span className="font-semibold text-indigo-600">{formatCurrency(revenueData.value)}</span>
+              <span className="font-semibold text-emerald-600">{formatCurrency(revenueData.value)}</span>
             </div>
           )}
           {targetData && targetData.value && (
@@ -768,7 +769,7 @@ export default function EnhancedSalesChart() {
           {unitsData && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Units Sold</span>
-              <span className="font-semibold text-emerald-600">{Number(unitsData.value).toLocaleString()}</span>
+              <span className="font-semibold text-amber-600">{Number(unitsData.value).toLocaleString()}</span>
             </div>
           )}
           {row && (
@@ -825,7 +826,7 @@ export default function EnhancedSalesChart() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h4 className="font-medium text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
+              <h4 className="font-medium text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
                 {product.name}
               </h4>
               <span className="font-bold text-sm whitespace-nowrap text-emerald-600">
@@ -875,20 +876,20 @@ export default function EnhancedSalesChart() {
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="metric-card">
-              <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-indigo-600" />
+              <MetricCard title="Total Revenue" value={formatCurrency(metrics.totalRevenue)} icon="💰" color="text-emerald-600" />
             </div>
             <div className="metric-card">
-              <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-emerald-600" />
+              <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString()} icon="📦" color="text-amber-600" />
             </div>
             <div className="metric-card">
-              <MetricCard title="Order Volume" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-blue-600" />
+              <MetricCard title="Order Volume" value={metrics.totalOrders.toLocaleString()} icon="🛒" color="text-amber-700" />
             </div>
             <div className="metric-card">
               <MetricCard
                 title="Avg Order Value"
                 value={formatCurrency(metrics.avgOrderValue)}
                 icon="📊"
-                color="text-purple-600"
+                color="text-amber-700"
               />
             </div>
           </div>
@@ -1012,7 +1013,7 @@ export default function EnhancedSalesChart() {
             </div>
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -1029,7 +1030,7 @@ export default function EnhancedSalesChart() {
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700">Group by</label>
                 <select
-                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   value={groupBy}
                   onChange={(e) => setGroupBy(e.target.value)}
                 >
@@ -1042,7 +1043,7 @@ export default function EnhancedSalesChart() {
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700">Chart Type</label>
                 <select
-                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   value={chartType}
                   onChange={(e) => setChartType(e.target.value)}
                 >
@@ -1055,7 +1056,7 @@ export default function EnhancedSalesChart() {
             <div className="flex items-center gap-2">
               <button
                 className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  showRevenue ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                  showRevenue ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
                 onClick={() => setShowRevenue(!showRevenue)}
               >
@@ -1071,7 +1072,7 @@ export default function EnhancedSalesChart() {
               </button>
               <button
                 className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  showUnits ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                  showUnits ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
                 onClick={() => setShowUnits(!showUnits)}
               >

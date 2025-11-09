@@ -436,7 +436,7 @@ const PendingApprovals = () => {
   }
 
   return (
-    <div className="p-6 bg-amber-50 min-h-screen">
+    <div className="p-6 bg-white min-h-screen">
       {/* Changes Modal */}
       <ChangesModal
         isOpen={!!viewChangesModal}
@@ -467,7 +467,7 @@ const PendingApprovals = () => {
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow-sm p-4 ring-2 ring-amber-200">
+        <div className="bg-amber-100 rounded-lg shadow-sm p-4 ring-2 ring-amber-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 font-medium">Total Pending</p>
@@ -479,7 +479,7 @@ const PendingApprovals = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-4 ring-2 ring-green-200">
+        <div className="bg-green-100 rounded-lg shadow-sm p-4 ring-2 ring-green-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 font-medium">Products</p>
@@ -491,7 +491,7 @@ const PendingApprovals = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-4 ring-2 ring-yellow-200">
+        <div className="bg-yellow-100 rounded-lg shadow-sm p-4 ring-2 ring-yellow-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 font-medium">Other</p>

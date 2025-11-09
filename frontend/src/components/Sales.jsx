@@ -224,6 +224,7 @@ const PrintPreviewModal = ({ order, onClose, onConfirmPrint }) => {
       items.reduce((sum, it) => sum + (Number(it.price ?? it.unitPrice ?? 0) * Number(it.quantity ?? 1)), 0)
   );
   const deliveryFee = Number(order.deliveryFee ?? order.shipping ?? 0);
+  const taxAmount = Number(order.taxAmount ?? order.tax ?? order.vat ?? (subtotal * 0.12));
   const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
 
   return (
@@ -306,6 +307,10 @@ const PrintPreviewModal = ({ order, onClose, onConfirmPrint }) => {
                 <span>{peso(subtotal)}</span>
               </div>
               <div className="flex justify-between">
+                <span>VAT (12%):</span>
+                <span>{peso(taxAmount)}</span>
+              </div>
+              <div className="flex justify-between">
                 <span>Delivery Fee:</span>
                 <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
               </div>
@@ -361,6 +366,7 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
       items.reduce((sum, it) => sum + (Number(it.price ?? it.unitPrice ?? 0) * Number(it.quantity ?? 1)), 0)
   );
   const deliveryFee = Number(order.deliveryFee ?? order.shipping ?? 0);
+  const taxAmount = Number(order.taxAmount ?? order.tax ?? order.vat ?? (subtotal * 0.12));
   const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
 
   return (
@@ -477,6 +483,10 @@ const PrintableReceipt = React.forwardRef(({ order }, ref) => {
             <span>{peso(subtotal)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span>VAT (12%):</span>
+            <span>{peso(taxAmount)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span>Delivery Fee:</span>
             <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
           </div>
@@ -518,6 +528,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
       items.reduce((sum, it) => sum + (Number(it.price ?? it.unitPrice ?? 0) * Number(it.quantity ?? 1)), 0)
   );
   const deliveryFee = Number(order.deliveryFee ?? order.shipping ?? 0);
+  const taxAmount = Number(order.taxAmount ?? order.tax ?? order.vat ?? (subtotal * 0.12));
   const total = Number(order.total ?? order.totalAmount ?? subtotal + deliveryFee);
   
   const deliveryStatus = order.delivery?.status || order.deliveryStatus || "pending";
@@ -711,6 +722,10 @@ const OrderDetailsModal = ({ order, onClose }) => {
               <span>${peso(subtotal)}</span>
             </div>
             <div class="total-row">
+              <span>VAT (12%):</span>
+              <span>${peso(taxAmount)}</span>
+            </div>
+            <div class="total-row">
               <span>Delivery Fee:</span>
               <span>${deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
             </div>
@@ -893,6 +908,10 @@ const OrderDetailsModal = ({ order, onClose }) => {
                     <span>{peso(subtotal)}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-gray-500">VAT (12%)</span>
+                    <span>{peso(taxAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-gray-500">Delivery Fee</span>
                     <span>{deliveryFee === 0 ? "FREE" : peso(deliveryFee)}</span>
                   </div>
@@ -1011,6 +1030,7 @@ export default function Sales() {
             address: o.address ?? o.deliveryAddress ?? o.shippingAddress ?? "",
             paymentMethod: o.paymentMethod ?? o.payment ?? "",
             subtotal: o.subtotal ?? o.itemsTotal ?? null,
+            taxAmount: o.taxAmount ?? o.tax ?? o.vat ?? null,
             deliveryFee: o.deliveryFee ?? o.shipping ?? null,
             total: o.total ?? o.totalAmount ?? null,
             createdAt: o.createdAt ?? o.created ?? o.created_at ?? null,

@@ -318,7 +318,7 @@ const ActivityLogList = () => {
 // Activity Log Detail Modal Component
 const ActivityLogDetailModal = ({ log, onClose }) => {
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-between rounded-t-xl">
           <h2 className="text-2xl font-bold text-white">Activity Details</h2>
