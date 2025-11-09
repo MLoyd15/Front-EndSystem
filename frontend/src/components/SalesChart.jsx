@@ -46,6 +46,204 @@ const toIdString = (v) => {
 };
 
 // ============================================================================
+// PERIOD DETAIL MODAL COMPONENT
+// ============================================================================
+const PeriodDetailModal = ({ periodData, orders, onClose, groupBy }) => {
+  if (!periodData) return null;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return dateString;
+    const month = d.toLocaleDateString("en-US", { month: "short" });
+    const day = d.getDate();
+    const year = d.getFullYear();
+    const hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours % 12 || 12;
+    return `${month} ${day}, ${year} at ${h12}:${minutes} ${ampm}`;
+  };
+
+  const formatPeriodTitle = (date) => {
+    if (groupBy === "year") return date;
+    if (groupBy === "month") {
+      const d = new Date(`${date}-01`);
+      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    }
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  };
+
+  // Filter orders for this period
+  const periodOrders = orders.filter(order => {
+    const orderDate = new Date(order.createdAt);
+    if (isNaN(orderDate.getTime())) return false;
+    
+    if (groupBy === "day") {
+      return orderDate.toISOString().split("T")[0] === periodData.date;
+    } else if (groupBy === "month") {
+      const orderMonth = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, "0")}`;
+      return orderMonth === periodData.date;
+    } else { // year
+      return String(orderDate.getFullYear()) === periodData.date;
+    }
+  });
+
+  // Calculate payment method statistics
+  const paymentMethods = periodOrders.reduce((acc, order) => {
+    const method = order.paymentMethod || "Unknown";
+    acc[method] = (acc[method] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-emerald-50 to-amber-50">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900">{formatPeriodTitle(periodData.date)}</h3>
+            <p className="text-sm text-gray-600 mt-1">Detailed breakdown of sales and orders</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-white rounded-lg"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-gray-50 border-b">
+          <div className="bg-white rounded-lg p-4 border border-gray-200">
+            <div className="text-sm text-gray-600 mb-1">Revenue</div>
+            <div className="text-2xl font-bold text-emerald-600">{peso(periodData.revenue)}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {periodData.target && `Target: ${peso(periodData.target)}`}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-4 border border-gray-200">
+            <div className="text-sm text-gray-600 mb-1">Units Sold</div>
+            <div className="text-2xl font-bold text-amber-600">{periodData.units}</div>
+          </div>
+          <div className="bg-white rounded-lg p-4 border border-gray-200">
+            <div className="text-sm text-gray-600 mb-1">Orders</div>
+            <div className="text-2xl font-bold text-amber-700">{periodData.orderCount}</div>
+          </div>
+          <div className="bg-white rounded-lg p-4 border border-gray-200">
+            <div className="text-sm text-gray-600 mb-1">Avg Order</div>
+            <div className="text-2xl font-bold text-gray-900">{peso(periodData.avgOrderValue)}</div>
+          </div>
+        </div>
+
+        {/* Payment Methods */}
+        <div className="p-6 border-b bg-white">
+          <div className="max-w-md">
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <span className="text-lg">💳</span> Payment Methods
+            </h4>
+            <div className="space-y-2">
+              {Object.entries(paymentMethods).map(([method, count]) => (
+                <div key={method} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                  <span className="text-sm text-gray-700 capitalize">{method}</span>
+                  <span className="font-semibold text-gray-900">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Orders List */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="text-lg">🛒</span> Orders ({periodOrders.length})
+          </h4>
+          
+          {periodOrders.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <div className="text-4xl mb-2">📦</div>
+              <p>No orders found for this period</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {periodOrders.map((order) => {
+                const items = Array.isArray(order.items) ? order.items : [];
+                const total = Number(order.total || order.totalAmount || 0);
+                const orderId = String(order._id || order.id).slice(-8);
+                
+                return (
+                  <div key={order._id || order.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-mono text-sm font-semibold text-gray-900">#{orderId}</span>
+                          <span className="text-xs text-gray-500">{formatDate(order.createdAt)}</span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {items.length} item{items.length !== 1 ? "s" : ""} • {order.paymentMethod || "N/A"}
+                        </div>
+                        {order.address && (
+                          <div className="text-xs text-gray-500 mt-1 truncate">{order.address}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-emerald-600">{peso(total)}</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Order Items */}
+                    {items.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="space-y-1">
+                          {items.slice(0, 3).map((item, idx) => {
+                            const name = item.name || item.productName || item.product?.name || "Item";
+                            const qty = Number(item.quantity || item.qty || 1);
+                            const price = Number(item.price || item.unitPrice || 0);
+                            
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">{name}</span>
+                                <span className="text-gray-500">
+                                  {qty}x {peso(price)} = {peso(qty * price)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {items.length > 3 && (
+                            <div className="text-xs text-gray-500 italic">
+                              +{items.length - 3} more item{items.length - 3 !== 1 ? "s" : ""}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // SIMPLE RECEIPT COMPONENT
 // ============================================================================
 const SimpleReceipt = ({ orderData, onClose }) => {
@@ -435,6 +633,10 @@ export default function EnhancedSalesChart() {
   // Receipt state
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  
+  // Zoom detail state
+  const [selectedPeriod, setSelectedPeriod] = useState(null);
+  const [showPeriodDetail, setShowPeriodDetail] = useState(false);
 
   // Add print styles
   useEffect(() => {
@@ -740,6 +942,17 @@ export default function EnhancedSalesChart() {
     return date.toLocaleDateString(undefined, key.length === 10 ? { month: "short", day: "numeric" } : { month: "short", year: "numeric" });
   }, []);
 
+  // Handle chart click to show period details
+  const handleChartClick = (data) => {
+    if (data && data.activeLabel) {
+      const periodData = processedData.find(d => d.date === data.activeLabel);
+      if (periodData) {
+        setSelectedPeriod(periodData);
+        setShowPeriodDetail(true);
+      }
+    }
+  };
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     const revenueData = payload.find((p) => p.dataKey === "revenue");
@@ -752,6 +965,9 @@ export default function EnhancedSalesChart() {
         <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
           <div className="w-2 h-2 bg-amber-600 rounded-full" />
           <span className="text-sm font-medium text-gray-900">{formatDateLabel(label)}</span>
+          <span className="ml-auto text-xs text-blue-600 font-medium cursor-pointer">
+            Click to view details →
+          </span>
         </div>
         <div className="space-y-2">
           {revenueData && (
@@ -860,6 +1076,19 @@ export default function EnhancedSalesChart() {
 
   return (
     <>
+      {/* Period Detail Modal */}
+      {showPeriodDetail && selectedPeriod && (
+        <PeriodDetailModal
+          periodData={selectedPeriod}
+          orders={orders}
+          onClose={() => {
+            setShowPeriodDetail(false);
+            setSelectedPeriod(null);
+          }}
+          groupBy={groupBy}
+        />
+      )}
+
       {/* Receipt Modal */}
       {showReceipt && selectedOrder && (
         <SimpleReceipt
@@ -873,6 +1102,8 @@ export default function EnhancedSalesChart() {
 
       <div className="space-y-6">
         <div id="printable-sales-report" className="space-y-6">
+          
+
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="metric-card">
@@ -898,7 +1129,12 @@ export default function EnhancedSalesChart() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 chart-container">
             <div className="h-[500px]">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={processedData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <ComposedChart 
+                  data={processedData} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  onClick={handleChartClick}
+                  style={{ cursor: 'pointer' }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
                   <XAxis
                     dataKey="date"
