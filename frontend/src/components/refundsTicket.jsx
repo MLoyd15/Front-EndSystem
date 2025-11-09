@@ -471,6 +471,10 @@ export default function RefundTickets({ onBack }) {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priceFilter, setPriceFilter] = useState("all");
+  const [productQuery, setProductQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
@@ -506,18 +510,73 @@ export default function RefundTickets({ onBack }) {
   }, [statusFilter]);
 
   const filtered = useMemo(() => {
+    const getItemsArray = (ticket) => {
+      const candidates = [
+        ticket?.order?.items,
+        ticket?.order?.products,
+        ticket?.orderItems,
+        ticket?.items,
+        ticket?.products,
+      ];
+      for (const c of candidates) if (Array.isArray(c) && c.length) return c;
+      for (const c of candidates) if (Array.isArray(c)) return c;
+      return [];
+    };
+
+    const getProductName = (it) => it?.name || it?.productName || it?.product?.name || "";
+
     return tickets.filter((t) => {
+      // Search filter (ID, reason, paymentId, customer)
       const q = searchQuery.trim().toLowerCase();
-      if (!q) return true;
-      
-      const idMatch = String(t._id ?? "").toLowerCase().includes(q);
-      const reasonMatch = (t.reason ?? "").toLowerCase().includes(q);
-      const paymentMatch = (t.paymentId ?? "").toLowerCase().includes(q);
-      const userMatch = (t.user?.name ?? t.user?.email ?? "").toLowerCase().includes(q);
-      
-      return idMatch || reasonMatch || paymentMatch || userMatch;
+      let searchMatches = true;
+      if (q) {
+        const idMatch = String(t._id ?? "").toLowerCase().includes(q);
+        const reasonMatch = (t.reason ?? "").toLowerCase().includes(q);
+        const paymentMatch = (t.paymentId ?? "").toLowerCase().includes(q);
+        const userMatch = (t.user?.name ?? t.user?.email ?? "").toLowerCase().includes(q);
+        searchMatches = idMatch || reasonMatch || paymentMatch || userMatch;
+      }
+
+      // Status filter
+      const status = String(t.status ?? "requested").toLowerCase();
+      const statusMatches = statusFilter === "all" || status === statusFilter;
+
+      // Price filter (assumes amount is in PHP)
+      const amount = Number(t.amount ?? 0);
+      let priceMatches = true;
+      if (priceFilter === "under-500") priceMatches = amount < 500;
+      else if (priceFilter === "500-1000") priceMatches = amount >= 500 && amount <= 1000;
+      else if (priceFilter === "1000-2000") priceMatches = amount >= 1000 && amount <= 2000;
+      else if (priceFilter === "over-2000") priceMatches = amount > 2000;
+
+      // Product name filter (substring over any item name we can find)
+      const pq = productQuery.trim().toLowerCase();
+      let productMatches = true;
+      if (pq) {
+        const items = getItemsArray(t);
+        const names = items.map(getProductName).filter(Boolean);
+        productMatches = names.some((n) => String(n).toLowerCase().includes(pq));
+      }
+
+      // Date range filter (createdAt)
+      let dateMatches = true;
+      if (startDate || endDate) {
+        const created = new Date(t.createdAt);
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          dateMatches = dateMatches && created >= start;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          dateMatches = dateMatches && created <= end;
+        }
+      }
+
+      return searchMatches && statusMatches && priceMatches && productMatches && dateMatches;
     });
-  }, [tickets, searchQuery]);
+  }, [tickets, searchQuery, statusFilter, priceFilter, productQuery, startDate, endDate]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedTickets = useMemo(() => {
@@ -527,7 +586,7 @@ export default function RefundTickets({ onBack }) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, priceFilter, productQuery, startDate, endDate]);
 
   const metrics = useMemo(() => {
     const totalAmount = tickets.reduce((s, t) => s + Number(t.amount ?? 0), 0);
@@ -638,7 +697,7 @@ export default function RefundTickets({ onBack }) {
 
         {/* Filters */}
         <div className="bg-white rounded-xl border p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -648,24 +707,63 @@ export default function RefundTickets({ onBack }) {
                 className="pl-10"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <select
+                  className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  {Object.keys(statusConfig).map((k) => (
+                    <option key={k} value={k}>
+                      {statusConfig[k].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <select
                 className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={priceFilter}
+                onChange={(e) => setPriceFilter(e.target.value)}
               >
-                <option value="all">All Status</option>
-                {Object.keys(statusConfig).map((k) => (
-                  <option key={k} value={k}>
-                    {statusConfig[k].label}
-                  </option>
-                ))}
+                <option value="all">All Price Ranges</option>
+                <option value="under-500">Under ₱500</option>
+                <option value="500-1000">₱500 - ₱1,000</option>
+                <option value="1000-2000">₱1,000 - ₱2,000</option>
+                <option value="over-2000">Over ₱2,000</option>
               </select>
+
+              <Input
+                placeholder="Filter by product name..."
+                value={productQuery}
+                onChange={(e) => setProductQuery(e.target.value)}
+                className="flex-1"
+              />
+
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-3 py-2 rounded-lg border bg-white text-sm"
+                />
+                <span className="text-gray-500 text-sm">to</span>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-3 py-2 rounded-lg border bg-white text-sm"
+                />
+              </div>
+
+              <Button onClick={fetchTickets} variant="ghost" size="icon">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
             </div>
-            <Button onClick={fetchTickets} variant="ghost" size="icon">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 

@@ -109,6 +109,23 @@ const lalamoveBadge = (row) => {
   return null;
 };
 
+/* ---------------------- STORE HOURS VALIDATION ---------------------- */
+// Allows scheduling only Monday–Friday, 8:00 to 17:00 local time.
+const withinStoreHours = (dateStr) => {
+  if (!dateStr) return false;
+  const dt = new Date(dateStr);
+  if (isNaN(dt.getTime())) return false;
+  const day = dt.getDay(); // 0=Sun, 6=Sat
+  if (day === 0 || day === 6) return false; // Only Mon–Fri
+  const h = dt.getHours();
+  const m = dt.getMinutes();
+  // Valid from 08:00 inclusive to 17:00 inclusive (exactly 17:00)
+  if (h < 8) return false;
+  if (h > 17) return false;
+  if (h === 17 && m > 0) return false;
+  return true;
+};
+
 const PAGE_SIZE = 5;
 
 export default function Deliveries() {
@@ -265,6 +282,14 @@ export default function Deliveries() {
   const onSavePickup = async (id, updates) => {
     try {
       const saveData = { ...updates };
+      // Validate store hours for pickup scheduling
+      if (!withinStoreHours(saveData.scheduledDate)) {
+        showModal(
+          "Invalid Pickup Time",
+          "Please choose a time within store hours (Mon–Fri, 8:00–17:00)."
+        );
+        return;
+      }
       
       // ✅ Always ensure pickup location is set for pickup deliveries
       if (!saveData.pickupLocation) {
@@ -889,6 +914,7 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
   const [location, setLocation] = useState(
     row?.pickupLocation || "Poblacion 1, Moncada Tarlac, Philippines"
   );
+  const isValid = withinStoreHours(scheduled);
 
   return (
     <div className="space-y-3">
@@ -900,8 +926,16 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
         value={scheduled}
         onChange={(e) => setScheduled(e.target.value)}
         required
-        className="w-full px-3 py-2 rounded-xl ring-1 ring-slate-200 focus:ring-emerald-300 outline-none"
+        className={`w-full px-3 py-2 rounded-xl ring-1 outline-none ${
+          !scheduled || isValid ? "ring-slate-200 focus:ring-emerald-300" : "ring-red-300 focus:ring-red-400"
+        }`}
+        title="Pickups allowed Mon–Fri, 8:00–17:00"
       />
+      {!(!scheduled || isValid) && (
+        <div className="text-xs text-red-600">
+          Pickups allowed only Monday–Friday, 8:00 to 5:00 PM.
+        </div>
+      )}
 
       <label className="text-sm text-slate-600">Pickup Location</label>
       <input
@@ -914,9 +948,9 @@ function PickupEditor({ row, onCancel, onSave, onQuickStatus }) {
       <div className="flex gap-2">
         <button
           onClick={() => onSave({ scheduledDate: scheduled, pickupLocation: location })}
-          disabled={!scheduled}
+          disabled={!scheduled || !isValid}
           className={`flex-1 px-4 py-2 rounded-xl text-white hover:bg-emerald-700 inline-flex items-center justify-center gap-2 ${
-            !scheduled ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600'
+            !scheduled || !isValid ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600'
           }`}
         >
           <CheckCircle2 className="w-4 h-4" /> Save

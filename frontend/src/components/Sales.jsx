@@ -13,6 +13,8 @@ import {
   Clock,
   AlertCircle,
   DollarSign,
+  ChevronDown,
+  SlidersHorizontal,
 } from "lucide-react";
 import { VITE_API_BASE } from "../config";
 import RefundsTicket from "./refundsTicket";
@@ -39,6 +41,13 @@ const formatDate = (dateString) => {
   const ampm = hours >= 12 ? "PM" : "AM";
   const h12 = hours % 12 || 12;
   return `${month} ${day}, ${year} at ${h12}:${minutes} ${ampm}`;
+};
+
+const formatDateOnly = (dateString) => {
+  if (!dateString) return "—";
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return dateString;
+  return d.toISOString().split('T')[0];
 };
 
 // --- DELIVERY STATUS CONFIG ---
@@ -544,7 +553,6 @@ const OrderDetailsModal = ({ order, onClose }) => {
   const handleConfirmPrint = () => {
     setShowPrintPreview(false);
     
-    // Create a new window for printing
     const printWindow = window.open('', 'PRINT', 'width=400,height=600');
     
     if (!printWindow) {
@@ -665,9 +673,9 @@ const OrderDetailsModal = ({ order, onClose }) => {
       <body onload="window.print(); window.onafterprint = function(){ window.close(); }">
         <div class="receipt-wrapper">
           <div class="header">
-            <h1>YOUR STORE NAME</h1>
-            <p>123 Store Address</p>
-            <p>Contact: (123) 456-7890</p>
+            <h1>GO AGRI TRADING CO.</h1>
+            <p>Poblacion 1, Moncada, Tarlac</p>
+            <p>Contact: (0995) 473 07 90</p>
           </div>
           
           <div class="order-info">
@@ -957,6 +965,127 @@ const OrderDetailsModal = ({ order, onClose }) => {
   );
 };
 
+// --- ADVANCED FILTERS MODAL ---
+const AdvancedFiltersModal = ({ 
+  onClose, 
+  categories,
+  products,
+  selectedCategory,
+  setSelectedCategory,
+  selectedProduct,
+  setSelectedProduct,
+  startDate,
+  setStartDate,
+  endDate,
+  setEndDate,
+  onApply,
+  onClear
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <CardHeader className="relative">
+          <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-5 w-5 text-blue-600" />
+            <h3 className="text-xl font-semibold">Advanced Filters</h3>
+          </div>
+          <p className="text-sm text-gray-500">Fine-tune your order search</p>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Category Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filter by Category
+            </label>
+            <select
+              className="w-full px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="all">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Product Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filter by Specific Product
+            </label>
+            <select
+              className="w-full px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedProduct}
+              onChange={(e) => setSelectedProduct(e.target.value)}
+            >
+              <option value="all">All Products</option>
+              {products.map((prod) => (
+                <option key={prod} value={prod}>
+                  {prod}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date Range Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date Range
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">From</label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">To</label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4 border-t">
+            <Button 
+              onClick={onClear} 
+              variant="ghost" 
+              className="flex-1 border"
+            >
+              Clear Filters
+            </Button>
+            <Button 
+              onClick={() => {
+                onApply();
+                onClose();
+              }} 
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // --- MAIN COMPONENT ---
 export default function Sales() {
   const [activeTab, setActiveTab] = useState("orders");
@@ -967,10 +1096,16 @@ export default function Sales() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("all");
   const [priceFilter, setPriceFilter] = useState("all");
-  const [productFilter, setProductFilter] = useState("");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
+
+  // Advanced filter states
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedProduct, setSelectedProduct] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -1065,11 +1200,35 @@ export default function Sales() {
     };
   }, []);
 
+  // Extract unique categories and products from orders
+  const { categories, products } = useMemo(() => {
+    const categorySet = new Set();
+    const productSet = new Set();
+
+    orders.forEach((order) => {
+      const items = order.items || [];
+      items.forEach((item) => {
+        const category = item.category ?? item.product?.category;
+        const productName = item.name ?? item.productName ?? item.product?.name;
+        
+        if (category) categorySet.add(category);
+        if (productName) productSet.add(productName);
+      });
+    });
+
+    return {
+      categories: Array.from(categorySet).sort(),
+      products: Array.from(productSet).sort(),
+    };
+  }, [orders]);
+
   const filtered = useMemo(() => {
     return orders.filter((o) => {
+      // Delivery status filter
       const deliveryStatus = (o.deliveryStatus ?? "pending").toLowerCase();
       const statusMatches = deliveryStatusFilter === "all" || deliveryStatus === deliveryStatusFilter;
       
+      // Price filter
       const total = Number(o.total ?? 0);
       let priceMatches = true;
       if (priceFilter === "under-500") priceMatches = total < 500;
@@ -1077,11 +1236,7 @@ export default function Sales() {
       else if (priceFilter === "1000-2000") priceMatches = total >= 1000 && total <= 2000;
       else if (priceFilter === "over-2000") priceMatches = total > 2000;
       
-      const productMatches = !productFilter.trim() || 
-        (o.items || []).some(item => 
-          (item.name || item.title || "").toLowerCase().includes(productFilter.toLowerCase())
-        );
-      
+      // Payment method filter
       const paymentMethod = (o.paymentMethod || "").toLowerCase();
       let paymentMatches = true;
       if (paymentMethodFilter === "e-payment") {
@@ -1090,6 +1245,7 @@ export default function Sales() {
         paymentMatches = paymentMethod.includes("cod") || paymentMethod.includes("cash");
       }
       
+      // Search query filter
       const q = (searchQuery || "").trim().toLowerCase();
       let searchMatches = true;
       if (q) {
@@ -1097,10 +1253,46 @@ export default function Sales() {
         const addrMatch = (o.address ?? "").toLowerCase().includes(q);
         searchMatches = idMatch || addrMatch;
       }
+
+      // Category filter
+      let categoryMatches = selectedCategory === "all";
+      if (!categoryMatches) {
+        categoryMatches = (o.items || []).some(item => {
+          const itemCategory = item.category ?? item.product?.category;
+          return itemCategory === selectedCategory;
+        });
+      }
+
+      // Product filter
+      let productMatches = selectedProduct === "all";
+      if (!productMatches) {
+        productMatches = (o.items || []).some(item => {
+          const itemName = item.name ?? item.productName ?? item.product?.name;
+          return itemName === selectedProduct;
+        });
+      }
+
+      // Date range filter
+      let dateMatches = true;
+      if (startDate || endDate) {
+        const orderDate = new Date(o.createdAt);
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          dateMatches = dateMatches && orderDate >= start;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          dateMatches = dateMatches && orderDate <= end;
+        }
+      }
       
-      return statusMatches && priceMatches && productMatches && paymentMatches && searchMatches;
+      return statusMatches && priceMatches && paymentMatches && searchMatches && 
+             categoryMatches && productMatches && dateMatches;
     });
-  }, [orders, deliveryStatusFilter, priceFilter, productFilter, paymentMethodFilter, searchQuery]);
+  }, [orders, deliveryStatusFilter, priceFilter, paymentMethodFilter, searchQuery, 
+      selectedCategory, selectedProduct, startDate, endDate]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedOrders = useMemo(() => {
@@ -1110,7 +1302,8 @@ export default function Sales() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, deliveryStatusFilter, priceFilter, productFilter, paymentMethodFilter]);
+  }, [searchQuery, deliveryStatusFilter, priceFilter, paymentMethodFilter, 
+      selectedCategory, selectedProduct, startDate, endDate]);
 
   const metrics = useMemo(() => {
     const totalRevenue = orders.reduce((s, o) => s + Number(o.total ?? 0), 0);
@@ -1120,6 +1313,21 @@ export default function Sales() {
     const pending = orders.filter((o) => (o.deliveryStatus ?? "").toLowerCase() === "pending").length;
     return { totalRevenue, totalOrders, delivered, cancelled, pending };
   }, [orders]);
+
+  const handleClearAdvancedFilters = () => {
+    setSelectedCategory("all");
+    setSelectedProduct("all");
+    setStartDate("");
+    setEndDate("");
+  };
+
+  const activeAdvancedFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedCategory !== "all") count++;
+    if (selectedProduct !== "all") count++;
+    if (startDate || endDate) count++;
+    return count;
+  }, [selectedCategory, selectedProduct, startDate, endDate]);
 
   if (activeTab === "refunds") {
     return <RefundsTicket onBack={() => setActiveTab("orders")} />;
@@ -1249,13 +1457,6 @@ export default function Sales() {
                 <option value="over-2000">Over ₱2,000</option>
               </select>
               
-              <Input 
-                placeholder="Filter by product name..." 
-                value={productFilter} 
-                onChange={(e) => setProductFilter(e.target.value)} 
-                className="flex-1 min-w-0"
-              />
-              
               <select
                 className="px-4 py-2 rounded-lg border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={paymentMethodFilter}
@@ -1265,7 +1466,69 @@ export default function Sales() {
                 <option value="e-payment">E-Payment</option>
                 <option value="cod">Cash on Delivery</option>
               </select>
+
+              <Button
+                onClick={() => setShowAdvancedFilters(true)}
+                variant="ghost"
+                className="relative border border-blue-200 hover:bg-blue-50 text-blue-600"
+              >
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Advanced Filters
+                {activeAdvancedFiltersCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {activeAdvancedFiltersCount}
+                  </span>
+                )}
+              </Button>
             </div>
+
+            {/* Active Advanced Filters Display */}
+            {activeAdvancedFiltersCount > 0 && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t">
+                {selectedCategory !== "all" && (
+                  <Badge className="bg-blue-100 text-blue-700">
+                    Category: {selectedCategory}
+                    <button
+                      onClick={() => setSelectedCategory("all")}
+                      className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {selectedProduct !== "all" && (
+                  <Badge className="bg-purple-100 text-purple-700">
+                    Product: {selectedProduct}
+                    <button
+                      onClick={() => setSelectedProduct("all")}
+                      className="ml-1 hover:bg-purple-200 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {(startDate || endDate) && (
+                  <Badge className="bg-green-100 text-green-700">
+                    Date: {startDate || "..."} to {endDate || "..."}
+                    <button
+                      onClick={() => {
+                        setStartDate("");
+                        setEndDate("");
+                      }}
+                      className="ml-1 hover:bg-green-200 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                <button
+                  onClick={handleClearAdvancedFilters}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1274,7 +1537,8 @@ export default function Sales() {
             <Package className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h2 className="text-2xl font-semibold mb-2">No orders found</h2>
             <p className="text-gray-500">
-              {searchQuery || deliveryStatusFilter !== "all" || priceFilter !== "all" || productFilter.trim() || paymentMethodFilter !== "all"
+              {searchQuery || deliveryStatusFilter !== "all" || priceFilter !== "all" || 
+               paymentMethodFilter !== "all" || activeAdvancedFiltersCount > 0
                 ? "Try adjusting your filters" 
                 : "Your order history will appear here once you make a purchase"}
             </p>
@@ -1355,6 +1619,24 @@ export default function Sales() {
 
       {selectedOrder && (
         <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      )}
+
+      {showAdvancedFilters && (
+        <AdvancedFiltersModal
+          onClose={() => setShowAdvancedFilters(false)}
+          categories={categories}
+          products={products}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          selectedProduct={selectedProduct}
+          setSelectedProduct={setSelectedProduct}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          onApply={() => setShowAdvancedFilters(false)}
+          onClear={handleClearAdvancedFilters}
+        />
       )}
     </div>
   );
