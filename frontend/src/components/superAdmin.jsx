@@ -42,10 +42,11 @@ const SuperAdminLogin = () => {
         body: JSON.stringify({ email: formData.email })
       });
 
-      const data = await response.json();
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      const data = isJson ? await response.json() : await response.text();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to initiate OTP');
+        throw new Error(isJson ? (data?.message || 'Failed to initiate OTP') : (typeof data === 'string' ? data : 'Failed to initiate OTP'));
       }
 
       // Switch to OTP stage regardless of generic success messaging
@@ -70,9 +71,10 @@ const SuperAdminLogin = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email, otp })
       });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'OTP verification failed');
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      const data = isJson ? await response.json() : await response.text();
+      if (!response.ok || (isJson && !data.success)) {
+        throw new Error(isJson ? (data.message || 'OTP verification failed') : (typeof data === 'string' ? data : 'OTP verification failed'));
       }
       localStorage.setItem('pos-token', data.token);
       localStorage.setItem('pos-user', JSON.stringify(data.user));
@@ -94,9 +96,10 @@ const SuperAdminLogin = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email })
       });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to resend OTP');
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      const data = isJson ? await response.json() : await response.text();
+      if (!response.ok || (isJson && !data.success)) {
+        throw new Error(isJson ? (data.message || 'Failed to resend OTP') : (typeof data === 'string' ? data : 'Failed to resend OTP'));
       }
     } catch (err) {
       console.error('Resend OTP error:', err);

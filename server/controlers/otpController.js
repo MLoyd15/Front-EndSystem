@@ -1,9 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.js';
-import EmailService from '../services/emailService.js';
-
-// Create a single email service instance
-const emailService = new EmailService();
+import emailService from '../services/emailService.js';
 
 // POST /api/auth/otp/request
 // Initiates OTP for superadmin via email-only (passwordless owner login)
