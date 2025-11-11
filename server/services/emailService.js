@@ -13,6 +13,15 @@ class EmailService {
       }
     });
 
+    // Proactively verify SMTP connection and credentials
+    this.transporter.verify((err, success) => {
+      if (err) {
+        console.error('❌ SMTP verification failed:', err.message || err);
+      } else {
+        console.log('✅ SMTP transporter is ready to send mail');
+      }
+    });
+
     // Store OTPs temporarily (in production, use Redis)
     this.otpStore = new Map();
   }
