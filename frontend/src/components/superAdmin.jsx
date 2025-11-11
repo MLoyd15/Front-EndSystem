@@ -15,6 +15,10 @@ const SuperAdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [accessKeyLoading, setAccessKeyLoading] = useState(false);
+  const [otpStage, setOtpStage] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleAccessKeySubmit = async (e) => {
@@ -80,24 +84,73 @@ const SuperAdminLogin = () => {
         throw new Error(data.message || 'Invalid email or password');
       }
 
-      if (!data.token || !data.user) {
-        throw new Error('Invalid response from server');
+      // If server indicates OTP is needed, switch to OTP stage
+      if (data.requiresOtp) {
+        setOtpStage(true);
+        setError('');
+      } else {
+        if (!data.token || !data.user) {
+          throw new Error('Invalid response from server');
+        }
+        if (data.user.role !== 'superadmin') {
+          throw new Error('Access denied. Super admin privileges required.');
+        }
+        localStorage.setItem('pos-token', data.token);
+        localStorage.setItem('pos-user', JSON.stringify(data.user));
+        window.location.href = '/admin-dashboard';
       }
-
-      if (data.user.role !== 'superadmin') {
-        throw new Error('Access denied. Super admin privileges required.');
-      }
-
-      localStorage.setItem('pos-token', data.token);
-      localStorage.setItem('pos-user', JSON.stringify(data.user));
-
-      window.location.href = '/admin-dashboard';
       
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || 'An error occurred during login');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setOtpLoading(true);
+    try {
+      const response = await fetch(`${API}/auth/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, otp })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'OTP verification failed');
+      }
+      localStorage.setItem('pos-token', data.token);
+      localStorage.setItem('pos-user', JSON.stringify(data.user));
+      window.location.href = '/admin-dashboard';
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      setError(err.message || 'Invalid OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setResendLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API}/auth/otp/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, password: formData.password })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to resend OTP');
+      }
+    } catch (err) {
+      console.error('Resend OTP error:', err);
+      setError(err.message || 'Failed to resend OTP');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -193,7 +246,8 @@ const SuperAdminLogin = () => {
               </div>
             </form>
           ) : (
-            /* Login Form */
+            /* Login or OTP Form */
+            !otpStage ? (
             <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Input */}
             <div>
@@ -296,6 +350,41 @@ const SuperAdminLogin = () => {
               </p>
             </div>
           </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Enter OTP</label>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none tracking-widest"
+                  placeholder="6-digit code"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={otpLoading}
+                className="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {otpLoading ? (<><Loader className="w-5 h-5 animate-spin" /> Verifying...</>) : 'Verify OTP'}
+              </button>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendLoading}
+                  className="text-sm text-green-700 hover:text-green-800 font-semibold disabled:opacity-50"
+                >
+                  {resendLoading ? 'Resending…' : 'Resend code'}
+                </button>
+                <span className="text-xs text-gray-500">Code expires in 5 minutes</span>
+              </div>
+            </form>
+          )
           )}
         </div>
 

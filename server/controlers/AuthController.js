@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import User from '../models/user.js'
+import EmailService from '../services/emailService.js'
 
 
 const login = async (req, res) => {
@@ -29,6 +30,21 @@ const login = async (req, res) => {
         if (!isMatch) {
             console.log(`❌ Login failed - Invalid password for: ${email}`);
             return res.status(401).json({success:false, message: "Invalid credentials"})
+        }
+
+        // If superadmin, require OTP and do not issue token yet
+        if (user.role === 'superadmin') {
+            const emailService = new EmailService();
+            const sendResult = await emailService.sendOTP(user.email, user.name);
+            if (!sendResult.success) {
+                return res.status(500).json({ success:false, message: sendResult.message || 'Failed to send OTP' });
+            }
+
+            return res.status(200).json({
+                success: true,
+                requiresOtp: true,
+                message: 'OTP sent to email'
+            });
         }
 
         // ✅ FIXED: Generate JWT token with ALL required fields

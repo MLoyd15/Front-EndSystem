@@ -1,0 +1,101 @@
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import User from '../models/user.js';
+import EmailService from '../services/emailService.js';
+
+// Create a single email service instance
+const emailService = new EmailService();
+
+// POST /api/auth/otp/request
+// Validates credentials for superadmin and sends an OTP email
+export const requestOtp = async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    // Only superadmin requires/uses OTP in this flow
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: 'OTP is restricted to superadmin login' });
+    }
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    // Send OTP email
+    const sendResult = await emailService.sendOTP(user.email, user.name);
+    if (!sendResult.success) {
+      return res.status(500).json({ success: false, message: sendResult.message || 'Failed to send OTP' });
+    }
+
+    return res.json({
+      success: true,
+      requiresOtp: true,
+      message: 'OTP sent to email',
+      email: user.email
+    });
+  } catch (err) {
+    console.error('requestOtp error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// POST /api/auth/otp/verify
+// Verifies OTP for superadmin and issues JWT
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ success: false, message: 'OTP verification is restricted to superadmin login' });
+    }
+
+    const verify = emailService.verifyOTP(email, String(otp));
+    if (!verify.success) {
+      return res.status(400).json({ success: false, message: verify.message || 'Invalid OTP' });
+    }
+
+    const tokenPayload = {
+      _id: user._id.toString(),
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      loginTime: Date.now()
+    };
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        _id: user._id,
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name
+      }
+    });
+  } catch (err) {
+    console.error('verifyOtp error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
