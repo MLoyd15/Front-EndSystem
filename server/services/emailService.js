@@ -4,6 +4,10 @@ import crypto from 'crypto';
 
 class EmailService {
   constructor() {
+    // Prepare credentials (strip spaces from app password if copied)
+    const gmailUser = process.env.EMAIL_USER || 'goagritrading316@gmail.com';
+    const gmailPass = (process.env.EMAIL_PASSWORD || 'go@gritrading1').replace(/\s+/g, '');
+
     // Use explicit Gmail SMTP settings with pooling and debug logging
     this.transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -13,9 +17,8 @@ class EmailService {
       maxConnections: 3,
       maxMessages: 50,
       auth: {
-        user: process.env.EMAIL_USER || 'goagritrading316@gmail.com',
-        // Gmail app passwords are shown with spaces; remove them if present
-        pass: (process.env.EMAIL_PASSWORD || 'go@gritrading1').replace(/\s+/g, '')
+        user: gmailUser,
+        pass: gmailPass
       },
       logger: true,
       debug: true,
@@ -29,6 +32,9 @@ class EmailService {
       } else {
         console.log('✅ SMTP transporter is ready to send mail');
       }
+      try {
+        console.log(`ℹ️ Gmail user configured: ${gmailUser}; app password length: ${gmailPass.length}`);
+      } catch (_) {}
     });
 
     // Store OTPs temporarily (in production, use Redis)
@@ -245,6 +251,12 @@ class EmailService {
       const info = await this.transporter.sendMail(mailOptions);
       
       console.log('✅ OTP email sent:', info.messageId);
+      if (info?.accepted?.length || info?.rejected?.length) {
+        console.log(`📨 SMTP accepted: ${JSON.stringify(info.accepted || [])}, rejected: ${JSON.stringify(info.rejected || [])}`);
+      }
+      if (info?.response) {
+        console.log(`📬 SMTP response: ${info.response}`);
+      }
       return {
         success: true,
         message: 'OTP sent successfully',
