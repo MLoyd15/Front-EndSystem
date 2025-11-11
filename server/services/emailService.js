@@ -8,7 +8,8 @@ class EmailService {
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER || 'goagritrading316@gmail.com',
-        pass: process.env.EMAIL_PASSWORD || 'go@gritrading1'
+        // Gmail app passwords are shown with spaces; remove them if present
+        pass: (process.env.EMAIL_PASSWORD || 'go@gritrading1').replace(/\s+/g, '')
       }
     });
 
