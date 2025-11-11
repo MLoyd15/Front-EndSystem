@@ -11,15 +11,26 @@ export const requestOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    const user = await User.findOne({ email });
+    // Normalize and match email case-insensitively to avoid silent mismatches
+    const normalizedEmail = String(email).trim();
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const emailRegex = new RegExp(`^${escapeRegex(normalizedEmail)}$`, 'i');
+
+    // Add diagnostic logging to help trace gating reasons
+    console.log('🔎 OTP request received', { email: normalizedEmail });
+
+    const user = await User.findOne({ email: emailRegex });
+    console.log('🔎 OTP user lookup', { found: !!user, role: user?.role });
     if (!user) {
       // Deliberately do not reveal existence; keep generic message
+      console.log('⚠️ OTP gated: user not found');
       return res.status(200).json({ success: true, requiresOtp: true, message: 'If the email is valid, an OTP will be sent.' });
     }
 
     // Only superadmin requires/uses OTP in this flow
     if (user.role !== 'superadmin') {
       // Respond generically to avoid role enumeration
+      console.log('⚠️ OTP gated: role is not superadmin', { role: user.role });
       return res.status(200).json({ success: true, requiresOtp: true, message: 'If the email is valid, an OTP will be sent.' });
     }
 
@@ -29,6 +40,9 @@ export const requestOtp = async (req, res) => {
       .then((result) => {
         if (!result?.success) {
           console.error('sendOTP failed:', result?.error || result?.message);
+        }
+        if (result?.success) {
+          console.log('✅ sendOTP scheduled successfully for', { email: user.email });
         }
       })
       .catch((err) => {
