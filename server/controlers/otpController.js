@@ -113,3 +113,22 @@ export const verifyOtp = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+// GET /api/auth/otp/status
+// Returns SMTP readiness and sanitized config summary for diagnostics
+export const otpStatus = async (req, res) => {
+  try {
+    const config = emailService.getConfigSummary?.();
+    const verify = await emailService.verifyTransport?.();
+    return res.json({
+      success: true,
+      ready: !!verify?.success,
+      verifyMessage: verify?.message,
+      error: verify?.error,
+      config
+    });
+  } catch (err) {
+    console.error('otpStatus error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to get OTP status' });
+  }
+};

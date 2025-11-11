@@ -42,6 +42,39 @@ class EmailService {
   }
 
   /**
+   * Return a concise summary of current SMTP configuration
+   * Useful for remote diagnostics without exposing secrets
+   */
+  getConfigSummary() {
+    try {
+      const opts = this.transporter?.options || {};
+      const user = opts.auth?.user || process.env.EMAIL_USER || 'goagritrading316@gmail.com';
+      const passLen = String(opts.auth?.pass || '').length;
+      return {
+        user,
+        appPasswordLength: passLen,
+        host: opts.host,
+        port: opts.port,
+        secure: !!opts.secure
+      };
+    } catch (e) {
+      return { error: e?.message || String(e) };
+    }
+  }
+
+  /**
+   * Actively verify the SMTP transporter is ready
+   */
+  async verifyTransport() {
+    try {
+      await this.transporter.verify();
+      return { success: true, message: 'SMTP transporter is ready' };
+    } catch (err) {
+      return { success: false, error: err?.message || String(err) };
+    }
+  }
+
+  /**
    * Generate a 6-digit OTP
    */
   generateOTP() {
