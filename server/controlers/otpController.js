@@ -23,16 +23,23 @@ export const requestOtp = async (req, res) => {
       return res.status(200).json({ success: true, requiresOtp: true, message: 'If the email is valid, an OTP will be sent.' });
     }
 
-    // Send OTP email
-    const sendResult = await emailService.sendOTP(user.email, user.name);
-    if (!sendResult.success) {
-      return res.status(500).json({ success: false, message: sendResult.message || 'Failed to send OTP' });
-    }
+    // Send OTP email asynchronously so the client doesn't block on SMTP
+    emailService
+      .sendOTP(user.email, user.name)
+      .then((result) => {
+        if (!result?.success) {
+          console.error('sendOTP failed:', result?.error || result?.message);
+        }
+      })
+      .catch((err) => {
+        console.error('sendOTP error:', err?.message || err);
+      });
 
+    // Respond immediately with a generic success to avoid timing issues
     return res.json({
       success: true,
       requiresOtp: true,
-      message: 'OTP sent to email',
+      message: 'If the email is valid, an OTP will be sent.',
       email: user.email
     });
   } catch (err) {
