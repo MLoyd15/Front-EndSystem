@@ -1,4 +1,3 @@
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/user.js';
 import EmailService from '../services/emailService.js';
@@ -7,27 +6,24 @@ import EmailService from '../services/emailService.js';
 const emailService = new EmailService();
 
 // POST /api/auth/otp/request
-// Validates credentials for superadmin and sends an OTP email
+// Initiates OTP for superadmin via email-only (passwordless owner login)
 export const requestOtp = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    const { email } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      // Deliberately do not reveal existence; keep generic message
+      return res.status(200).json({ success: true, requiresOtp: true, message: 'If the email is valid, an OTP will be sent.' });
     }
 
     // Only superadmin requires/uses OTP in this flow
     if (user.role !== 'superadmin') {
-      return res.status(403).json({ success: false, message: 'OTP is restricted to superadmin login' });
-    }
-
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      // Respond generically to avoid role enumeration
+      return res.status(200).json({ success: true, requiresOtp: true, message: 'If the email is valid, an OTP will be sent.' });
     }
 
     // Send OTP email
