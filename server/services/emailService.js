@@ -4,13 +4,22 @@ import crypto from 'crypto';
 
 class EmailService {
   constructor() {
+    // Use explicit Gmail SMTP settings with pooling and debug logging
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 50,
       auth: {
         user: process.env.EMAIL_USER || 'goagritrading316@gmail.com',
         // Gmail app passwords are shown with spaces; remove them if present
         pass: (process.env.EMAIL_PASSWORD || 'go@gritrading1').replace(/\s+/g, '')
-      }
+      },
+      logger: true,
+      debug: true,
+      requireTLS: true
     });
 
     // Proactively verify SMTP connection and credentials
