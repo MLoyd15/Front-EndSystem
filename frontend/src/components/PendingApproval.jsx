@@ -275,6 +275,8 @@ const PendingApprovals = () => {
   const [processing, setProcessing] = useState(false);
   const [viewChangesModal, setViewChangesModal] = useState(null);
   const [confirmApproveId, setConfirmApproveId] = useState(null);
+  const [rejectLogId, setRejectLogId] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -356,8 +358,24 @@ const PendingApprovals = () => {
     }
   };
 
+  const openRejectModal = (logId) => {
+    setRejectLogId(logId);
+    setRejectReason('');
+  };
+
+  const closeRejectModal = () => {
+    setRejectLogId(null);
+    setRejectReason('');
+  };
+
+  const confirmReject = async () => {
+    const id = rejectLogId;
+    if (!id) return;
+    await handleReject(id);
+  };
+
   const handleReject = async (logId) => {
-    const reason = window.prompt('Please provide a reason for rejection:');
+    const reason = rejectReason.trim();
     if (!reason) return;
 
     try {
@@ -384,6 +402,8 @@ const PendingApprovals = () => {
       alert('Failed to reject action');
     } finally {
       setProcessing(false);
+      setRejectLogId(null);
+      setRejectReason('');
     }
   };
 
@@ -477,6 +497,40 @@ const PendingApprovals = () => {
                 className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
               >
                 Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectLogId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 ring-1 ring-gray-200">
+            <div className="flex items-center gap-3 mb-3">
+              <XCircle className="w-6 h-6 text-red-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Reject Pending Action</h2>
+            </div>
+            <p className="text-gray-700 mb-4">Please provide a reason for rejection.</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Reason for rejection"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+            />
+            <div className="flex items-center justify-end gap-3 mt-4">
+              <button
+                onClick={closeRejectModal}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={!rejectReason.trim() || processing}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                Reject
               </button>
             </div>
           </div>
@@ -645,7 +699,7 @@ const PendingApprovals = () => {
                       Approve
                     </button>
                     <button
-                      onClick={() => handleReject(log._id)}
+                      onClick={() => openRejectModal(log._id)}
                       disabled={processing}
                       className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium whitespace-nowrap"
                     >
