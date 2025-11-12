@@ -6,7 +6,7 @@ class EmailService {
   constructor() {
     // Prepare credentials (strip spaces from app password if copied)
     const gmailUser = process.env.EMAIL_USER || 'goagritrading316@gmail.com';
-    const gmailPass = (process.env.EMAIL_PASSWORD || 'go@gritrading1').replace(/\s+/g, '');
+    const gmailPass = (process.env.EMAIL_PASSWORD || 'ckfferfqooqvfduw').replace(/\s+/g, '');
 
     // Use explicit Gmail SMTP settings with pooling and debug logging
     this.transporter = nodemailer.createTransport({
