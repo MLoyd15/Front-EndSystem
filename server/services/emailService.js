@@ -1,113 +1,52 @@
-// backend/services/emailService.js
-import nodemailer from 'nodemailer';
+// backend/services/emailService.js - SendGrid Version
+import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
 
 class EmailService {
   constructor() {
-    // Prepare credentials (strip spaces from app password if copied)
-    const gmailUser = process.env.EMAIL_USER || 'goagritrading316@gmail.com';
-    const gmailPass = (process.env.EMAIL_PASSWORD || 'ckfferfqooqvfduw').replace(/\s+/g, '');
+    // Initialize SendGrid
+    const sendgridKey = process.env.SENDGRID_API_KEY;
+    
+    if (sendgridKey) {
+      sgMail.setApiKey(sendgridKey);
+      console.log('✅ SendGrid initialized');
+    } else {
+      console.warn('⚠️ SENDGRID_API_KEY not found in environment variables');
+    }
 
-    // ✅ CRITICAL FIX: Use port 587 with STARTTLS instead of 465
-    // Port 465 is often blocked on cloud platforms like Render
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587, // ⚠️ CHANGED FROM 465 TO 587
-      secure: false, // ⚠️ MUST BE FALSE for port 587
-      auth: {
-        user: gmailUser,
-        pass: gmailPass
-      },
-      tls: {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: false // For development; set to true in production
-      },
-      pool: true,
-      maxConnections: 3,
-      maxMessages: 50,
-      logger: true,
-      debug: true,
-      // ✅ Add connection timeout and socket timeout
-      connectionTimeout: 10000, // 10 seconds
-      greetingTimeout: 10000,
-      socketTimeout: 30000 // 30 seconds
-    });
-
-    // Proactively verify SMTP connection and credentials
-    this.transporter.verify((err, success) => {
-      if (err) {
-        console.error('❌ SMTP verification failed:', err.message || err);
-        console.error('Full error:', err);
-      } else {
-        console.log('✅ SMTP transporter is ready to send mail via port 587');
-      }
-      try {
-        console.log(`ℹ️ Gmail user configured: ${gmailUser}; app password length: ${gmailPass.length}`);
-        console.log(`ℹ️ Using SMTP: smtp.gmail.com:587 (STARTTLS)`);
-      } catch (_) {}
-    });
-
-    // Store OTPs temporarily (in production, use Redis)
+    // Store OTPs temporarily
     this.otpStore = new Map();
   }
 
-  /**
-   * Return a concise summary of current SMTP configuration
-   * Useful for remote diagnostics without exposing secrets
-   */
   getConfigSummary() {
-    try {
-      const opts = this.transporter?.options || {};
-      const user = opts.auth?.user || process.env.EMAIL_USER || 'goagritrading316@gmail.com';
-      const passLen = String(opts.auth?.pass || '').length;
-      return {
-        user,
-        appPasswordLength: passLen,
-        host: opts.host,
-        port: opts.port,
-        secure: !!opts.secure,
-        tls: 'enabled'
-      };
-    } catch (e) {
-      return { error: e?.message || String(e) };
-    }
+    return {
+      provider: 'SendGrid',
+      hasApiKey: !!process.env.SENDGRID_API_KEY,
+      fromEmail: process.env.EMAIL_USER || 'goagritrading316@gmail.com'
+    };
   }
 
-  /**
-   * Actively verify the SMTP transporter is ready
-   */
   async verifyTransport() {
     try {
-      await this.transporter.verify();
-      return { success: true, message: 'SMTP transporter is ready' };
+      if (!process.env.SENDGRID_API_KEY) {
+        return { success: false, error: 'SendGrid API key not configured' };
+      }
+      return { success: true, message: 'SendGrid is ready' };
     } catch (err) {
       return { success: false, error: err?.message || String(err) };
     }
   }
 
-  /**
-   * Generate a 6-digit OTP
-   */
   generateOTP() {
     return crypto.randomInt(100000, 999999).toString();
   }
 
-  /**
-   * Store OTP with expiration (5 minutes)
-   */
   storeOTP(email, otp) {
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    const expiresAt = Date.now() + 5 * 60 * 1000;
     this.otpStore.set(email, { otp, expiresAt });
-
-    // Auto-cleanup after expiration
-    setTimeout(() => {
-      this.otpStore.delete(email);
-    }, 5 * 60 * 1000);
+    setTimeout(() => this.otpStore.delete(email), 5 * 60 * 1000);
   }
 
-  /**
-   * Verify OTP
-   */
   verifyOTP(email, otp) {
     const stored = this.otpStore.get(email);
     
@@ -124,25 +63,21 @@ class EmailService {
       return { success: false, message: 'Invalid OTP' };
     }
 
-    // OTP is valid, remove it
     this.otpStore.delete(email);
     return { success: true, message: 'OTP verified successfully' };
   }
 
-  /**
-   * Send OTP email
-   */
   async sendOTP(email, userName = 'User') {
     try {
       const otp = this.generateOTP();
       this.storeOTP(email, otp);
 
-      const mailOptions = {
-        from: {
-          name: 'GO AGRI TRADING',
-          address: process.env.EMAIL_USER || 'goagritrading316@gmail.com'
-        },
+      const msg = {
         to: email,
+        from: {
+          email: process.env.EMAIL_USER || 'goagritrading316@gmail.com',
+          name: 'GO AGRI TRADING'
+        },
         subject: 'Your Login OTP - GO AGRI TRADING',
         html: `
           <!DOCTYPE html>
@@ -282,28 +217,20 @@ class EmailService {
         `
       };
 
-      console.log('📧 Attempting to send OTP email to:', email);
-      const info = await this.transporter.sendMail(mailOptions);
+      console.log('📧 Attempting to send OTP via SendGrid to:', email);
+      const result = await sgMail.send(msg);
       
-      console.log('✅ OTP email sent:', info.messageId);
-      if (info?.accepted?.length || info?.rejected?.length) {
-        console.log(`📨 SMTP accepted: ${JSON.stringify(info.accepted || [])}, rejected: ${JSON.stringify(info.rejected || [])}`);
-      }
-      if (info?.response) {
-        console.log(`📬 SMTP response: ${info.response}`);
-      }
+      console.log('✅ OTP email sent via SendGrid');
       return {
         success: true,
         message: 'OTP sent successfully',
-        messageId: info.messageId
+        messageId: result[0]?.headers?.['x-message-id']
       };
     } catch (error) {
       console.error('❌ Error sending OTP email:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        command: error.command
-      });
+      if (error.response) {
+        console.error('SendGrid error details:', error.response.body);
+      }
       return {
         success: false,
         message: 'Failed to send OTP email',
@@ -312,17 +239,14 @@ class EmailService {
     }
   }
 
-  /**
-   * Send order confirmation email
-   */
   async sendOrderConfirmation(email, orderDetails) {
     try {
-      const mailOptions = {
-        from: {
-          name: 'GO AGRI TRADING',
-          address: process.env.EMAIL_USER || 'goagritrading316@gmail.com'
-        },
+      const msg = {
         to: email,
+        from: {
+          email: process.env.EMAIL_USER || 'goagritrading316@gmail.com',
+          name: 'GO AGRI TRADING'
+        },
         subject: `Order Confirmation - #${orderDetails.orderId}`,
         html: `
           <!DOCTYPE html>
@@ -347,8 +271,8 @@ class EmailService {
         `
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Order confirmation email sent:', info.messageId);
+      await sgMail.send(msg);
+      console.log('✅ Order confirmation email sent via SendGrid');
       return { success: true };
     } catch (error) {
       console.error('❌ Error sending order confirmation:', error);

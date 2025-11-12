@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^0.542.0",
     "nodemailer": "^7.0.10",
