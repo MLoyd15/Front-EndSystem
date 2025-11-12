@@ -8,32 +8,42 @@ class EmailService {
     const gmailUser = process.env.EMAIL_USER || 'goagritrading316@gmail.com';
     const gmailPass = (process.env.EMAIL_PASSWORD || 'ckfferfqooqvfduw').replace(/\s+/g, '');
 
-    // Use explicit Gmail SMTP settings with pooling and debug logging
+    // ✅ CRITICAL FIX: Use port 587 with STARTTLS instead of 465
+    // Port 465 is often blocked on cloud platforms like Render
     this.transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      pool: true,
-      maxConnections: 3,
-      maxMessages: 50,
+      port: 587, // ⚠️ CHANGED FROM 465 TO 587
+      secure: false, // ⚠️ MUST BE FALSE for port 587
       auth: {
         user: gmailUser,
         pass: gmailPass
       },
+      tls: {
+        ciphers: 'SSLv3',
+        rejectUnauthorized: false // For development; set to true in production
+      },
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 50,
       logger: true,
       debug: true,
-      requireTLS: true
+      // ✅ Add connection timeout and socket timeout
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000,
+      socketTimeout: 30000 // 30 seconds
     });
 
     // Proactively verify SMTP connection and credentials
     this.transporter.verify((err, success) => {
       if (err) {
         console.error('❌ SMTP verification failed:', err.message || err);
+        console.error('Full error:', err);
       } else {
-        console.log('✅ SMTP transporter is ready to send mail');
+        console.log('✅ SMTP transporter is ready to send mail via port 587');
       }
       try {
         console.log(`ℹ️ Gmail user configured: ${gmailUser}; app password length: ${gmailPass.length}`);
+        console.log(`ℹ️ Using SMTP: smtp.gmail.com:587 (STARTTLS)`);
       } catch (_) {}
     });
 
@@ -55,7 +65,8 @@ class EmailService {
         appPasswordLength: passLen,
         host: opts.host,
         port: opts.port,
-        secure: !!opts.secure
+        secure: !!opts.secure,
+        tls: 'enabled'
       };
     } catch (e) {
       return { error: e?.message || String(e) };
@@ -223,16 +234,6 @@ class EmailService {
                 border-radius: 4px;
                 color: #991b1b;
               }
-              .button {
-                display: inline-block;
-                background: #10b981;
-                color: white;
-                padding: 12px 30px;
-                text-decoration: none;
-                border-radius: 6px;
-                font-weight: bold;
-                margin: 20px 0;
-              }
             </style>
           </head>
           <body>
@@ -281,6 +282,7 @@ class EmailService {
         `
       };
 
+      console.log('📧 Attempting to send OTP email to:', email);
       const info = await this.transporter.sendMail(mailOptions);
       
       console.log('✅ OTP email sent:', info.messageId);
@@ -297,6 +299,11 @@ class EmailService {
       };
     } catch (error) {
       console.error('❌ Error sending OTP email:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        command: error.command
+      });
       return {
         success: false,
         message: 'Failed to send OTP email',
@@ -340,10 +347,11 @@ class EmailService {
         `
       };
 
-      await this.transporter.sendMail(mailOptions);
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Order confirmation email sent:', info.messageId);
       return { success: true };
     } catch (error) {
-      console.error('Error sending order confirmation:', error);
+      console.error('❌ Error sending order confirmation:', error);
       return { success: false, error: error.message };
     }
   }
