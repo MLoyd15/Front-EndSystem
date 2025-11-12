@@ -274,6 +274,7 @@ const PendingApprovals = () => {
   const [approvalNotes, setApprovalNotes] = useState({});
   const [processing, setProcessing] = useState(false);
   const [viewChangesModal, setViewChangesModal] = useState(null);
+  const [confirmApproveId, setConfirmApproveId] = useState(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -307,10 +308,6 @@ const PendingApprovals = () => {
   };
 
   const handleApprove = async (logId) => {
-    if (!window.confirm('Are you sure you want to approve this action?')) {
-      return;
-    }
-
     try {
       setProcessing(true);
       const response = await fetch(`${API}/activity-logs/${logId}/approve`, {
@@ -340,6 +337,22 @@ const PendingApprovals = () => {
       alert('Failed to approve action');
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const openApproveConfirm = (logId) => {
+    setConfirmApproveId(logId);
+  };
+
+  const closeApproveConfirm = () => {
+    setConfirmApproveId(null);
+  };
+
+  const confirmApprove = async () => {
+    const id = confirmApproveId;
+    setConfirmApproveId(null);
+    if (id) {
+      await handleApprove(id);
     }
   };
 
@@ -443,6 +456,32 @@ const PendingApprovals = () => {
         onClose={() => setViewChangesModal(null)}
         log={viewChangesModal}
       />
+
+      {confirmApproveId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 ring-1 ring-gray-200">
+            <div className="flex items-center gap-3 mb-3">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Confirm Approval</h2>
+            </div>
+            <p className="text-gray-700 mb-6">Are you sure you want to approve this action?</p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={closeApproveConfirm}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmApprove}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="mb-6">
@@ -598,7 +637,7 @@ const PendingApprovals = () => {
                   {/* Action Buttons */}
                   <div className="flex flex-col gap-2 ml-4">
                     <button
-                      onClick={() => handleApprove(log._id)}
+                      onClick={() => openApproveConfirm(log._id)}
                       disabled={processing}
                       className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium whitespace-nowrap"
                     >
