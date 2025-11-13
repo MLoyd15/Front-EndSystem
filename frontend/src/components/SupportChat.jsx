@@ -19,6 +19,7 @@ const AdminChatSystem = () => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'active', 'history'
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
+  const [unreadCounts, setUnreadCounts] = useState({});
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
@@ -103,6 +104,37 @@ const AdminChatSystem = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Load/save unread counts from localStorage to keep state across refreshes
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('support-unread-counts');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') setUnreadCounts(parsed);
+      }
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('support-unread-counts', JSON.stringify(unreadCounts));
+    } catch (_) {}
+  }, [unreadCounts]);
+
+  const incrementUnread = (roomId, amount = 1) => {
+    if (!roomId) return;
+    setUnreadCounts(prev => ({ ...prev, [roomId]: (prev[roomId] || 0) + amount }));
+  };
+
+  const clearUnread = (roomId) => {
+    if (!roomId) return;
+    setUnreadCounts(prev => {
+      const next = { ...prev };
+      delete next[roomId];
+      return next;
+    });
+  };
+
   // Initialize Socket.IO connection
   useEffect(() => {
     const token = getAuthToken();
@@ -119,6 +151,9 @@ const AdminChatSystem = () => {
     // Listen for new support requests
     newSocket.on('new_support_request', (data) => {
       fetchPendingChats();
+      // Increment unread for the new chat if roomId present
+      const roomId = data?.roomId || data?.chat?.roomId || data?.room?.id;
+      if (roomId) incrementUnread(roomId, 1);
       // Show browser notification if permitted
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('New Support Request', {
@@ -130,6 +165,7 @@ const AdminChatSystem = () => {
     // Listen for support chat taken by another admin
     newSocket.on('support_chat_taken', ({ roomId }) => {
       setPendingChats(prev => prev.filter(chat => chat.roomId !== roomId));
+      clearUnread(roomId);
     });
 
     // Listen for new messages
@@ -142,6 +178,14 @@ const AdminChatSystem = () => {
         }
         return [...prev, message];
       });
+      // If message is from user and chat is not currently selected, mark as unread
+      try {
+        const isFromUser = message?.senderType && message.senderType !== 'admin';
+        const sameRoomSelected = selectedChat && message?.roomId && selectedChat.roomId === message.roomId;
+        if (isFromUser && !sameRoomSelected) {
+          incrementUnread(message?.roomId, 1);
+        }
+      } catch (_) {}
     });
 
     // Listen for chat closed
@@ -151,6 +195,7 @@ const AdminChatSystem = () => {
         setMessages([]);
       }
       setActiveChats(prev => prev.filter(chat => chat.roomId !== roomId));
+      clearUnread(roomId);
     });
 
     // Listen for typing indicators
@@ -253,6 +298,7 @@ const AdminChatSystem = () => {
         setActiveChats(prev => [...prev, data.chatRoom]);
         selectChat(data.chatRoom);
         socket?.emit('join_support_room', roomId);
+        clearUnread(roomId);
       }
     } catch (error) {
       console.error('Error accepting chat:', error);
@@ -265,6 +311,7 @@ const AdminChatSystem = () => {
   const selectChat = async (chat) => {
     setSelectedChat(chat);
     socket?.emit('join_support_room', chat.roomId);
+    clearUnread(chat.roomId);
     
     try {
       const token = getAuthToken();
@@ -464,6 +511,11 @@ const AdminChatSystem = () => {
                           </p>
                         </div>
                       </div>
+                      {unreadCounts[chat.roomId] > 0 && (
+                        <span className="mr-2 px-2 py-0.5 text-xs font-bold text-white bg-blue-600 rounded-full">
+                          {unreadCounts[chat.roomId]}
+                        </span>
+                      )}
                       <button className="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600">
                         Accept
                       </button>
@@ -499,6 +551,11 @@ const AdminChatSystem = () => {
                         </p>
                         <p className="text-xs text-gray-500">Active chat</p>
                       </div>
+                      {unreadCounts[chat.roomId] > 0 && (
+                        <span className="ml-auto px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full">
+                          {unreadCounts[chat.roomId]}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))
