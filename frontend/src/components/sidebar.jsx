@@ -276,7 +276,7 @@ const Sidebar = () => {
 
                     {/* ✅ Badge for Support Chat pending requests */}
                     {item.hasSupportBadge && pendingSupportCount > 0 && (
-                      <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-blue-600 rounded-full animate-pulse border border-white">
+                      <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-red-600 rounded-full animate-pulse border border-white">
                         {pendingSupportCount > 99 ? '99+' : pendingSupportCount}
                       </span>
                     )}
@@ -317,7 +317,7 @@ const Sidebar = () => {
 
                   {/* ✅ Support Chat badge for desktop collapsed view (md screens) */}
                   {item.hasSupportBadge && pendingSupportCount > 0 && (
-                    <span className="hidden md:flex lg:hidden ml-auto items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-blue-600 rounded-full">
+                    <span className="hidden md:flex lg:hidden ml-auto items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-red-600 rounded-full">
                       {pendingSupportCount > 9 ? '9+' : pendingSupportCount}
                     </span>
                   )}
@@ -331,7 +331,7 @@ const Sidebar = () => {
 
                   {/* ✅ Support Chat badge for desktop expanded view (lg screens) */}
                   {item.hasSupportBadge && pendingSupportCount > 0 && (
-                    <span className="hidden lg:flex ml-auto items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-600 rounded-full animate-pulse">
+                    <span className="hidden lg:flex ml-auto items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full animate-pulse">
                       {pendingSupportCount > 99 ? '99+' : pendingSupportCount}
                     </span>
                   )}
@@ -363,7 +363,7 @@ const Sidebar = () => {
                       <span className="ml-2 text-red-400">({pendingCount})</span>
                     )}
                     {item.hasSupportBadge && pendingSupportCount > 0 && (
-                      <span className="ml-2 text-blue-400">({pendingSupportCount})</span>
+                      <span className="ml-2 text-red-400">({pendingSupportCount})</span>
                     )}
                     {item.hasStockBadge && (lowStockCount > 0 || outOfStockCount > 0) && (
                       <span className="ml-2 text-yellow-400">{outOfStockCount > 0 ? `Out:${outOfStockCount}` : ''}{(outOfStockCount > 0 && lowStockCount > 0) ? ' | ' : ''}{lowStockCount > 0 ? `Low:${lowStockCount}` : ''}</span>
