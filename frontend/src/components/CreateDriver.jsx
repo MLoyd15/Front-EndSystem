@@ -47,9 +47,17 @@ const CreateDriver = () => {
   const [uploadingLicense, setUploadingLicense] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   
+  // Government ID upload state
+  const [govIdFile, setGovIdFile] = useState(null);
+  const [govIdPreview, setGovIdPreview] = useState(null);
+  const [uploadingGovId, setUploadingGovId] = useState(false);
+  const [govUploadStatus, setGovUploadStatus] = useState('');
+  
   // State for viewing license image in modal
   const [selectedLicenseImage, setSelectedLicenseImage] = useState(null);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
+  const [selectedGovIdImage, setSelectedGovIdImage] = useState(null);
+  const [showGovIdModal, setShowGovIdModal] = useState(false);
 
   const fetchDrivers = async () => {
     setLoadingDrivers(true);
@@ -159,6 +167,43 @@ const CreateDriver = () => {
     }
   };
 
+  const handleGovIdUpload = async (file) => {
+    if (!file) return null;
+
+    setUploadingGovId(true);
+    try {
+      const token = localStorage.getItem('pos-token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const formData = new FormData();
+      formData.append('governmentId', file);
+
+      const response = await axios.post(
+        `${API}/admin/upload-government-id`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        return response.data.governmentIdImage.url;
+      } else {
+        throw new Error(response.data.message || 'Government ID upload failed');
+      }
+    } catch (err) {
+      console.error('Government ID upload error:', err);
+      throw err;
+    } finally {
+      setUploadingGovId(false);
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -181,6 +226,31 @@ const CreateDriver = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setLicensePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
+  };
+
+  const handleGovIdFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setError('Please select a valid image file (JPEG, PNG, or WebP)');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB');
+        return;
+      }
+
+      setGovIdFile(file);
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setGovIdPreview(e.target.result);
       };
       reader.readAsDataURL(file);
       setError('');
@@ -243,6 +313,12 @@ const CreateDriver = () => {
         licenseImageUrl = await handleLicenseUpload(licenseFile);
       }
 
+      // Upload government ID image if provided
+      let governmentIdImageUrl = null;
+      if (govIdFile) {
+        governmentIdImageUrl = await handleGovIdUpload(govIdFile);
+      }
+
       const response = await axios.post(
         `${API}/admin/create-driver`,
         {
@@ -251,7 +327,8 @@ const CreateDriver = () => {
           phone: formData.phone.trim(),
           password: formData.password,
           role: 'driver',
-          licenseImage: licenseImageUrl
+          licenseImage: licenseImageUrl,
+          governmentIdImage: governmentIdImageUrl
         },
         {
           headers: {
@@ -272,6 +349,8 @@ const CreateDriver = () => {
         });
         setLicenseFile(null);
         setLicensePreview(null);
+        setGovIdFile(null);
+        setGovIdPreview(null);
         // Refresh drivers list
         fetchDrivers();
       } else {
@@ -299,6 +378,16 @@ const CreateDriver = () => {
   const closeLicenseModal = () => {
     setShowLicenseModal(false);
     setSelectedLicenseImage(null);
+  };
+
+  const openGovIdModal = (govIdUrl) => {
+    setSelectedGovIdImage(govIdUrl);
+    setShowGovIdModal(true);
+  };
+
+  const closeGovIdModal = () => {
+    setShowGovIdModal(false);
+    setSelectedGovIdImage(null);
   };
 
   return (
@@ -595,6 +684,63 @@ const CreateDriver = () => {
                     )}
                   </div>
 
+                  {/* Government ID Image Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Government ID Image (Optional)
+                    </label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-green-400 transition-colors duration-200">
+                      <div className="space-y-1 text-center">
+                        {govIdPreview ? (
+                          <div className="relative">
+                            <img 
+                              src={govIdPreview} 
+                              alt="Government ID preview" 
+                              className="mx-auto h-32 w-auto rounded-lg shadow-md"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGovIdFile(null);
+                                setGovIdPreview(null);
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <Image className="mx-auto h-12 w-12 text-gray-400" />
+                            <div className="flex text-sm text-gray-600">
+                              <label
+                                htmlFor="govid-upload"
+                                className="relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-green-500"
+                              >
+                                <span>Upload government ID image</span>
+                                <input
+                                  id="govid-upload"
+                                  name="govid-upload"
+                                  type="file"
+                                  className="sr-only"
+                                  accept="image/*"
+                                  onChange={handleGovIdFileChange}
+                                />
+                              </label>
+                              <p className="pl-1">or drag and drop</p>
+                            </div>
+                            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {govUploadStatus && (
+                      <div className={`mt-2 text-sm ${govUploadStatus.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                        {govUploadStatus}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Submit Button */}
                   <button
                     type="submit"
@@ -763,6 +909,52 @@ const CreateDriver = () => {
                               </div>
                             </div>
                           )}
+
+                          {/* Government ID Image Section */}
+                          {driver.governmentIdImage ? (
+                            <div className="mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center">
+                                  <div className="bg-green-100 p-1.5 rounded-lg mr-2">
+                                    <Image className="w-4 h-4 text-green-600" />
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    Government ID
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => openGovIdModal(driver.governmentIdImage)}
+                                  className="flex items-center px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 text-xs font-medium shadow-sm hover:shadow-md"
+                                >
+                                  <Eye className="w-3.5 h-3.5 mr-1.5" />
+                                  View Full
+                                </button>
+                              </div>
+                              <div 
+                                className="relative overflow-hidden rounded-lg cursor-pointer group"
+                                onClick={() => openGovIdModal(driver.governmentIdImage)}
+                              >
+                                <img 
+                                  src={driver.governmentIdImage} 
+                                  alt={`${driver.name}'s government ID`}
+                                  className="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                  <div className="bg-white bg-opacity-90 rounded-full p-3 shadow-lg">
+                                    <Eye className="w-6 h-6 text-green-600" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                              <div className="flex items-center justify-center text-gray-400">
+                                <Image className="w-5 h-5 mr-2" />
+                                <span className="text-sm">No government ID image uploaded</span>
+                              </div>
+                            </div>
+                          )}
                           
                           {/* Actions and Metadata */}
                           <div className="flex items-center justify-between pt-4 border-t border-gray-200">
@@ -839,6 +1031,44 @@ const CreateDriver = () => {
             <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end rounded-b-2xl">
               <button
                 onClick={closeLicenseModal}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Government ID Image Modal */}
+      {showGovIdModal && selectedGovIdImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
+          onClick={closeGovIdModal}
+        >
+          <div 
+            className="relative bg-white rounded-2xl max-w-4xl max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-lg font-semibold text-gray-900">Government ID</h3>
+              <button
+                onClick={closeGovIdModal}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <img 
+                src={selectedGovIdImage} 
+                alt="Government ID"
+                className="w-full h-auto rounded-lg shadow-lg"
+              />
+            </div>
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end rounded-b-2xl">
+              <button
+                onClick={closeGovIdModal}
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200"
               >
                 Close

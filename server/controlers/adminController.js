@@ -98,7 +98,7 @@ export const getDrivers = async (req, res) => {
 
 export const createDriver = async (req, res) => {
   try {
-    const { name, email, phone, password, licenseImage } = req.body;
+    const { name, email, phone, password, licenseImage, governmentIdImage } = req.body;
 
     console.log('Creating driver with data:', { name, email, phone, hasLicense: !!licenseImage }); // Debug log
 
@@ -148,12 +148,19 @@ export const createDriver = async (req, res) => {
       console.log('License image URL added:', licenseImage); // Debug log
     }
 
+    // Add governmentIdImage if provided
+    if (governmentIdImage && governmentIdImage.trim() !== '') {
+      driverData.governmentIdImage = governmentIdImage.trim();
+      console.log('Government ID image URL added:', governmentIdImage);
+    }
+
     // Create new driver as user with role 'driver'
     const newDriver = new User(driverData);
     await newDriver.save();
 
     console.log('Driver created successfully with ID:', newDriver._id); // Debug log
     console.log('Saved license image:', newDriver.licenseImage); // Debug log
+    console.log('Saved government ID image:', newDriver.governmentIdImage); // Debug log
 
     // Return success response (without password)
     const driverResponse = {
@@ -163,6 +170,7 @@ export const createDriver = async (req, res) => {
       phone: newDriver.phone,
       role: newDriver.role,
       licenseImage: newDriver.licenseImage,
+      governmentIdImage: newDriver.governmentIdImage,
       active: newDriver.active,
       createdAt: newDriver.createdAt
     };
@@ -270,6 +278,47 @@ export const updateDriverLicense = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error while updating driver license"
+    });
+  }
+};
+
+// Update driver government ID image
+export const updateDriverGovernmentId = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { governmentIdImage } = req.body;
+
+    if (!governmentIdImage) {
+      return res.status(400).json({
+        success: false,
+        message: "Government ID image URL is required"
+      });
+    }
+
+    const driver = await User.findOneAndUpdate(
+      { _id: driverId, role: 'driver' },
+      { governmentIdImage },
+      { new: true }
+    ).select('-password');
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Driver government ID updated successfully",
+      driver
+    });
+
+  } catch (err) {
+    console.error("Error updating driver government ID:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while updating driver government ID"
     });
   }
 };

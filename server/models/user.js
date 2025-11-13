@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
 
     // Driver-specific fields
     licenseImage: {type: String}, // URL to the uploaded license image
+    governmentIdImage: {type: String}, // URL to the uploaded government ID image
 
      // Loyalty fields
     loyaltyPoints: { type: Number, default: 0 },

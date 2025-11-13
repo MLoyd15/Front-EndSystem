@@ -1,5 +1,5 @@
 import express from "express";
-import { getStats, createDriver, getDrivers, updateDriverStatus, updateDriverLicense } from "../controlers/adminController.js";
+import { getStats, createDriver, getDrivers, updateDriverStatus, updateDriverLicense, updateDriverGovernmentId } from "../controlers/adminController.js";
 import { 
   listAdminBundles, 
   getAdminBundle, 
@@ -7,7 +7,7 @@ import {
   updateAdminBundle, 
   deleteAdminBundle
 } from "../controlers/bundleController.js";
-import { uploadDriverLicense } from "../controlers/uploadController.js";
+import { uploadDriverLicense, uploadGovernmentId } from "../controlers/uploadController.js";
 import { uploadMemory } from "../middleware/multerMemory.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -22,6 +22,8 @@ router.post("/create-driver", authMiddleware, createDriver);
 router.patch("/drivers/:driverId/status", authMiddleware, updateDriverStatus);
 router.patch("/drivers/:driverId/license", authMiddleware, updateDriverLicense);
 router.post("/upload-license", authMiddleware, uploadMemory.single("license"), uploadDriverLicense);
+router.patch("/drivers/:driverId/government-id", authMiddleware, updateDriverGovernmentId);
+router.post("/upload-government-id", authMiddleware, uploadMemory.single("governmentId"), uploadGovernmentId);
 
 // Admin Bundle Management Routes
 router.get("/bundles", authMiddleware, listAdminBundles);
