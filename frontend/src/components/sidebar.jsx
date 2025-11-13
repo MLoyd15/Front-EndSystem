@@ -29,6 +29,7 @@ const Sidebar = () => {
   const [userRole, setUserRole] = useState(null);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [outOfStockCount, setOutOfStockCount] = useState(0);
+  const [pendingSupportCount, setPendingSupportCount] = useState(0);
 
   const menuItems = [
     { name: "Maintenance", path: "/admin-dashboard/maintenance", icon: <FaTools />, isParent: false, superAdminOnly: true },
@@ -40,7 +41,7 @@ const Sidebar = () => {
     { name: "Activity Log", path: "/admin-dashboard/activity-log", icon: <FaGift />, isParent: false },
     { name: "Pending Approvals", path: "/admin-dashboard/pending-approvals", icon: <MdPendingActions />, isParent: false, superAdminOnly: true, hasBadge: true },
     { name: "Sales History", path: "/admin-dashboard/Sales", icon: <MdHistory />, isParent: false, superAdminOnly: true },
-    { name: "Support Chat", path: "/admin-dashboard/support-chat", icon: <FaComments />, isParent: false },
+    { name: "Support Chat", path: "/admin-dashboard/support-chat", icon: <FaComments />, isParent: false, hasSupportBadge: true },
     { name: "Create Driver", path: "/admin-dashboard/create-driver", icon: <FaTruck />, isParent: false, superAdminOnly: true },
     { name: "Logout", path: "/admin-dashboard/logout", icon: <FaSignOutAlt />, isParent: false },
   ];
@@ -93,6 +94,23 @@ const Sidebar = () => {
     }
   };
 
+  // ✅ Fetch pending support chats count
+  const fetchPendingSupportCount = async () => {
+    try {
+      const response = await fetch(`${API}/support-chat/pending`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('pos-token')}`,
+        },
+      });
+      const result = await response.json();
+      if (result?.success) {
+        setPendingSupportCount(Array.isArray(result.chats) ? result.chats.length : 0);
+      }
+    } catch (error) {
+      console.error('Error fetching pending support count:', error);
+    }
+  };
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("pos-user") || "{}");
     const role = user?.role;
@@ -107,7 +125,7 @@ const Sidebar = () => {
       }
       setItems(filteredItems);
 
-      // ✅ Fetch pending count if superadmin
+      // ✅ Fetch pending approvals count if superadmin
       if (role === "superadmin") {
         fetchPendingCount();
         
@@ -135,6 +153,23 @@ const Sidebar = () => {
       // ✅ Fetch stock counts for admin/superadmin
       fetchStockCounts();
 
+      // ✅ Fetch pending support chats count for admin/superadmin
+      fetchPendingSupportCount();
+
+      // ✅ Poll support count every 30 seconds
+      const supportInterval = setInterval(fetchPendingSupportCount, 30000);
+
+      // ✅ Subscribe to support chat socket events to refresh counts
+      const supportSocket = io(SOCKET_URL, {
+        auth: { token: localStorage.getItem('pos-token') },
+      });
+
+      const refreshSupport = () => fetchPendingSupportCount();
+      supportSocket.on('connect', refreshSupport);
+      supportSocket.on('new_support_request', refreshSupport);
+      supportSocket.on('support_chat_taken', refreshSupport);
+      supportSocket.on('support_chat_closed', refreshSupport);
+
       // ✅ Subscribe to inventory socket events to refresh counts
       const inventorySocket = io(SOCKET_URL, {
         auth: { token: localStorage.getItem("pos-token") },
@@ -156,6 +191,8 @@ const Sidebar = () => {
         if (typeof activitySocket !== 'undefined') {
           try { activitySocket.disconnect(); } catch (_) {}
         }
+        try { supportSocket.disconnect(); } catch (_) {}
+        clearInterval(supportInterval);
       };
     }
   }, [userRole]); // Add userRole as dependency
@@ -237,6 +274,13 @@ const Sidebar = () => {
                       </span>
                     )}
 
+                    {/* ✅ Badge for Support Chat pending requests */}
+                    {item.hasSupportBadge && pendingSupportCount > 0 && (
+                      <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-blue-600 rounded-full animate-pulse border border-white">
+                        {pendingSupportCount > 99 ? '99+' : pendingSupportCount}
+                      </span>
+                    )}
+
                     {/* ✅ Stock badges on Products (icon overlay) */}
                     {item.hasStockBadge && (lowStockCount > 0 || outOfStockCount > 0) && (
                       <div className="absolute -top-2 -right-2 flex gap-0.5">
@@ -271,10 +315,24 @@ const Sidebar = () => {
                     </span>
                   )}
 
+                  {/* ✅ Support Chat badge for desktop collapsed view (md screens) */}
+                  {item.hasSupportBadge && pendingSupportCount > 0 && (
+                    <span className="hidden md:flex lg:hidden ml-auto items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white bg-blue-600 rounded-full">
+                      {pendingSupportCount > 9 ? '9+' : pendingSupportCount}
+                    </span>
+                  )}
+
                   {/* ✅ Badge for desktop expanded view (lg screens) */}
                   {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
                     <span className="hidden lg:flex ml-auto items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full animate-pulse">
                       {pendingCount > 99 ? '99+' : pendingCount}
+                    </span>
+                  )}
+
+                  {/* ✅ Support Chat badge for desktop expanded view (lg screens) */}
+                  {item.hasSupportBadge && pendingSupportCount > 0 && (
+                    <span className="hidden lg:flex ml-auto items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-600 rounded-full animate-pulse">
+                      {pendingSupportCount > 99 ? '99+' : pendingSupportCount}
                     </span>
                   )}
 
@@ -303,6 +361,9 @@ const Sidebar = () => {
                     {item.name}
                     {item.hasBadge && userRole === 'superadmin' && pendingCount > 0 && (
                       <span className="ml-2 text-red-400">({pendingCount})</span>
+                    )}
+                    {item.hasSupportBadge && pendingSupportCount > 0 && (
+                      <span className="ml-2 text-blue-400">({pendingSupportCount})</span>
                     )}
                     {item.hasStockBadge && (lowStockCount > 0 || outOfStockCount > 0) && (
                       <span className="ml-2 text-yellow-400">{outOfStockCount > 0 ? `Out:${outOfStockCount}` : ''}{(outOfStockCount > 0 && lowStockCount > 0) ? ' | ' : ''}{lowStockCount > 0 ? `Low:${lowStockCount}` : ''}</span>
