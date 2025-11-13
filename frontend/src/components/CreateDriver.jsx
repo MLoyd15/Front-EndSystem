@@ -17,8 +17,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  X,
-  Trash2
+  X
 } from 'lucide-react';
 import { VITE_API_BASE } from '../config';
 
@@ -41,6 +40,7 @@ const CreateDriver = () => {
   const [drivers, setDrivers] = useState([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [activeTab, setActiveTab] = useState('create');
+  const [driverFilter, setDriverFilter] = useState('all'); // 'all', 'active', 'inactive'
   
   // New states for image upload
   const [licenseFile, setLicenseFile] = useState(null);
@@ -391,36 +391,12 @@ const CreateDriver = () => {
     setSelectedGovIdImage(null);
   };
 
-  const deleteDriver = async (driverId) => {
-    try {
-      const confirmed = window.confirm('Delete this driver? This action cannot be undone.');
-      if (!confirmed) return;
-
-      const token = localStorage.getItem('pos-token');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await axios.delete(`${API}/admin/drivers/${driverId}` , {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.data?.success) {
-        setDrivers(drivers.filter(d => d._id !== driverId));
-        setSuccess('Driver deleted successfully');
-        setError('');
-      } else {
-        throw new Error(response.data?.message || 'Failed to delete driver');
-      }
-    } catch (err) {
-      console.error('Delete driver error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to delete driver');
-      setSuccess('');
-    }
-  };
+  // Filter drivers based on active status
+  const filteredDrivers = drivers.filter(driver => {
+    if (driverFilter === 'active') return driver.active;
+    if (driverFilter === 'inactive') return !driver.active;
+    return true; // 'all'
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-green-100 p-4">
@@ -809,7 +785,7 @@ const CreateDriver = () => {
               /* Drivers List */
               <div className="bg-white rounded-2xl shadow-2xl border border-gray-100">
                 <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900">Driver Accounts</h2>
                       <p className="text-gray-600 mt-1">Manage all driver accounts with driver role</p>
@@ -828,6 +804,41 @@ const CreateDriver = () => {
                         Refresh
                       </button>
                     </div>
+                  </div>
+                  
+                  {/* Filter Buttons */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 mr-2">Filter:</span>
+                    <button
+                      onClick={() => setDriverFilter('all')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        driverFilter === 'all'
+                          ? 'bg-green-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      All ({drivers.length})
+                    </button>
+                    <button
+                      onClick={() => setDriverFilter('active')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        driverFilter === 'active'
+                          ? 'bg-emerald-600 text-white shadow-md'
+                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      }`}
+                    >
+                      Active ({drivers.filter(d => d.active).length})
+                    </button>
+                    <button
+                      onClick={() => setDriverFilter('inactive')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        driverFilter === 'inactive'
+                          ? 'bg-gray-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Inactive ({drivers.filter(d => !d.active).length})
+                    </button>
                   </div>
                 </div>
 
@@ -852,7 +863,7 @@ const CreateDriver = () => {
                     </div>
                   ) : (
                     <div className="grid gap-6 md:grid-cols-1 xl:grid-cols-2">
-                      {drivers.map((driver) => (
+                      {filteredDrivers.map((driver) => (
                         <div key={driver._id} className="bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-green-300 hover:shadow-lg transition-all duration-200">
                           {/* Header Section */}
                           <div className="flex items-start justify-between mb-4 pb-4 border-b border-gray-200">
@@ -1022,13 +1033,6 @@ const CreateDriver = () => {
                                     Activate
                                   </>
                                 )}
-                              </button>
-                              <button
-                                onClick={() => deleteDriver(driver._id)}
-                                className="flex items-center px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-md bg-red-600 text-white hover:bg-red-700"
-                              >
-                                <Trash2 className="w-4 h-4 mr-1.5" />
-                                Delete
                               </button>
                             </div>
                           </div>
