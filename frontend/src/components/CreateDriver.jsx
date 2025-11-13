@@ -17,7 +17,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { VITE_API_BASE } from '../config';
 
@@ -388,6 +389,37 @@ const CreateDriver = () => {
   const closeGovIdModal = () => {
     setShowGovIdModal(false);
     setSelectedGovIdImage(null);
+  };
+
+  const deleteDriver = async (driverId) => {
+    try {
+      const confirmed = window.confirm('Delete this driver? This action cannot be undone.');
+      if (!confirmed) return;
+
+      const token = localStorage.getItem('pos-token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await axios.delete(`${API}/admin/drivers/${driverId}` , {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data?.success) {
+        setDrivers(drivers.filter(d => d._id !== driverId));
+        setSuccess('Driver deleted successfully');
+        setError('');
+      } else {
+        throw new Error(response.data?.message || 'Failed to delete driver');
+      }
+    } catch (err) {
+      console.error('Delete driver error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to delete driver');
+      setSuccess('');
+    }
   };
 
   return (
@@ -970,26 +1002,35 @@ const CreateDriver = () => {
                                 </div>
                               )}
                             </div>
-                            <button
-                              onClick={() => toggleDriverStatus(driver._id, driver.active)}
-                              className={`flex items-center px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${
-                                driver.active 
-                                  ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-                              }`}
-                            >
-                              {driver.active ? (
-                                <>
-                                  <ToggleLeft className="w-4 h-4 mr-1.5" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <ToggleRight className="w-4 h-4 mr-1.5" />
-                                  Activate
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => toggleDriverStatus(driver._id, driver.active)}
+                                className={`flex items-center px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${
+                                  driver.active 
+                                    ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                }`}
+                              >
+                                {driver.active ? (
+                                  <>
+                                    <ToggleLeft className="w-4 h-4 mr-1.5" />
+                                    Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <ToggleRight className="w-4 h-4 mr-1.5" />
+                                    Activate
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => deleteDriver(driver._id)}
+                                className="flex items-center px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-md bg-red-600 text-white hover:bg-red-700"
+                              >
+                                <Trash2 className="w-4 h-4 mr-1.5" />
+                                Delete
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}

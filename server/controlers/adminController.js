@@ -1,4 +1,5 @@
 import User from "../models/user.js";
+import Delivery from "../models/Delivery.js";
 import Category from "../models/category.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
@@ -320,5 +321,36 @@ export const updateDriverGovernmentId = async (req, res) => {
       success: false,
       message: "Internal server error while updating driver government ID"
     });
+  }
+};
+
+// Delete driver
+export const deleteDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    // Verify driver exists
+    const driver = await User.findOne({ _id: driverId, role: 'driver' }).select('-password');
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    // Block deletion if driver is assigned to active deliveries
+    const activeCount = await Delivery.countDocuments({
+      assignedDriver: driverId,
+      status: { $in: ['pending', 'assigned', 'in-transit'] }
+    });
+    if (activeCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete driver assigned to ${activeCount} active deliveries`
+      });
+    }
+
+    await User.deleteOne({ _id: driverId });
+    return res.json({ success: true, message: 'Driver deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting driver:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error while deleting driver' });
   }
 };
