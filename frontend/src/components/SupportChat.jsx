@@ -369,6 +369,19 @@ const AdminChatSystem = () => {
         setMessages(prev => prev.map(msg => 
           msg.id === tempMessageId ? data.message : msg
         ));
+        // Refresh active chat list and current messages to ensure up-to-date state
+        try {
+          await fetchActiveChats();
+          // Re-fetch messages for the selected chat to ensure consistency
+          const token2 = getAuthToken();
+          const resp2 = await fetch(`${API_BASE_URL}/support-chat/${selectedChat.roomId}/messages`, {
+            headers: { 'Authorization': `Bearer ${token2}` }
+          });
+          const data2 = await resp2.json();
+          if (data2.success && Array.isArray(data2.messages)) {
+            setMessages(data2.messages);
+          }
+        } catch (_) {}
       } else {
         // Remove temp message if sending failed
         setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
@@ -420,8 +433,12 @@ const AdminChatSystem = () => {
       if (response.ok) {
         socket?.emit('leave_support_room', selectedChat.roomId);
         setActiveChats(prev => prev.filter(chat => chat.roomId !== selectedChat.roomId));
+        // After closing, navigate to Active tab and refresh lists
         setSelectedChat(null);
         setMessages([]);
+        setActiveTab('active');
+        // Refresh active chats to reflect the closed chat removal
+        fetchActiveChats();
       }
     } catch (error) {
       console.error('Error closing chat:', error);
