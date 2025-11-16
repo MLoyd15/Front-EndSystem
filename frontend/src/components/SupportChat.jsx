@@ -144,13 +144,18 @@ const AdminChatSystem = () => {
   useEffect(() => {
     const token = getAuthToken();
     if (!token) return;
-  
+
     const newSocket = io(SOCKET_URL, { auth: { token } });
-  
+
     newSocket.on('connect', () => {
       console.log('Connected to socket server');
     });
-  
+
+    // ADD: explicit connect error log
+    newSocket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err?.message || err);
+    });
+
     newSocket.on('new_support_request', (data) => {
       fetchPendingChats();
       const roomId = data?.roomId || data?.chat?.roomId || data?.room?.id;
@@ -761,3 +766,28 @@ const AdminChatSystem = () => {
 };
 
 export default AdminChatSystem;
+
+// ADD: 1-second polling for active list and messages
+useEffect(() => {
+  const interval = setInterval(async () => {
+    try {
+      if (activeTab === 'active') {
+        await fetchActiveChats();
+      }
+      if (selectedChat) {
+        const token = getAuthToken();
+        const response = await fetch(`${API_BASE_URL}/support-chat/${selectedChat.roomId}/messages`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.messages)) {
+          setMessages(data.messages);
+        }
+      }
+    } catch (err) {
+      console.error('Polling error:', err);
+    }
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [selectedChat, activeTab]);
