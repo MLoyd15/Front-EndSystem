@@ -309,10 +309,17 @@ const AdminChatSystem = () => {
 
   // Select a chat to view messages
   const selectChat = async (chat) => {
+    // Leave previous room if any
+    if (currentRoomIdRef.current) {
+      socket?.emit('leave_support_room', currentRoomIdRef.current);
+    }
+
     setSelectedChat(chat);
+    selectedChatRef.current = chat;
+    currentRoomIdRef.current = chat.roomId;
     socket?.emit('join_support_room', chat.roomId);
     clearUnread(chat.roomId);
-    
+
     try {
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/support-chat/${chat.roomId}/messages`, {

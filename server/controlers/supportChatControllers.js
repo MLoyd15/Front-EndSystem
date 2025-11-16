@@ -149,6 +149,7 @@ export const getChatMessages = async (req, res) => {
 };
 
 // Send message in support chat
+// sendSupportMessage method
 export const sendSupportMessage = async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -197,6 +198,7 @@ export const sendSupportMessage = async (req, res) => {
     const io = req.app.get('io');
     const messageData = {
       id: supportMessage._id,
+      roomId, // ADD: include roomId so clients can route the message
       message: supportMessage.message,
       senderType: supportMessage.senderType,
       sender: {
