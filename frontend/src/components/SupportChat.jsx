@@ -767,7 +767,7 @@ const AdminChatSystem = () => {
 
 export default AdminChatSystem;
 
-// ADD: 1-second polling for active list and messages
+// 1-second polling for active list and messages
 useEffect(() => {
   const interval = setInterval(async () => {
     try {
