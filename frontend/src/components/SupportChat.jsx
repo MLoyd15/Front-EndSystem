@@ -135,82 +135,87 @@ const AdminChatSystem = () => {
     });
   };
 
-  // Initialize Socket.IO connection
-  useEffect(() => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    const newSocket = io(SOCKET_URL, {
-      auth: { token }
-    });
-
-    newSocket.on('connect', () => {
-      console.log('Connected to socket server');
-    });
-
-    // Listen for new support requests
-    newSocket.on('new_support_request', (data) => {
-      fetchPendingChats();
-      // Increment unread for the new chat if roomId present
-      const roomId = data?.roomId || data?.chat?.roomId || data?.room?.id;
-      if (roomId) incrementUnread(roomId, 1);
-      // Show browser notification if permitted
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('New Support Request', {
-          body: 'New customer needs assistance'
-        });
-      }
-    });
-
-    // Listen for support chat taken by another admin
-    newSocket.on('support_chat_taken', ({ roomId }) => {
-      setPendingChats(prev => prev.filter(chat => chat.roomId !== roomId));
-      clearUnread(roomId);
-    });
-
-    // Listen for new messages
-    newSocket.on('new_support_message', (message) => {
-      setMessages(prev => {
-        // Check if message already exists (to prevent duplicates)
-        const messageExists = prev.some(msg => msg.id === message.id);
-        if (messageExists) {
-          return prev;
-        }
-        return [...prev, message];
+  // SupportChat component (function SupportChat)
+  const SupportChat = () => {
+    // Initialize Socket.IO connection ONCE (do not depend on selectedChat)
+    useEffect(() => {
+      const token = getAuthToken();
+      if (!token) return;
+  
+      const newSocket = io(SOCKET_URL, {
+        auth: { token }
       });
-      // If message is from user and chat is not currently selected, mark as unread
-      try {
-        const isFromUser = message?.senderType && message.senderType !== 'admin';
-        const sameRoomSelected = selectedChat && message?.roomId && selectedChat.roomId === message.roomId;
-        if (isFromUser && !sameRoomSelected) {
-          incrementUnread(message?.roomId, 1);
+  
+      newSocket.on('connect', () => {
+        console.log('Connected to socket server');
+      });
+  
+      // Listen for new support requests
+      newSocket.on('new_support_request', (data) => {
+        fetchPendingChats();
+        const roomId = data?.roomId || data?.chat?.roomId || data?.room?.id;
+        if (roomId) incrementUnread(roomId, 1);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('New Support Request', {
+            body: 'New customer needs assistance'
+          });
         }
-      } catch (_) {}
-    });
-
-    // Listen for chat closed
-    newSocket.on('support_chat_closed', ({ roomId }) => {
-      if (selectedChat?.roomId === roomId) {
-        setSelectedChat(null);
-        setMessages([]);
-      }
-      setActiveChats(prev => prev.filter(chat => chat.roomId !== roomId));
-      clearUnread(roomId);
-    });
-
-    // Listen for typing indicators
-    newSocket.on('user_typing_support', ({ userId, isTyping, isAdmin }) => {
-      if (!isAdmin && selectedChat) {
-        setIsTyping(isTyping);
-      }
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
-  }, [selectedChat]);
+      });
+  
+      // Listen for support chat taken by another admin
+      newSocket.on('support_chat_taken', ({ roomId }) => {
+        setPendingChats(prev => prev.filter(chat => chat.roomId !== roomId));
+        clearUnread(roomId);
+      });
+  
+      // Listen for new messages (now will use refs to check current room)
+      newSocket.on('new_support_message', (message) => {
+        // If message is from user, ensure we focus Active and refresh list
+        const isFromUser = message?.senderType && message.senderType !== 'admin';
+        if (isFromUser) {
+          setActiveTab('active');
+          fetchActiveChats();
+        }
+  
+        // Only append to current messages if for the selected room
+        const currentRoom = currentRoomIdRef.current;
+        if (message?.roomId && currentRoom && message.roomId === currentRoom) {
+          setMessages(prev => {
+            const exists = prev.some(msg => msg.id === message.id);
+            return exists ? prev : [...prev, message];
+          });
+        } else if (message?.roomId) {
+          // Not current room: bump unread
+          incrementUnread(message.roomId, 1);
+        }
+      });
+  
+      // Listen for chat closed
+      newSocket.on('support_chat_closed', ({ roomId }) => {
+        if (selectedChatRef.current?.roomId === roomId) {
+          setSelectedChat(null);
+          selectedChatRef.current = null;
+          currentRoomIdRef.current = null;
+          setMessages([]);
+        }
+        setActiveChats(prev => prev.filter(chat => chat.roomId !== roomId));
+        clearUnread(roomId);
+      });
+  
+      // Listen for typing indicators
+      newSocket.on('user_typing_support', ({ userId, isTyping, isAdmin }) => {
+        if (!isAdmin && selectedChatRef.current) {
+          setIsTyping(isTyping);
+        }
+      });
+  
+      setSocket(newSocket);
+  
+      return () => {
+        newSocket.close();
+      };
+    }, []);
+  };
 
   // Fetch active chats
   const fetchActiveChats = async () => {
@@ -307,7 +312,7 @@ const AdminChatSystem = () => {
     }
   };
 
-  // Select a chat to view messages
+  // Select a chat to view messages (leave previous room, join new)
   const selectChat = async (chat) => {
     // Leave previous room if any
     if (currentRoomIdRef.current) {
