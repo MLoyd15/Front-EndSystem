@@ -17,12 +17,14 @@ const AdminChatSystem = () => {
   const [messageText, setMessageText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'active', 'history'
+  const [activeTab, setActiveTab] = useState('pending');
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
   const [unreadCounts, setUnreadCounts] = useState({});
+  
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-
+  const selectedChatRef = useRef(null);
+  const currentRoomIdRef = useRef(null);
   // Helper function to get display name for chat user
   const getChatDisplayName = (chat) => {
     if (!chat || !chat.user) {
@@ -136,88 +138,70 @@ const AdminChatSystem = () => {
   };
 
   // SupportChat component (function SupportChat)
-  const SupportChat = () => {
-    // Initialize Socket.IO connection ONCE (do not depend on selectedChat)
-    useEffect(() => {
-      const token = getAuthToken();
-      if (!token) return;
+  // AdminChatSystem component (const AdminChatSystem = () => {)
+  // Replace the nested `const SupportChat = () => { useEffect(...) }` with this top-level effect:
+  // Socket initialization (single, top-level)
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) return;
   
-      const newSocket = io(SOCKET_URL, {
-        auth: { token }
-      });
+    const newSocket = io(SOCKET_URL, { auth: { token } });
   
-      newSocket.on('connect', () => {
-        console.log('Connected to socket server');
-      });
+    newSocket.on('connect', () => {
+      console.log('Connected to socket server');
+    });
   
-      // Listen for new support requests
-      newSocket.on('new_support_request', (data) => {
-        fetchPendingChats();
-        const roomId = data?.roomId || data?.chat?.roomId || data?.room?.id;
-        if (roomId) incrementUnread(roomId, 1);
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('New Support Request', {
-            body: 'New customer needs assistance'
-          });
-        }
-      });
+    newSocket.on('new_support_request', (data) => {
+      fetchPendingChats();
+      const roomId = data?.roomId || data?.chat?.roomId || data?.room?.id;
+      if (roomId) incrementUnread(roomId, 1);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('New Support Request', { body: 'New customer needs assistance' });
+      }
+    });
   
-      // Listen for support chat taken by another admin
-      newSocket.on('support_chat_taken', ({ roomId }) => {
-        setPendingChats(prev => prev.filter(chat => chat.roomId !== roomId));
-        clearUnread(roomId);
-      });
+    newSocket.on('support_chat_taken', ({ roomId }) => {
+      setPendingChats(prev => prev.filter(chat => chat.roomId !== roomId));
+      clearUnread(roomId);
+    });
   
-      // Listen for new messages (now will use refs to check current room)
-      newSocket.on('new_support_message', (message) => {
-        // If message is from user, ensure we focus Active and refresh list
-        const isFromUser = message?.senderType && message.senderType !== 'admin';
-        if (isFromUser) {
-          setActiveTab('active');
-          fetchActiveChats();
-        }
+    newSocket.on('new_support_message', (message) => {
+      const isFromUser = message?.senderType && message.senderType !== 'admin';
+      if (isFromUser) {
+        setActiveTab('active');
+        fetchActiveChats();
+      }
+      const currentRoom = currentRoomIdRef.current;
+      if (message?.roomId && currentRoom && message.roomId === currentRoom) {
+        setMessages(prev => {
+          const exists = prev.some(msg => msg.id === message.id);
+          return exists ? prev : [...prev, message];
+        });
+      } else if (message?.roomId) {
+        incrementUnread(message.roomId, 1);
+      }
+    });
   
-        // Only append to current messages if for the selected room
-        const currentRoom = currentRoomIdRef.current;
-        if (message?.roomId && currentRoom && message.roomId === currentRoom) {
-          setMessages(prev => {
-            const exists = prev.some(msg => msg.id === message.id);
-            return exists ? prev : [...prev, message];
-          });
-        } else if (message?.roomId) {
-          // Not current room: bump unread
-          incrementUnread(message.roomId, 1);
-        }
-      });
+    newSocket.on('support_chat_closed', ({ roomId }) => {
+      if (selectedChatRef.current?.roomId === roomId) {
+        setSelectedChat(null);
+        selectedChatRef.current = null;
+        currentRoomIdRef.current = null;
+        setMessages([]);
+      }
+      setActiveChats(prev => prev.filter(chat => chat.roomId !== roomId));
+      clearUnread(roomId);
+    });
   
-      // Listen for chat closed
-      newSocket.on('support_chat_closed', ({ roomId }) => {
-        if (selectedChatRef.current?.roomId === roomId) {
-          setSelectedChat(null);
-          selectedChatRef.current = null;
-          currentRoomIdRef.current = null;
-          setMessages([]);
-        }
-        setActiveChats(prev => prev.filter(chat => chat.roomId !== roomId));
-        clearUnread(roomId);
-      });
+    newSocket.on('user_typing_support', ({ isTyping, isAdmin }) => {
+      if (!isAdmin && selectedChatRef.current) {
+        setIsTyping(isTyping);
+      }
+    });
   
-      // Listen for typing indicators
-      newSocket.on('user_typing_support', ({ userId, isTyping, isAdmin }) => {
-        if (!isAdmin && selectedChatRef.current) {
-          setIsTyping(isTyping);
-        }
-      });
-  
-      setSocket(newSocket);
-  
-      return () => {
-        newSocket.close();
-      };
-    }, []);
-  };
-
-  // Fetch active chats
+    setSocket(newSocket);
+    return () => newSocket.close();
+  }, []);
   const fetchActiveChats = async () => {
     try {
       const token = getAuthToken();
@@ -313,18 +297,21 @@ const AdminChatSystem = () => {
   };
 
   // Select a chat to view messages (leave previous room, join new)
+  // AdminChatSystem component (const AdminChatSystem = () => {)
+  // Inside selectChat and closeChat, ensure refs are updated/cleared
+  // Select a chat (click handler)
   const selectChat = async (chat) => {
     // Leave previous room if any
     if (currentRoomIdRef.current) {
       socket?.emit('leave_support_room', currentRoomIdRef.current);
     }
-
+  
     setSelectedChat(chat);
     selectedChatRef.current = chat;
     currentRoomIdRef.current = chat.roomId;
     socket?.emit('join_support_room', chat.roomId);
     clearUnread(chat.roomId);
-
+  
     try {
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/support-chat/${chat.roomId}/messages`, {
@@ -429,27 +416,25 @@ const AdminChatSystem = () => {
     }, 1000);
   };
 
-  // Close chat
+  // Close chat (clear refs too)
   const closeChat = async () => {
     if (!selectedChat) return;
-
+  
     try {
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/support-chat/${selectedChat.roomId}/close`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+  
       if (response.ok) {
         socket?.emit('leave_support_room', selectedChat.roomId);
         setActiveChats(prev => prev.filter(chat => chat.roomId !== selectedChat.roomId));
-        // After closing, navigate to Active tab and refresh lists
         setSelectedChat(null);
+        selectedChatRef.current = null;
+        currentRoomIdRef.current = null;
         setMessages([]);
         setActiveTab('active');
-        // Refresh active chats to reflect the closed chat removal
         fetchActiveChats();
       }
     } catch (error) {
