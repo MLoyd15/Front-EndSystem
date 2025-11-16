@@ -25,6 +25,7 @@ const AdminChatSystem = () => {
   const typingTimeoutRef = useRef(null);
   const selectedChatRef = useRef(null);
   const currentRoomIdRef = useRef(null);
+
   // Helper function to get display name for chat user
   const getChatDisplayName = (chat) => {
     if (!chat || !chat.user) {
@@ -33,7 +34,6 @@ const AdminChatSystem = () => {
     
     const user = chat.user;
     
-    // Try different name fields in order of preference
     if (user.name && user.name !== 'undefined' && user.name.trim() !== '') {
       return user.name;
     }
@@ -53,50 +53,46 @@ const AdminChatSystem = () => {
       return user.username;
     }
     if (user.email && user.email !== 'undefined' && user.email.trim() !== '') {
-      // Extract name part from email if available
       const emailName = user.email.split('@')[0];
       const displayName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
       return displayName;
     }
     
-    // Fallback to a generic name
     return 'Customer';
   };
 
   // Get auth token from localStorage
- const getAuthToken = () => {
-  try {
-    // Method 1: Try 'pos-token' (your actual token key)
-    const posToken = localStorage.getItem('pos-token');
-    if (posToken) {
-      console.log('✅ Token found in pos-token');
-      return posToken;
-    }
-    
-    // Method 2: Try 'pos-user' object (fallback)
-    const posUserStr = localStorage.getItem('pos-user');
-    if (posUserStr) {
-      const posUser = JSON.parse(posUserStr);
-      if (posUser.token) {
-        console.log('✅ Token found in pos-user.token');
-        return posUser.token;
+  const getAuthToken = () => {
+    try {
+      const posToken = localStorage.getItem('pos-token');
+      if (posToken) {
+        console.log('✅ Token found in pos-token');
+        return posToken;
       }
+      
+      const posUserStr = localStorage.getItem('pos-user');
+      if (posUserStr) {
+        const posUser = JSON.parse(posUserStr);
+        if (posUser.token) {
+          console.log('✅ Token found in pos-user.token');
+          return posUser.token;
+        }
+      }
+      
+      const directToken = localStorage.getItem('token');
+      if (directToken) {
+        console.log('✅ Token found in token');
+        return directToken;
+      }
+      
+      console.error('❌ No token found');
+      return null;
+    } catch (error) {
+      console.error('❌ Error getting token:', error);
+      return null;
     }
-    
-    // Method 3: Try direct 'token'
-    const directToken = localStorage.getItem('token');
-    if (directToken) {
-      console.log('✅ Token found in token');
-      return directToken;
-    }
-    
-    console.error('❌ No token found');
-    return null;
-  } catch (error) {
-    console.error('❌ Error getting token:', error);
-    return null;
-  }
-};
+  };
+
   // Scroll to bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -106,7 +102,7 @@ const AdminChatSystem = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Load/save unread counts from localStorage to keep state across refreshes
+  // Load/save unread counts from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem('support-unread-counts');
@@ -137,10 +133,61 @@ const AdminChatSystem = () => {
     });
   };
 
-  // SupportChat component (function SupportChat)
-  // AdminChatSystem component (const AdminChatSystem = () => {)
-  // Replace the nested `const SupportChat = () => { useEffect(...) }` with this top-level effect:
-  // Socket initialization (single, top-level)
+  // Fetch pending chats
+  const fetchPendingChats = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/support-chat/pending`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPendingChats(data.chats);
+      }
+    } catch (error) {
+      console.error('Error fetching pending chats:', error);
+    }
+  };
+
+  const fetchActiveChats = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/support-chat/active`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setActiveChats(data.chats);
+      }
+    } catch (error) {
+      console.error('Error fetching active chats:', error);
+    }
+  };
+
+  // Fetch all chats (history)
+  const fetchAllChats = async (page = 1) => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/support-chat/all?page=${page}&limit=20`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAllChats(data.chats);
+        setPagination(data.pagination);
+      }
+    } catch (error) {
+      console.error('Error fetching all chats:', error);
+    }
+  };
+
+  // Socket initialization
   useEffect(() => {
     const token = getAuthToken();
     if (!token) return;
@@ -151,7 +198,6 @@ const AdminChatSystem = () => {
       console.log('Connected to socket server');
     });
 
-    // ADD: explicit connect error log
     newSocket.on('connect_error', (err) => {
       console.error('Socket connection error:', err?.message || err);
     });
@@ -206,73 +252,47 @@ const AdminChatSystem = () => {
   
     setSocket(newSocket);
     return () => newSocket.close();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const fetchActiveChats = async () => {
-    try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/support-chat/active`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setActiveChats(data.chats);
-      }
-    } catch (error) {
-      console.error('Error fetching active chats:', error);
-    }
-  };
 
-  // Fetch active chats on mount
+  // Fetch chats on mount and tab change
   useEffect(() => {
     fetchPendingChats();
     fetchActiveChats();
     if (activeTab === 'history') {
       fetchAllChats();
     }
-    // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // Fetch pending chats
-  const fetchPendingChats = async () => {
-    try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/support-chat/pending`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+  // 1-second polling for active list and messages
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        if (activeTab === 'active') {
+          await fetchActiveChats();
         }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setPendingChats(data.chats);
+        if (selectedChat) {
+          const token = getAuthToken();
+          const response = await fetch(`${API_BASE_URL}/support-chat/${selectedChat.roomId}/messages`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success && Array.isArray(data.messages)) {
+            setMessages(data.messages);
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
       }
-    } catch (error) {
-      console.error('Error fetching pending chats:', error);
-    }
-  };
+    }, 1000);
 
-  // Fetch all chats (history)
-  const fetchAllChats = async (page = 1) => {
-    try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/support-chat/all?page=${page}&limit=20`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setAllChats(data.chats);
-        setPagination(data.pagination);
-      }
-    } catch (error) {
-      console.error('Error fetching all chats:', error);
-    }
-  };
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat, activeTab]);
 
   // Accept a support chat
   const acceptChat = async (roomId) => {
@@ -301,12 +321,8 @@ const AdminChatSystem = () => {
     }
   };
 
-  // Select a chat to view messages (leave previous room, join new)
-  // AdminChatSystem component (const AdminChatSystem = () => {)
-  // Inside selectChat and closeChat, ensure refs are updated/cleared
-  // Select a chat (click handler)
+  // Select a chat to view messages
   const selectChat = async (chat) => {
-    // Leave previous room if any
     if (currentRoomIdRef.current) {
       socket?.emit('leave_support_room', currentRoomIdRef.current);
     }
@@ -340,7 +356,6 @@ const AdminChatSystem = () => {
     const messageToSend = messageText.trim();
     const tempMessageId = `temp_${Date.now()}`;
     
-    // Immediately add message to local state for instant UI update
     const tempMessage = {
       id: tempMessageId,
       message: messageToSend,
@@ -369,14 +384,11 @@ const AdminChatSystem = () => {
       
       const data = await response.json();
       if (data.success) {
-        // Replace temp message with real message from server
         setMessages(prev => prev.map(msg => 
           msg.id === tempMessageId ? data.message : msg
         ));
-        // Refresh active chat list and current messages to ensure up-to-date state
         try {
           await fetchActiveChats();
-          // Re-fetch messages for the selected chat to ensure consistency
           const token2 = getAuthToken();
           const resp2 = await fetch(`${API_BASE_URL}/support-chat/${selectedChat.roomId}/messages`, {
             headers: { 'Authorization': `Bearer ${token2}` }
@@ -387,15 +399,13 @@ const AdminChatSystem = () => {
           }
         } catch (_) {}
       } else {
-        // Remove temp message if sending failed
         setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
-        setMessageText(messageToSend); // Restore message text
+        setMessageText(messageToSend);
         console.error('Failed to send message:', data.message);
       }
     } catch (error) {
-      // Remove temp message if sending failed
       setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
-      setMessageText(messageToSend); // Restore message text
+      setMessageText(messageToSend);
       console.error('Error sending message:', error);
     }
   };
@@ -421,7 +431,7 @@ const AdminChatSystem = () => {
     }, 1000);
   };
 
-  // Close chat (clear refs too)
+  // Close chat
   const closeChat = async () => {
     if (!selectedChat) return;
   
@@ -766,28 +776,3 @@ const AdminChatSystem = () => {
 };
 
 export default AdminChatSystem;
-
-// 1-second polling for active list and messages
-useEffect(() => {
-  const interval = setInterval(async () => {
-    try {
-      if (activeTab === 'active') {
-        await fetchActiveChats();
-      }
-      if (selectedChat) {
-        const token = getAuthToken();
-        const response = await fetch(`${API_BASE_URL}/support-chat/${selectedChat.roomId}/messages`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        if (data.success && Array.isArray(data.messages)) {
-          setMessages(data.messages);
-        }
-      }
-    } catch (err) {
-      console.error('Polling error:', err);
-    }
-  }, 1000);
-
-  return () => clearInterval(interval);
-}, [selectedChat, activeTab]);
