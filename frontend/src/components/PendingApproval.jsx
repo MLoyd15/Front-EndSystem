@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Clock,
   CheckCircle,
@@ -277,6 +277,8 @@ const PendingApprovals = () => {
   const [confirmApproveId, setConfirmApproveId] = useState(null);
   const [rejectLogId, setRejectLogId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  // Filters
+  const [filters, setFilters] = useState({ entity: 'ALL', action: 'ALL', search: '' });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -308,6 +310,31 @@ const PendingApprovals = () => {
       setLoading(false);
     }
   };
+
+  // Compute dynamic options for filters
+  const entityOptions = useMemo(() => {
+    const set = new Set(pendingLogs.map(l => l.entity).filter(Boolean));
+    return ['ALL', ...Array.from(set)];
+  }, [pendingLogs]);
+
+  const actionOptions = useMemo(() => {
+    const set = new Set(pendingLogs.map(l => l.action).filter(Boolean));
+    return ['ALL', ...Array.from(set)];
+  }, [pendingLogs]);
+
+  // Apply filters
+  const filteredLogs = useMemo(() => {
+    const term = filters.search.trim().toLowerCase();
+    return pendingLogs.filter((log) => {
+      const matchEntity = filters.entity === 'ALL' || log.entity === filters.entity;
+      const matchAction = filters.action === 'ALL' || log.action === filters.action;
+      const haystack = [log.description, log.entityName, log.adminName]
+        .filter(Boolean)
+        .map(v => String(v).toLowerCase());
+      const matchSearch = !term || haystack.some(t => t.includes(term));
+      return matchEntity && matchAction && matchSearch;
+    });
+  }, [pendingLogs, filters]);
 
   const handleApprove = async (logId) => {
     try {
@@ -447,11 +474,11 @@ const PendingApprovals = () => {
     });
   };
 
-  // Pagination calculations
-  const totalPages = Math.ceil(pendingLogs.length / itemsPerPage);
+  // Pagination calculations (based on filtered results)
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentLogs = pendingLogs.slice(startIndex, endIndex);
+  const currentLogs = filteredLogs.slice(startIndex, endIndex);
 
   const goToPage = (page) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -567,6 +594,11 @@ const PendingApprovals = () => {
               <p className="text-2xl font-bold text-amber-700">
                 {pendingLogs.length}
               </p>
+              {filteredLogs.length !== pendingLogs.length && (
+                <p className="text-xs mt-1 text-amber-800">
+                  Showing {filteredLogs.length} filtered
+                </p>
+              )}
             </div>
             <Clock className="w-8 h-8 text-amber-500" />
           </div>
@@ -593,6 +625,51 @@ const PendingApprovals = () => {
               </p>
             </div>
             <Settings className="w-8 h-8 text-yellow-600" />
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-6 bg-white rounded-lg shadow-sm p-4 ring-1 ring-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => { setFilters((f) => ({ ...f, search: e.target.value })); setCurrentPage(1); }}
+              placeholder="Search by description, item, or admin"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          <div>
+            <select
+              value={filters.entity}
+              onChange={(e) => { setFilters((f) => ({ ...f, entity: e.target.value })); setCurrentPage(1); }}
+              className="px-3 py-2 border border-gray-300 rounded-lg bg-white"
+            >
+              {entityOptions.map(opt => (
+                <option key={opt} value={opt}>{opt === 'ALL' ? 'All Entities' : opt}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              value={filters.action}
+              onChange={(e) => { setFilters((f) => ({ ...f, action: e.target.value })); setCurrentPage(1); }}
+              className="px-3 py-2 border border-gray-300 rounded-lg bg-white"
+            >
+              {actionOptions.map(opt => (
+                <option key={opt} value={opt}>{opt === 'ALL' ? 'All Actions' : opt.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <button
+              onClick={() => { setFilters({ entity: 'ALL', action: 'ALL', search: '' }); setCurrentPage(1); }}
+              className="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+            >
+              Reset
+            </button>
           </div>
         </div>
       </div>
