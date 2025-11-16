@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MessageSquare, Send, Clock, CheckCircle, XCircle, User } from 'lucide-react';
 import io from 'socket.io-client';
 import { VITE_API_BASE, VITE_SOCKET_URL } from "../config";
@@ -186,6 +186,11 @@ const AdminChatSystem = () => {
       console.error('Error fetching all chats:', error);
     }
   };
+
+  // Compute history-only chats on the client (exclude active/waiting)
+  const historyChats = useMemo(() => {
+    return (allChats || []).filter((chat) => chat.status === 'closed');
+  }, [allChats]);
 
   // Socket initialization
   useEffect(() => {
@@ -594,13 +599,13 @@ const AdminChatSystem = () => {
 
           {activeTab === 'history' && (
             <div>
-              {allChats.length === 0 ? (
+              {historyChats.length === 0 ? (
                 <div className="p-4 text-center text-gray-500 text-sm">
                   No chat history
                 </div>
               ) : (
                 <>
-                  {allChats.map((chat) => (
+                  {historyChats.map((chat) => (
                     <div
                       key={chat.roomId}
                       className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${

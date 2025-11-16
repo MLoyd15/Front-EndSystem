@@ -193,7 +193,21 @@ const Categories = () => {
           setEditCategory(null);
           setCategoryName("");
           setCategoryDescription("");
-          showModal("Success", "Category edited successfully!", "success");
+
+          // If staff (non-superadmin) updated, backend returns requiresApproval=true
+          const message = response.data.message || "Category edited successfully!";
+          const isApprovalPending = response.data.requiresApproval || /pending|approval/i.test(message);
+
+          if (isApprovalPending) {
+            showModal(
+              "Approval Pending",
+              "Category update has been submitted and is waiting for superadmin/owner approval.",
+              "info"
+            );
+          } else {
+            showModal("Success", "Category edited successfully!", "success");
+          }
+
           fetchCategories();
         } else {
           showModal("Error", response.data.message || "Error editing category. Please try again.", "error");
