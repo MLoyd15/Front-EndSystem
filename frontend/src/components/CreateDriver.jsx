@@ -638,7 +638,7 @@ const CreateDriver = () => {
                   {/* Driver's License Image Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Driver's License Image (Optional)
+                      Driver's License Image 
                     </label>
                     <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-green-400 transition-colors duration-200">
                       <div className="space-y-1 text-center">
@@ -695,7 +695,7 @@ const CreateDriver = () => {
                   {/* Government ID Image Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Government ID Image (Optional)
+                      Government ID Image 
                     </label>
                     <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-green-400 transition-colors duration-200">
                       <div className="space-y-1 text-center">
