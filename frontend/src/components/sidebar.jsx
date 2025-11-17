@@ -73,24 +73,41 @@ const Sidebar = () => {
     }
   };
 
-  // ✅ Fetch stock counts (low stock and out of stock)
+  // ✅ Fetch stock counts (computed from active products list to match Inventory page)
   const fetchStockCounts = async () => {
     try {
-      const response = await fetch(`${API}/admin/stats`, {
+      const response = await fetch(`${API}/products?page=1&limit=1000`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('pos-token')}`,
           "Content-Type": "application/json",
         },
       });
       const data = await response.json();
-      if (data) {
-        const low = Number(data.lowStock ?? 0) || 0;
-        const out = Number(data.outOfStock ?? 0) || 0;
+      const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+
+      const low = items.filter(
+        (p) => (p.stock ?? 0) > 0 && (p.minStock ?? 0) > 0 && Number(p.stock) < Number(p.minStock)
+      ).length;
+      const out = items.filter((p) => (p.stock ?? 0) <= 0).length;
+
+      setLowStockCount(low);
+      setOutOfStockCount(out);
+    } catch (err) {
+      console.error('Error fetching stock counts from products list:', err);
+      // Fallback to admin stats if products fetch fails
+      try {
+        const response = await fetch(`${API}/admin/stats`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('pos-token')}`,
+            "Content-Type": "application/json",
+          },
+        });
+        const stats = await response.json();
+        const low = Number(stats.lowStock ?? 0) || 0;
+        const out = Number(stats.outOfStock ?? 0) || 0;
         setLowStockCount(low);
         setOutOfStockCount(out);
-      }
-    } catch (err) {
-      console.error('Error fetching stock counts:', err);
+      } catch (_) {}
     }
   };
 
