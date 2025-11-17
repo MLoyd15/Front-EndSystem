@@ -14,6 +14,15 @@ import { VITE_API_BASE } from '../config';
 
 const API = VITE_API_BASE;
 
+// Map backend roles to display labels in Activity Log
+const getRoleLabel = (role) => {
+  if (!role) return 'User';
+  const r = String(role).toLowerCase();
+  if (r === 'superadmin') return 'Owner';
+  if (r === 'admin') return 'Staff';
+  return 'User';
+};
+
 const ActivityLogList = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,7 +234,7 @@ const ActivityLogList = () => {
                         </div>
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900">
-                            {log.adminName}
+                            {getRoleLabel(log?.adminId?.role)}
                           </div>
                           <div className="text-sm text-gray-500">
                             {log.adminEmail}
@@ -372,7 +381,7 @@ const ActivityLogDetailModal = ({ log, onClose }) => {
                 <User className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <div className="text-base font-semibold text-gray-900">{log.adminName}</div>
+                <div className="text-base font-semibold text-gray-900">{getRoleLabel(log?.adminId?.role)}</div>
                 <div className="text-sm text-gray-600">{log.adminEmail}</div>
               </div>
             </div>
