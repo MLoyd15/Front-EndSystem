@@ -82,6 +82,7 @@ const ActivityLogList = () => {
   };
 
   const getActionColor = (action) => {
+    if (typeof action !== 'string') return 'text-gray-600';
     if (action.includes('CREATE')) return 'text-green-600';
     if (action.includes('UPDATE')) return 'text-blue-600';
     if (action.includes('DELETE')) return 'text-red-600';
@@ -98,11 +99,12 @@ const ActivityLogList = () => {
     });
   };
 
-  const filteredLogs = logs.filter(log =>
-    searchTerm === '' ||
-    log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.adminName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLogs = logs.filter(log => {
+    const desc = (log?.description || '').toLowerCase();
+    const admin = (log?.adminName || '').toLowerCase();
+    const term = (searchTerm || '').toLowerCase();
+    return term === '' || desc.includes(term) || admin.includes(term);
+  });
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -379,7 +381,7 @@ const ActivityLogDetailModal = ({ log, onClose }) => {
           {/* Action */}
           <div className="bg-gray-50 rounded-lg p-4">
             <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Action</label>
-            <div className="mt-2 text-base font-medium text-gray-900">{log.action.replace(/_/g, ' ')}</div>
+            <div className="mt-2 text-base font-medium text-gray-900">{(log?.action || '').replace(/_/g, ' ')}</div>
             <div className="mt-1 text-sm text-gray-600">{log.entity}</div>
           </div>
 
@@ -403,7 +405,7 @@ const ActivityLogDetailModal = ({ log, onClose }) => {
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-gray-200">
                     <div className="text-sm text-gray-800 space-y-1">
-                      {Object.entries(log.changes.before).map(([key, value]) => (
+                      {Object.entries((log?.changes?.before) || {}).map(([key, value]) => (
                         <div key={key} className="flex">
                           <span className="font-medium text-gray-600 min-w-[100px]">{key}:</span>
                           <span className="text-gray-900">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
@@ -418,7 +420,7 @@ const ActivityLogDetailModal = ({ log, onClose }) => {
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-gray-200">
                     <div className="text-sm text-gray-800 space-y-1">
-                      {Object.entries(log.changes.after).map(([key, value]) => (
+                      {Object.entries((log?.changes?.after) || {}).map(([key, value]) => (
                         <div key={key} className="flex">
                           <span className="font-medium text-gray-600 min-w-[100px]">{key}:</span>
                           <span className="text-gray-900">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
